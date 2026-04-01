@@ -10,3 +10,5 @@ module Codeview_types = Codeview_types
 module Tpi = Tpi
 module Tpi_write = Tpi_write
 module Codeview_symbols = Codeview_symbols
+module Dbi = Dbi
+module Dbi_write = Dbi_write
