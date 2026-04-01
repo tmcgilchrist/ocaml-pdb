@@ -9,3 +9,15 @@
  (libraries pdb alcotest)
  (action
   (run %{exe:test_hash.exe})))
+
+(test
+ (name test_named_stream_map)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_named_stream_map.exe})))
+
+(test
+ (name test_pdb_stream)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_pdb_stream.exe})))
