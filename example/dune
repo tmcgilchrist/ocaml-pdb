@@ -1,0 +1,4 @@
+(executable
+ (public_name pdbdump)
+ (name pdbdump)
+ (libraries pdb object integers cmdliner))
