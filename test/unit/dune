@@ -21,3 +21,9 @@
  (libraries pdb object alcotest)
  (action
   (run %{exe:test_pdb_stream.exe})))
+
+(test
+ (name test_codeview_constants_roundtrip)
+ (libraries pdb alcotest qcheck-core qcheck-alcotest)
+ (preprocess
+  (staged_pps ppx_import ppx_deriving_qcheck)))

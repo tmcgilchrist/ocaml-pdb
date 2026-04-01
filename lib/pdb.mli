@@ -5,3 +5,4 @@ module Hash = Hash
 module Named_stream_map = Named_stream_map
 module Pdb_stream = Pdb_stream
 module Pdb_stream_write = Pdb_stream_write
+module Codeview_constants = Codeview_constants
