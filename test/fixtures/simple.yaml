@@ -1,0 +1,97 @@
+---
+TpiStream:
+  Records:
+    # int (void)                              [Index: 0x1000]
+    - Kind:            LF_ARGLIST
+      ArgList:
+        ArgIndices:  []
+    # int main(void)                          [Index: 0x1001]
+    - Kind:            LF_PROCEDURE
+      Procedure:
+        ReturnType:      116
+        CallConv:        NearC
+        Options:         [ None ]
+        ParameterCount:  0
+        ArgumentList:    0x1000
+    # struct Point { int x; int y; }          [Index: 0x1002]
+    - Kind:            LF_STRUCTURE
+      Class:
+        MemberCount:     0
+        Options:         [ None, ForwardReference, HasUniqueName ]
+        FieldList:       0
+        Name:            'Point'
+        UniqueName:      '.?AUPoint@@'
+        DerivationList:  0
+        VTableShape:     0
+        Size:            0
+    # <field list for Point>                  [Index: 0x1003]
+    - Kind:            LF_FIELDLIST
+      FieldList:
+        - Kind:            LF_MEMBER
+          DataMember:
+            Attrs:           3
+            Type:            116
+            FieldOffset:     0
+            Name:            x
+        - Kind:            LF_MEMBER
+          DataMember:
+            Attrs:           3
+            Type:            116
+            FieldOffset:     4
+            Name:            y
+    # struct Point (complete)                 [Index: 0x1004]
+    - Kind:            LF_STRUCTURE
+      Class:
+        MemberCount:     2
+        Options:         [ None, HasUniqueName ]
+        FieldList:       0x1003
+        Name:            'Point'
+        UniqueName:      '.?AUPoint@@'
+        DerivationList:  0
+        VTableShape:     0
+        Size:            8
+    # enum Color { RED, GREEN, BLUE }         [Index: 0x1005]
+    - Kind:            LF_FIELDLIST
+      FieldList:
+        - Kind:            LF_ENUMERATE
+          Enumerator:
+            Attrs:           3
+            Value:           0
+            Name:            RED
+        - Kind:            LF_ENUMERATE
+          Enumerator:
+            Attrs:           3
+            Value:           1
+            Name:            GREEN
+        - Kind:            LF_ENUMERATE
+          Enumerator:
+            Attrs:           3
+            Value:           2
+            Name:            BLUE
+    # enum Color                              [Index: 0x1006]
+    - Kind:            LF_ENUM
+      Enum:
+        NumEnumerators:  3
+        Options:         [ None ]
+        FieldList:       0x1005
+        Name:            'Color'
+        UniqueName:      '.?AW4Color@@'
+        UnderlyingType:  116
+IpiStream:
+  Records:
+    # LF_FUNC_ID for main                    [Index: 0x1000]
+    - Kind:            LF_FUNC_ID
+      FuncId:
+        ParentScope:     0
+        FunctionType:    0x1001
+        Name:            main
+    # LF_STRING_ID for source file            [Index: 0x1001]
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              0
+        String:          'simple.c'
+DbiStream:
+  Modules:
+    - Module:          'simple.obj'
+      ObjFile:         'simple.obj'
+...
