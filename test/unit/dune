@@ -1,0 +1,11 @@
+(test
+ (name test_msf)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_msf.exe})))
+
+(test
+ (name test_hash)
+ (libraries pdb alcotest)
+ (action
+  (run %{exe:test_hash.exe})))
