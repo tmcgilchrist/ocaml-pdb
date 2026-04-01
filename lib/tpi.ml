@@ -39,9 +39,17 @@ let parse_header (cur : Object.Buffer.cursor) : header =
   let _index_offset_len = Object.Buffer.Read.u32 cur in
   let _hash_adj_off = Object.Buffer.Read.u32 cur in
   let _hash_adj_len = Object.Buffer.Read.u32 cur in
-  { version; header_size; type_index_begin; type_index_end;
-    type_record_bytes; hash_stream_index; hash_aux_stream_index;
-    hash_key_size; num_hash_buckets }
+  {
+    version;
+    header_size;
+    type_index_begin;
+    type_index_end;
+    type_record_bytes;
+    hash_stream_index;
+    hash_aux_stream_index;
+    hash_key_size;
+    num_hash_buckets;
+  }
 
 let num_type_records (h : header) : int =
   Unsigned.UInt32.to_int h.type_index_end
@@ -56,13 +64,11 @@ let parse_type_records (cur : Object.Buffer.cursor) (h : header) :
     else
       (* Each record: u16 length (not including the length field itself),
          then length bytes of payload starting with the leaf kind u16 *)
-      let rec_len =
-        Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
-      in
+      let rec_len = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
       let record = Codeview_types.parse_type_record cur rec_len in
       (* Advance to the next 4-byte aligned position *)
       let record_end_unaligned = cur.position in
-      let aligned = (record_end_unaligned + 3) land (lnot 3) in
+      let aligned = (record_end_unaligned + 3) land lnot 3 in
       if aligned > record_end_unaligned && aligned <= end_pos then
         Object.Buffer.seek cur aligned;
       Seq.Cons (record, next)

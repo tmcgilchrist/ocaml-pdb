@@ -65,8 +65,10 @@ let () =
           Alcotest.test_case "empty" `Quick test_hash_empty;
           Alcotest.test_case "short strings" `Quick test_hash_short_strings;
           Alcotest.test_case "4-byte aligned" `Quick test_hash_four_byte_aligned;
-          Alcotest.test_case "2-byte remainder" `Quick test_hash_remainder_two_bytes;
-          Alcotest.test_case "1-byte remainder" `Quick test_hash_remainder_one_byte;
+          Alcotest.test_case "2-byte remainder" `Quick
+            test_hash_remainder_two_bytes;
+          Alcotest.test_case "1-byte remainder" `Quick
+            test_hash_remainder_one_byte;
           Alcotest.test_case "3-byte remainder" `Quick
             test_hash_remainder_three_bytes;
           Alcotest.test_case "known values" `Quick test_hash_known_values;

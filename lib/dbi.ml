@@ -82,7 +82,8 @@ let read_cstring (cur : Object.Buffer.cursor) : string =
   | Option.None -> ""
 
 (* SectionContrib is 28 bytes *)
-let parse_section_contribution (cur : Object.Buffer.cursor) : section_contribution =
+let parse_section_contribution (cur : Object.Buffer.cursor) :
+    section_contribution =
   let section = read_u16 cur in
   let _padding = read_u16 cur in
   let offset = read_i32 cur in
@@ -95,7 +96,8 @@ let parse_section_contribution (cur : Object.Buffer.cursor) : section_contributi
   { section; offset; size; characteristics; module_index; data_crc; reloc_crc }
 
 let parse_module_info (cur : Object.Buffer.cursor) : module_info =
-  let _mod = read_u32 cur in (* unused pointer field *)
+  let _mod = read_u32 cur in
+  (* unused pointer field *)
   let section_contrib = parse_section_contribution cur in
   let flags = read_u16 cur in
   let module_sym_stream = read_u16 cur in
@@ -111,11 +113,19 @@ let parse_module_info (cur : Object.Buffer.cursor) : module_info =
   let obj_file_name = read_cstring cur in
   (* Align to 4 bytes *)
   let pos = cur.position in
-  let aligned = (pos + 3) land (lnot 3) in
+  let aligned = (pos + 3) land lnot 3 in
   if aligned > pos then Object.Buffer.seek cur aligned;
-  { section_contrib; flags; module_sym_stream; sym_byte_size;
-    c11_byte_size; c13_byte_size; source_file_count;
-    module_name; obj_file_name }
+  {
+    section_contrib;
+    flags;
+    module_sym_stream;
+    sym_byte_size;
+    c11_byte_size;
+    c13_byte_size;
+    source_file_count;
+    module_name;
+    obj_file_name;
+  }
 
 let parse_header (cur : Object.Buffer.cursor) : header =
   let version_signature = read_i32 cur in
@@ -138,12 +148,27 @@ let parse_header (cur : Object.Buffer.cursor) : header =
   let flags = read_u16 cur in
   let machine = read_u16 cur in
   let _reserved = read_u32 cur in
-  { version_signature; version_header; age; global_stream_index;
-    build_number; public_stream_index; pdb_dll_version;
-    sym_record_stream; pdb_dll_rbld; mod_info_size;
-    section_contribution_size; section_map_size; file_info_size;
-    type_server_map_size; mfc_type_server_index;
-    optional_dbg_header_size; ec_substream_size; flags; machine }
+  {
+    version_signature;
+    version_header;
+    age;
+    global_stream_index;
+    build_number;
+    public_stream_index;
+    pdb_dll_version;
+    sym_record_stream;
+    pdb_dll_rbld;
+    mod_info_size;
+    section_contribution_size;
+    section_map_size;
+    file_info_size;
+    type_server_map_size;
+    mfc_type_server_index;
+    optional_dbg_header_size;
+    ec_substream_size;
+    flags;
+    machine;
+  }
 
 let parse_optional_debug_header (cur : Object.Buffer.cursor) (size : int) :
     optional_debug_header option =
@@ -181,7 +206,8 @@ let parse (cur : Object.Buffer.cursor) : t =
     if h.section_contribution_size > 4 then begin
       (* First u32 is the version *)
       let _version = read_u32 cur in
-      let sc_entry_size = 28 in (* SectionContrib is 28 bytes *)
+      let sc_entry_size = 28 in
+      (* SectionContrib is 28 bytes *)
       let remaining = sc_end - cur.position in
       let count = remaining / sc_entry_size in
       let scs = Array.init count (fun _ -> parse_section_contribution cur) in
@@ -220,6 +246,5 @@ let module_symbols (msf : Msf.t) (m : module_info) :
         (* The first 4 bytes are a signature (CV_SIGNATURE_C13 = 4) *)
         let _sig = read_u32 cur in
         let sym_bytes = m.sym_byte_size - 4 in
-        if sym_bytes > 0 then
-          Codeview_symbols.parse_symbol_stream cur sym_bytes
+        if sym_bytes > 0 then Codeview_symbols.parse_symbol_stream cur sym_bytes
         else Seq.empty

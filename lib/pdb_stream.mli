@@ -1,22 +1,13 @@
 (** PDB Info Stream (Stream 1) reader.
 
-    The PDB Info Stream is always at stream index 1 in the MSF container.
-    It contains the PDB version, a unique identifier (GUID + age), and
-    the named stream map which maps stream names to indices. *)
+    The PDB Info Stream is always at stream index 1 in the MSF container. It
+    contains the PDB version, a unique identifier (GUID + age), and the named
+    stream map which maps stream names to indices. *)
 
 open Pdb_types
 
-type pdb_version =
-  | VC70
-  | VC80
-  | VC110
-  | VC140
-  | Unknown of int
-
-type feature =
-  | ContainsIdStream
-  | NoTypeMerging
-  | MinimalDebugInfo
+type pdb_version = VC70 | VC80 | VC110 | VC140 | Unknown of int
+type feature = ContainsIdStream | NoTypeMerging | MinimalDebugInfo
 
 type t = {
   version : pdb_version;

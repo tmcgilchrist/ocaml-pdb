@@ -15,16 +15,13 @@ let buffer_of_file path =
 let dump_summary msf =
   let sb = Pdb.Msf.superblock msf in
   Printf.printf "MSF Summary:\n";
-  Printf.printf "  Block size:    %d\n"
-    (Unsigned.UInt32.to_int sb.block_size);
-  Printf.printf "  Block count:   %d\n"
-    (Unsigned.UInt32.to_int sb.num_blocks);
+  Printf.printf "  Block size:    %d\n" (Unsigned.UInt32.to_int sb.block_size);
+  Printf.printf "  Block count:   %d\n" (Unsigned.UInt32.to_int sb.num_blocks);
   Printf.printf "  Stream count:  %d\n" (Pdb.Msf.stream_count msf);
   for i = 0 to Pdb.Msf.stream_count msf - 1 do
     match Pdb.Msf.get_stream msf i with
     | Some s ->
-        Printf.printf "  Stream %2d:     %d bytes\n" i
-          (Bigarray.Array1.dim s)
+        Printf.printf "  Stream %2d:     %d bytes\n" i (Bigarray.Array1.dim s)
     | None -> Printf.printf "  Stream %2d:     (empty)\n" i
   done;
   Printf.printf "\n"
@@ -46,8 +43,7 @@ let dump_pdb_stream msf =
       if info.named_streams <> [] then begin
         Printf.printf "  Named Streams:\n";
         List.iter
-          (fun (name, idx) ->
-            Printf.printf "    %-30s -> Stream %d\n" name idx)
+          (fun (name, idx) -> Printf.printf "    %-30s -> Stream %d\n" name idx)
           info.named_streams
       end;
       if info.features <> [] then begin
@@ -86,29 +82,19 @@ let dump_types msf stream_idx label =
             | ArgList { args } ->
                 Printf.sprintf "LF_ARGLIST (%d args)" (Array.length args)
             | FieldList { members } ->
-                Printf.sprintf "LF_FIELDLIST (%d members)"
-                  (List.length members)
-            | Array { name; _ } ->
-                Printf.sprintf "LF_ARRAY \"%s\"" name
-            | Class { name; _ } ->
-                Printf.sprintf "LF_CLASS \"%s\"" name
-            | Structure { name; _ } ->
-                Printf.sprintf "LF_STRUCTURE \"%s\"" name
-            | Interface { name; _ } ->
-                Printf.sprintf "LF_INTERFACE \"%s\"" name
-            | Union { name; _ } ->
-                Printf.sprintf "LF_UNION \"%s\"" name
-            | Enum { name; _ } ->
-                Printf.sprintf "LF_ENUM \"%s\"" name
+                Printf.sprintf "LF_FIELDLIST (%d members)" (List.length members)
+            | Array { name; _ } -> Printf.sprintf "LF_ARRAY \"%s\"" name
+            | Class { name; _ } -> Printf.sprintf "LF_CLASS \"%s\"" name
+            | Structure { name; _ } -> Printf.sprintf "LF_STRUCTURE \"%s\"" name
+            | Interface { name; _ } -> Printf.sprintf "LF_INTERFACE \"%s\"" name
+            | Union { name; _ } -> Printf.sprintf "LF_UNION \"%s\"" name
+            | Enum { name; _ } -> Printf.sprintf "LF_ENUM \"%s\"" name
             | Bitfield _ -> "LF_BITFIELD"
             | VTShape _ -> "LF_VTSHAPE"
             | MethodList _ -> "LF_METHODLIST"
-            | FuncId { name; _ } ->
-                Printf.sprintf "LF_FUNC_ID \"%s\"" name
-            | MFuncId { name; _ } ->
-                Printf.sprintf "LF_MFUNC_ID \"%s\"" name
-            | StringId { str; _ } ->
-                Printf.sprintf "LF_STRING_ID \"%s\"" str
+            | FuncId { name; _ } -> Printf.sprintf "LF_FUNC_ID \"%s\"" name
+            | MFuncId { name; _ } -> Printf.sprintf "LF_MFUNC_ID \"%s\"" name
+            | StringId { str; _ } -> Printf.sprintf "LF_STRING_ID \"%s\"" str
             | BuildInfo { args } ->
                 Printf.sprintf "LF_BUILDINFO (%d args)" (Array.length args)
             | UdtSrcLine { line; _ } ->
@@ -118,8 +104,7 @@ let dump_types msf stream_idx label =
                 Printf.sprintf "LF_UDT_MOD_SRC_LINE (line %d)"
                   (Unsigned.UInt32.to_int line)
             | SubstrList _ -> "LF_SUBSTR_LIST"
-            | Unknown { kind; _ } ->
-                Printf.sprintf "Unknown(0x%04X)" kind);
+            | Unknown { kind; _ } -> Printf.sprintf "Unknown(0x%04X)" kind);
           incr idx)
         records;
       Printf.printf "\n"
@@ -174,26 +159,19 @@ let dump_symbols msf =
                       Printf.sprintf "S_BUILDINFO id=0x%X"
                         (Unsigned.UInt32.to_int id)
                   | GProc32 p | GProc32Id p ->
-                      Printf.sprintf "S_GPROC32 \"%s\" size=%d"
-                        p.name
+                      Printf.sprintf "S_GPROC32 \"%s\" size=%d" p.name
                         (Unsigned.UInt32.to_int p.code_size)
                   | LProc32 p | LProc32Id p ->
-                      Printf.sprintf "S_LPROC32 \"%s\" size=%d"
-                        p.name
+                      Printf.sprintf "S_LPROC32 \"%s\" size=%d" p.name
                         (Unsigned.UInt32.to_int p.code_size)
                   | End -> "S_END"
                   | InlineSiteEnd -> "S_INLINESITE_END"
                   | ProcIdEnd -> "S_PROC_ID_END"
-                  | GData32 d ->
-                      Printf.sprintf "S_GDATA32 \"%s\"" d.name
-                  | LData32 d ->
-                      Printf.sprintf "S_LDATA32 \"%s\"" d.name
-                  | GThread32 d ->
-                      Printf.sprintf "S_GTHREAD32 \"%s\"" d.name
-                  | LThread32 d ->
-                      Printf.sprintf "S_LTHREAD32 \"%s\"" d.name
-                  | Local { name; _ } ->
-                      Printf.sprintf "S_LOCAL \"%s\"" name
+                  | GData32 d -> Printf.sprintf "S_GDATA32 \"%s\"" d.name
+                  | LData32 d -> Printf.sprintf "S_LDATA32 \"%s\"" d.name
+                  | GThread32 d -> Printf.sprintf "S_GTHREAD32 \"%s\"" d.name
+                  | LThread32 d -> Printf.sprintf "S_LTHREAD32 \"%s\"" d.name
+                  | Local { name; _ } -> Printf.sprintf "S_LOCAL \"%s\"" name
                   | DefRangeFramePointerRel { offset; _ } ->
                       Printf.sprintf "S_DEFRANGE_FRAMEPOINTER_REL offset=%ld"
                         offset
@@ -203,25 +181,24 @@ let dump_symbols msf =
                   | DefRangeRegister { register; _ } ->
                       Printf.sprintf "S_DEFRANGE_REGISTER reg=%d" register
                   | DefRangeFramePointerRelFullScope { offset } ->
-                      Printf.sprintf "S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE offset=%ld"
+                      Printf.sprintf
+                        "S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE offset=%ld"
                         offset
                   | Block32 { name; _ } ->
                       Printf.sprintf "S_BLOCK32 \"%s\"" name
                   | InlineSite { inlinee; _ } ->
                       Printf.sprintf "S_INLINESITE inlinee=0x%X"
                         (Unsigned.UInt32.to_int inlinee)
-                  | Udt { name; _ } ->
-                      Printf.sprintf "S_UDT \"%s\"" name
+                  | Udt { name; _ } -> Printf.sprintf "S_UDT \"%s\"" name
                   | Constant { name; value; _ } ->
                       Printf.sprintf "S_CONSTANT \"%s\" = %Ld" name value
-                  | Pub32 { name; _ } ->
-                      Printf.sprintf "S_PUB32 \"%s\"" name
+                  | Pub32 { name; _ } -> Printf.sprintf "S_PUB32 \"%s\"" name
                   | FrameProc { total_frame_bytes; _ } ->
                       Printf.sprintf "S_FRAMEPROC frame=%d"
                         (Unsigned.UInt32.to_int total_frame_bytes)
                   | RegRel32 { name; register; offset; _ } ->
-                      Printf.sprintf "S_REGREL32 \"%s\" reg=%d offset=%ld"
-                        name register offset
+                      Printf.sprintf "S_REGREL32 \"%s\" reg=%d offset=%ld" name
+                        register offset
                   | BPRel32 { name; offset; _ } ->
                       Printf.sprintf "S_BPREL32 \"%s\" offset=%ld" name offset
                   | Register { name; register; _ } ->
@@ -230,8 +207,7 @@ let dump_symbols msf =
                       Printf.sprintf "S_LABEL32 \"%s\"" name
                   | UNamespace { name } ->
                       Printf.sprintf "S_UNAMESPACE \"%s\"" name
-                  | Unknown { kind; _ } ->
-                      Printf.sprintf "Unknown(0x%04X)" kind))
+                  | Unknown { kind; _ } -> Printf.sprintf "Unknown(0x%04X)" kind))
               sym_list
           end)
         dbi.modules;
@@ -240,7 +216,9 @@ let dump_symbols msf =
 let run path summary pdb_stream types ids dbi symbols all =
   let buf = buffer_of_file path in
   let msf = Pdb.Msf.read buf in
-  let show_all = all || not (summary || pdb_stream || types || ids || dbi || symbols) in
+  let show_all =
+    all || not (summary || pdb_stream || types || ids || dbi || symbols)
+  in
   if summary || show_all then dump_summary msf;
   if pdb_stream || show_all then dump_pdb_stream msf;
   if types || show_all then dump_types msf 2 "TPI Stream";
@@ -287,8 +265,9 @@ let cmd =
   let doc = "Dump PDB file contents" in
   let info = Cmd.info "pdbdump" ~doc in
   let term =
-    Term.(const run $ path_arg $ summary_flag $ pdb_stream_flag
-          $ types_flag $ ids_flag $ dbi_flag $ symbols_flag $ all_flag)
+    Term.(
+      const run $ path_arg $ summary_flag $ pdb_stream_flag $ types_flag
+      $ ids_flag $ dbi_flag $ symbols_flag $ all_flag)
   in
   Cmd.v info term
 

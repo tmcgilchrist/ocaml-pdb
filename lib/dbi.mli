@@ -1,8 +1,8 @@
 (** DBI (Debug Information) stream reader.
 
-    The DBI stream is always at stream index 3 in the MSF container.
-    It is the central directory connecting modules, section contributions,
-    and debug substreams. *)
+    The DBI stream is always at stream index 3 in the MSF container. It is the
+    central directory connecting modules, section contributions, and debug
+    substreams. *)
 
 open Pdb_types
 

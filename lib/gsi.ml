@@ -6,15 +6,8 @@
 
 open Pdb_types
 
-type hash_record = {
-  offset : u32;
-  cref : u32;
-}
-
-type t = {
-  hash_records : hash_record array;
-  hash_buckets : u32 array;
-}
+type hash_record = { offset : u32; cref : u32 }
+type t = { hash_records : hash_record array; hash_buckets : u32 array }
 
 type publics_header = {
   sym_hash_size : int;
@@ -38,8 +31,15 @@ let parse_publics_header (cur : Object.Buffer.cursor) : publics_header =
   let _padding = read_u16 cur in
   let off_thunk_table = read_u32 cur in
   let num_sections = Unsigned.UInt32.to_int (read_u32 cur) in
-  { sym_hash_size; addr_map_size; num_thunks; size_of_thunk;
-    isect_thunk_table; off_thunk_table; num_sections }
+  {
+    sym_hash_size;
+    addr_map_size;
+    num_thunks;
+    size_of_thunk;
+    isect_thunk_table;
+    off_thunk_table;
+    num_sections;
+  }
 
 let parse_gsi (cur : Object.Buffer.cursor) (stream_size : int) : t =
   let _ = stream_size in

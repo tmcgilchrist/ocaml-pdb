@@ -46,9 +46,11 @@ let test_pub32_roundtrip () =
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Pub32 { flags; offset; segment; name = n } ->
-          Alcotest.(check int) (name ^ " flags") 2
+          Alcotest.(check int)
+            (name ^ " flags") 2
             (Unsigned.UInt32.to_int flags);
-          Alcotest.(check int) (name ^ " offset") 0x1000
+          Alcotest.(check int)
+            (name ^ " offset") 0x1000
             (Unsigned.UInt32.to_int offset);
           Alcotest.(check int) (name ^ " segment") 1 segment;
           Alcotest.(check string) (name ^ " name") "_main" n
@@ -70,14 +72,15 @@ let test_gproc32_roundtrip () =
       name = "main";
     }
   in
-  roundtrip_symbol "gproc32" (Pdb.Codeview_symbols.GProc32 proc)
-    (fun name r ->
+  roundtrip_symbol "gproc32" (Pdb.Codeview_symbols.GProc32 proc) (fun name r ->
       match r with
       | Pdb.Codeview_symbols.GProc32 p ->
           Alcotest.(check string) (name ^ " name") "main" p.name;
-          Alcotest.(check int) (name ^ " code_size") 50
+          Alcotest.(check int)
+            (name ^ " code_size") 50
             (Unsigned.UInt32.to_int p.code_size);
-          Alcotest.(check int) (name ^ " type") 0x1000
+          Alcotest.(check int)
+            (name ^ " type") 0x1000
             (Unsigned.UInt32.to_int p.type_index);
           Alcotest.(check int) (name ^ " segment") 1 p.segment
       | _ -> Alcotest.fail (name ^ ": expected GProc32"))
@@ -85,13 +88,18 @@ let test_gproc32_roundtrip () =
 let test_gdata32_roundtrip () =
   roundtrip_symbol "gdata32"
     (Pdb.Codeview_symbols.GData32
-       { type_index = u32 0x0074; offset = u32 0x3000; segment = 2;
-         name = "global_var" })
+       {
+         type_index = u32 0x0074;
+         offset = u32 0x3000;
+         segment = 2;
+         name = "global_var";
+       })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.GData32 d ->
           Alcotest.(check string) (name ^ " name") "global_var" d.name;
-          Alcotest.(check int) (name ^ " type") 0x0074
+          Alcotest.(check int)
+            (name ^ " type") 0x0074
             (Unsigned.UInt32.to_int d.type_index)
       | _ -> Alcotest.fail (name ^ ": expected GData32"))
 
@@ -104,14 +112,14 @@ let test_local_roundtrip () =
       | Pdb.Codeview_symbols.Local { type_index; flags; name = n } ->
           Alcotest.(check string) (name ^ " name") "x" n;
           Alcotest.(check int) (name ^ " flags") 0x01 flags;
-          Alcotest.(check int) (name ^ " type") 0x0074
+          Alcotest.(check int)
+            (name ^ " type") 0x0074
             (Unsigned.UInt32.to_int type_index)
       | _ -> Alcotest.fail (name ^ ": expected Local"))
 
 let test_udt_roundtrip () =
   roundtrip_symbol "udt"
-    (Pdb.Codeview_symbols.Udt
-       { type_index = u32 0x1005; name = "Point" })
+    (Pdb.Codeview_symbols.Udt { type_index = u32 0x1005; name = "Point" })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Udt { name = n; _ } ->
@@ -158,8 +166,7 @@ let test_buildinfo_roundtrip () =
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.BuildInfo { id } ->
-          Alcotest.(check int) (name ^ " id") 0x1003
-            (Unsigned.UInt32.to_int id)
+          Alcotest.(check int) (name ^ " id") 0x1003 (Unsigned.UInt32.to_int id)
       | _ -> Alcotest.fail (name ^ ": expected BuildInfo"))
 
 let test_unamespace_roundtrip () =
@@ -197,9 +204,9 @@ let test_symbol_stream_roundtrip () =
   | Pdb.Codeview_symbols.Pub32 { name; _ } ->
       Alcotest.(check string) "second name" "main" name
   | _ -> Alcotest.fail "expected Pub32");
-  (match List.nth parsed_list 2 with
+  match List.nth parsed_list 2 with
   | Pdb.Codeview_symbols.End -> ()
-  | _ -> Alcotest.fail "expected End")
+  | _ -> Alcotest.fail "expected End"
 
 let () =
   Alcotest.run "CodeView Symbols"
@@ -220,7 +227,6 @@ let () =
           Alcotest.test_case "unamespace" `Quick test_unamespace_roundtrip;
         ] );
       ( "symbol_stream",
-        [
-          Alcotest.test_case "roundtrip" `Quick test_symbol_stream_roundtrip;
-        ] );
+        [ Alcotest.test_case "roundtrip" `Quick test_symbol_stream_roundtrip ]
+      );
     ]

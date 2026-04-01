@@ -6,8 +6,7 @@
 
 open Pdb_types
 
-let msf_magic =
-  "Microsoft C/C++ MSF 7.00\r\n\x1aDS\000\000\000"
+let msf_magic = "Microsoft C/C++ MSF 7.00\r\n\x1aDS\000\000\000"
 
 type superblock = {
   block_size : u32;
@@ -17,16 +16,14 @@ type superblock = {
   block_map_addr : u32;
 }
 
-type t = {
-  sb : superblock;
-  streams : Object.Buffer.t array;
-}
+type t = { sb : superblock; streams : Object.Buffer.t array }
 
 let superblock t = t.sb
 let stream_count t = Array.length t.streams
 
 let get_stream t idx =
-  if idx >= 0 && idx < Array.length t.streams then Some t.streams.(idx) else None
+  if idx >= 0 && idx < Array.length t.streams then Some t.streams.(idx)
+  else None
 
 let get_stream_exn t idx =
   if idx >= 0 && idx < Array.length t.streams then t.streams.(idx)
@@ -88,7 +85,8 @@ let read (buf : Object.Buffer.t) : t =
         (Printf.sprintf "Invalid MSF block size: %d" block_size));
   (* Validate file size *)
   if buf_size < num_blocks * block_size then
-    Object.Buffer.invalid_format "MSF file size smaller than num_blocks * block_size";
+    Object.Buffer.invalid_format
+      "MSF file size smaller than num_blocks * block_size";
   let sb =
     {
       block_size = Unsigned.UInt32.of_int block_size;
@@ -117,9 +115,7 @@ let read (buf : Object.Buffer.t) : t =
        u32[num_streams] stream_sizes
        u32[...] block lists (concatenated, one per stream) *)
   let dir_cur = Object.Buffer.cursor directory in
-  let num_streams =
-    Object.Buffer.Read.u32 dir_cur |> Unsigned.UInt32.to_int
-  in
+  let num_streams = Object.Buffer.Read.u32 dir_cur |> Unsigned.UInt32.to_int in
   let stream_sizes =
     Array.init num_streams (fun _i ->
         Object.Buffer.Read.u32 dir_cur |> Unsigned.UInt32.to_int)

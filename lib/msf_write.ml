@@ -4,7 +4,7 @@ module Buffer = Stdlib.Buffer
 
 type t = {
   block_size : int;
-  mutable streams : string list; (** In reverse order *)
+  mutable streams : string list;  (** In reverse order *)
 }
 
 let create ~block_size =
@@ -19,7 +19,6 @@ let add_stream t contents =
   idx
 
 let add_empty_stream t = add_stream t ""
-
 let div_ceil a b = (a + b - 1) / b
 
 let write_u32_le buf v =
@@ -36,9 +35,7 @@ let finalize t =
   let stream_sizes = List.map String.length streams in
   let stream_block_counts =
     List.map
-      (fun size ->
-        if size = 0 then 0
-        else div_ceil size block_size)
+      (fun size -> if size = 0 then 0 else div_ceil size block_size)
       stream_sizes
   in
   (* Build the stream directory contents *)
@@ -48,16 +45,12 @@ let finalize t =
   (* We'll assign blocks sequentially starting after reserved blocks.
      Reserved: block 0 (superblock), block 1 (FPM0), block 2 (FPM1).
      Block 3+ is the block map, then directory blocks, then stream data. *)
-  let total_stream_blocks =
-    List.fold_left ( + ) 0 stream_block_counts
-  in
+  let total_stream_blocks = List.fold_left ( + ) 0 stream_block_counts in
   (* The directory itself also needs blocks *)
   let dir_content_size = Buffer.length dir_buf in
   (* We haven't written block lists yet; we need to know block assignments
      first. We'll calculate the directory size including block lists. *)
-  let dir_size_with_blocks =
-    dir_content_size + (total_stream_blocks * 4)
-  in
+  let dir_size_with_blocks = dir_content_size + (total_stream_blocks * 4) in
   let num_directory_blocks = div_ceil dir_size_with_blocks block_size in
   (* The block map lists the directory's blocks. It takes
      num_directory_blocks * 4 bytes, fitting in one block for reasonable sizes. *)
@@ -93,10 +86,12 @@ let finalize t =
   (* Block 0: Superblock *)
   Buffer.add_string out Msf.msf_magic;
   write_u32_le out block_size;
-  write_u32_le out 1; (* FreeBlockMapBlock: always 1 *)
+  write_u32_le out 1;
+  (* FreeBlockMapBlock: always 1 *)
   write_u32_le out total_blocks;
   write_u32_le out num_directory_bytes;
-  write_u32_le out 0; (* Unknown1 *)
+  write_u32_le out 0;
+  (* Unknown1 *)
   write_u32_le out block_map_addr;
   (* Pad block 0 to block_size *)
   let superblock_size = String.length Msf.msf_magic + 24 in

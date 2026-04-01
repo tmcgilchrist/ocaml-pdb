@@ -17,13 +17,11 @@ let write_u32_le buf v =
 
 (** {2 Sparse bit vector serialization}
 
-    Format: u32 num_words, then num_words x u32 words.
-    Bit i of word j represents index (j*32 + i). *)
+    Format: u32 num_words, then num_words x u32 words. Bit i of word j
+    represents index (j*32 + i). *)
 
 let parse_bit_vector (cur : Object.Buffer.cursor) : bool array =
-  let num_words =
-    Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
-  in
+  let num_words = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
   let bits = Array.make (num_words * 32) false in
   for i = 0 to num_words - 1 do
     let word = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
@@ -40,9 +38,7 @@ let write_bit_vector (buf : Buffer.t) (present : bool array) (capacity : int) =
     Array.iteri (fun i v -> if v then r := i) present;
     !r
   in
-  let num_words =
-    if max_set < 0 then 0 else (max_set / 32) + 1
-  in
+  let num_words = if max_set < 0 then 0 else (max_set / 32) + 1 in
   let _ = capacity in
   write_u32_le buf num_words;
   for i = 0 to num_words - 1 do
@@ -92,8 +88,7 @@ let write_hash_table (buf : Buffer.t) (entries : (int * int) list)
       let start = key mod capacity in
       let rec find_slot i =
         let idx = (start + i) mod capacity in
-        if not present.(idx) then idx
-        else find_slot (i + 1)
+        if not present.(idx) then idx else find_slot (i + 1)
       in
       let idx = find_slot 0 in
       present.(idx) <- true;
@@ -126,12 +121,8 @@ let string_at_offset (str_buf : string) (offset : int) : string =
 
 let parse (cur : Object.Buffer.cursor) : t =
   (* Read string buffer *)
-  let str_buf_size =
-    Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
-  in
-  let str_buf =
-    Object.Buffer.Read.fixed_string cur str_buf_size
-  in
+  let str_buf_size = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
+  let str_buf = Object.Buffer.Read.fixed_string cur str_buf_size in
   (* Read hash table: maps string_offset -> stream_index *)
   let ht_entries = parse_hash_table cur in
   (* Resolve string offsets to actual names *)
@@ -160,5 +151,5 @@ let write (buf : Buffer.t) (entries : t) : unit =
   (* Write hash table.
      Capacity should be at least 2/3 larger than size to respect load factor. *)
   let size = List.length entries in
-  let capacity = max 1 (size * 3 / 2 + 1) in
+  let capacity = max 1 ((size * 3 / 2) + 1) in
   write_hash_table buf offsets capacity

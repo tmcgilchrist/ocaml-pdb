@@ -5,7 +5,6 @@
     - LLVM: llvm/lib/DebugInfo/CodeView/SymbolRecordMapping.cpp *)
 
 open Pdb_types
-
 module Buffer = Stdlib.Buffer
 
 type proc_record = {
@@ -49,9 +48,26 @@ type symbol_record =
   | GThread32 of data_record
   | LThread32 of data_record
   | Local of { type_index : u32; flags : int; name : string }
-  | DefRangeFramePointerRel of { offset : int32; range_offset : u32; range_section : int; range_length : int }
-  | DefRangeRegisterRel of { base_register : int; offset : int32; range_offset : u32; range_section : int; range_length : int }
-  | DefRangeRegister of { register : int; may_have_no_name : int; range_offset : u32; range_section : int; range_length : int }
+  | DefRangeFramePointerRel of {
+      offset : int32;
+      range_offset : u32;
+      range_section : int;
+      range_length : int;
+    }
+  | DefRangeRegisterRel of {
+      base_register : int;
+      offset : int32;
+      range_offset : u32;
+      range_section : int;
+      range_length : int;
+    }
+  | DefRangeRegister of {
+      register : int;
+      may_have_no_name : int;
+      range_offset : u32;
+      range_section : int;
+      range_length : int;
+    }
   | DefRangeFramePointerRelFullScope of { offset : int32 }
   | Block32 of {
       parent : u32;
@@ -61,7 +77,12 @@ type symbol_record =
       segment : int;
       name : string;
     }
-  | InlineSite of { parent : u32; end_ : u32; inlinee : u32; annotations : string }
+  | InlineSite of {
+      parent : u32;
+      end_ : u32;
+      inlinee : u32;
+      annotations : string;
+    }
   | InlineSiteEnd
   | ProcIdEnd
   | Udt of { type_index : u32; name : string }
@@ -76,7 +97,12 @@ type symbol_record =
       exception_handler_section : int;
       frame_proc_flags : u32;
     }
-  | RegRel32 of { offset : int32; type_index : u32; register : int; name : string }
+  | RegRel32 of {
+      offset : int32;
+      type_index : u32;
+      register : int;
+      name : string;
+    }
   | BPRel32 of { offset : int32; type_index : u32; name : string }
   | Register of { type_index : u32; register : int; name : string }
   | Label32 of { offset : u32; segment : int; flags : int; name : string }
@@ -103,8 +129,19 @@ let parse_proc_record (cur : Object.Buffer.cursor) : proc_record =
   let segment = read_u16 cur in
   let flags = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
   let name = read_cstring cur in
-  { parent; end_; next; code_size; debug_start; debug_end; type_index;
-    offset; segment; flags; name }
+  {
+    parent;
+    end_;
+    next;
+    code_size;
+    debug_start;
+    debug_end;
+    type_index;
+    offset;
+    segment;
+    flags;
+    name;
+  }
 
 let parse_data_record (cur : Object.Buffer.cursor) : data_record =
   let type_index = read_u32 cur in
@@ -137,12 +174,14 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       let be_build = read_u16 cur in
       let be_qfe = read_u16 cur in
       let version_string = read_cstring cur in
-      Compile3 {
-        flags; machine;
-        frontend_version = (fe_major, fe_minor, fe_build, fe_qfe);
-        backend_version = (be_major, be_minor, be_build, be_qfe);
-        version_string;
-      }
+      Compile3
+        {
+          flags;
+          machine;
+          frontend_version = (fe_major, fe_minor, fe_build, fe_qfe);
+          backend_version = (be_major, be_minor, be_build, be_qfe);
+          version_string;
+        }
   | 0x1101 (* S_OBJNAME *) ->
       let signature = read_u32 cur in
       let name = read_cstring cur in
@@ -170,24 +209,30 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       let offset = Unsigned.UInt32.to_int32 (read_u32 cur) in
       let range_offset, range_section, range_length = parse_local_range cur in
       (* Skip any gap entries *)
-      if cur.position < end_pos then
-        Object.Buffer.seek cur end_pos;
-      DefRangeFramePointerRel { offset; range_offset; range_section; range_length }
+      if cur.position < end_pos then Object.Buffer.seek cur end_pos;
+      DefRangeFramePointerRel
+        { offset; range_offset; range_section; range_length }
   | 0x1145 (* S_DEFRANGE_REGISTER_REL *) ->
       let base_register = read_u16 cur in
       let _flags = read_u16 cur in
       let offset = Unsigned.UInt32.to_int32 (read_u32 cur) in
       let range_offset, range_section, range_length = parse_local_range cur in
-      if cur.position < end_pos then
-        Object.Buffer.seek cur end_pos;
-      DefRangeRegisterRel { base_register; offset; range_offset; range_section; range_length }
+      if cur.position < end_pos then Object.Buffer.seek cur end_pos;
+      DefRangeRegisterRel
+        { base_register; offset; range_offset; range_section; range_length }
   | 0x1141 (* S_DEFRANGE_REGISTER *) ->
       let register = read_u16 cur in
       let may_have_no_name = read_u16 cur in
       let range_offset, range_section, range_length = parse_local_range cur in
-      if cur.position < end_pos then
-        Object.Buffer.seek cur end_pos;
-      DefRangeRegister { register; may_have_no_name; range_offset; range_section; range_length }
+      if cur.position < end_pos then Object.Buffer.seek cur end_pos;
+      DefRangeRegister
+        {
+          register;
+          may_have_no_name;
+          range_offset;
+          range_section;
+          range_length;
+        }
   | 0x1144 (* S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE *) ->
       let offset = Unsigned.UInt32.to_int32 (read_u32 cur) in
       DefRangeFramePointerRelFullScope { offset }
@@ -232,11 +277,16 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       let exception_handler_offset = read_u32 cur in
       let exception_handler_section = read_u16 cur in
       let frame_proc_flags = read_u32 cur in
-      FrameProc {
-        total_frame_bytes; padding_frame_bytes; offset_to_padding;
-        callee_saved_reg_bytes; exception_handler_offset;
-        exception_handler_section; frame_proc_flags;
-      }
+      FrameProc
+        {
+          total_frame_bytes;
+          padding_frame_bytes;
+          offset_to_padding;
+          callee_saved_reg_bytes;
+          exception_handler_offset;
+          exception_handler_section;
+          frame_proc_flags;
+        }
   | 0x1111 (* S_REGREL32 *) ->
       let offset = Unsigned.UInt32.to_int32 (read_u32 cur) in
       let type_index = read_u32 cur in
@@ -282,8 +332,7 @@ let write_u32_le buf v =
   Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
   Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
 
-let write_i32_le buf (v : int32) =
-  write_u32_le buf (Int32.to_int v)
+let write_i32_le buf (v : int32) = write_u32_le buf (Int32.to_int v)
 
 let write_cstring buf s =
   Buffer.add_string buf s;
@@ -313,8 +362,14 @@ let write_data_record buf kind (d : data_record) =
 let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
   let rec_buf = Buffer.create 64 in
   (match record with
-  | Compile3 { flags; machine; frontend_version = (fe_maj, fe_min, fe_bld, fe_qfe);
-               backend_version = (be_maj, be_min, be_bld, be_qfe); version_string } ->
+  | Compile3
+      {
+        flags;
+        machine;
+        frontend_version = fe_maj, fe_min, fe_bld, fe_qfe;
+        backend_version = be_maj, be_min, be_bld, be_qfe;
+        version_string;
+      } ->
       write_u16_le rec_buf 0x113c;
       write_u32_le rec_buf (Unsigned.UInt32.to_int flags);
       write_u16_le rec_buf machine;
@@ -350,21 +405,26 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
       write_u32_le rec_buf (Unsigned.UInt32.to_int type_index);
       write_u16_le rec_buf flags;
       write_cstring rec_buf name
-  | DefRangeFramePointerRel { offset; range_offset; range_section; range_length } ->
+  | DefRangeFramePointerRel
+      { offset; range_offset; range_section; range_length } ->
       write_u16_le rec_buf 0x1142;
       write_i32_le rec_buf offset;
       write_u32_le rec_buf (Unsigned.UInt32.to_int range_offset);
       write_u16_le rec_buf range_section;
       write_u16_le rec_buf range_length
-  | DefRangeRegisterRel { base_register; offset; range_offset; range_section; range_length } ->
+  | DefRangeRegisterRel
+      { base_register; offset; range_offset; range_section; range_length } ->
       write_u16_le rec_buf 0x1145;
       write_u16_le rec_buf base_register;
-      write_u16_le rec_buf 0; (* flags *)
+      write_u16_le rec_buf 0;
+      (* flags *)
       write_i32_le rec_buf offset;
       write_u32_le rec_buf (Unsigned.UInt32.to_int range_offset);
       write_u16_le rec_buf range_section;
       write_u16_le rec_buf range_length
-  | DefRangeRegister { register; may_have_no_name; range_offset; range_section; range_length } ->
+  | DefRangeRegister
+      { register; may_have_no_name; range_offset; range_section; range_length }
+    ->
       write_u16_le rec_buf 0x1141;
       write_u16_le rec_buf register;
       write_u16_le rec_buf may_have_no_name;
@@ -403,9 +463,16 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
       write_u32_le rec_buf (Unsigned.UInt32.to_int offset);
       write_u16_le rec_buf segment;
       write_cstring rec_buf name
-  | FrameProc { total_frame_bytes; padding_frame_bytes; offset_to_padding;
-                callee_saved_reg_bytes; exception_handler_offset;
-                exception_handler_section; frame_proc_flags } ->
+  | FrameProc
+      {
+        total_frame_bytes;
+        padding_frame_bytes;
+        offset_to_padding;
+        callee_saved_reg_bytes;
+        exception_handler_offset;
+        exception_handler_section;
+        frame_proc_flags;
+      } ->
       write_u16_le rec_buf 0x1012;
       write_u32_le rec_buf (Unsigned.UInt32.to_int total_frame_bytes);
       write_u32_le rec_buf (Unsigned.UInt32.to_int padding_frame_bytes);
@@ -464,7 +531,7 @@ let parse_symbol_stream (cur : Object.Buffer.cursor) (total_bytes : int) :
       else begin
         let record = parse_symbol_record cur rec_len in
         let record_end_unaligned = cur.position in
-        let aligned = (record_end_unaligned + 3) land (lnot 3) in
+        let aligned = (record_end_unaligned + 3) land lnot 3 in
         if aligned > record_end_unaligned && aligned <= end_pos then
           Object.Buffer.seek cur aligned;
         Seq.Cons (record, next)

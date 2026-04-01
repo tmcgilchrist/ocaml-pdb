@@ -9,17 +9,15 @@ type i64 = Signed.Int64.t
 
 (** {2 Type Index}
 
-    A type index identifies a type record in the TPI or IPI stream.
-    Values below 0x1000 are "simple types" (builtin primitives like int, float).
-    Values >= 0x1000 are indices into the type record array. *)
+    A type index identifies a type record in the TPI or IPI stream. Values below
+    0x1000 are "simple types" (builtin primitives like int, float). Values >=
+    0x1000 are indices into the type record array. *)
 
 type type_index = u32
 
 let type_index_of_u32 (v : u32) : type_index = v
 let u32_of_type_index (ti : type_index) : u32 = ti
-
-let first_non_simple : type_index =
-  Unsigned.UInt32.of_int 0x1000
+let first_non_simple : type_index = Unsigned.UInt32.of_int 0x1000
 
 let is_simple_type (ti : type_index) : bool =
   Unsigned.UInt32.compare ti first_non_simple < 0
@@ -33,7 +31,7 @@ type guid = {
   data1 : u32;
   data2 : u16;
   data3 : u16;
-  data4 : string; (** 8 bytes *)
+  data4 : string;  (** 8 bytes *)
 }
 
 let string_of_guid g =

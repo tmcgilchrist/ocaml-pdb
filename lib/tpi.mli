@@ -1,8 +1,8 @@
 (** TPI/IPI stream reader.
 
-    The TPI stream (Stream 2) contains all CodeView type records.
-    The IPI stream (Stream 4) has the same format but contains
-    ID records (LF_FUNC_ID, LF_STRING_ID, etc.).
+    The TPI stream (Stream 2) contains all CodeView type records. The IPI stream
+    (Stream 4) has the same format but contains ID records (LF_FUNC_ID,
+    LF_STRING_ID, etc.).
 
     Both streams share the same header and record layout. *)
 
@@ -25,8 +25,8 @@ val parse_header : Object.Buffer.cursor -> header
 
 val parse_type_records :
   Object.Buffer.cursor -> header -> Codeview_types.type_record Seq.t
-(** [parse_type_records cur header] lazily iterates all type records
-    in the TPI/IPI stream. *)
+(** [parse_type_records cur header] lazily iterates all type records in the
+    TPI/IPI stream. *)
 
 val num_type_records : header -> int
 (** Number of type records: [type_index_end - type_index_begin]. *)

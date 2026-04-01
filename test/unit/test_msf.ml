@@ -49,13 +49,13 @@ let test_roundtrip_with_data () =
   Alcotest.(check int) "stream count" 3 (Pdb.Msf.stream_count msf);
   (* Verify stream 0 *)
   let s0 = Pdb.Msf.get_stream_exn msf 0 in
-  Alcotest.(check int) "stream 0 size" (String.length data0)
-    (Bigarray.Array1.dim s0);
+  Alcotest.(check int)
+    "stream 0 size" (String.length data0) (Bigarray.Array1.dim s0);
   Alcotest.(check string) "stream 0 content" data0 (string_of_buffer s0);
   (* Verify stream 1 *)
   let s1 = Pdb.Msf.get_stream_exn msf 1 in
-  Alcotest.(check int) "stream 1 size" (String.length data1)
-    (Bigarray.Array1.dim s1);
+  Alcotest.(check int)
+    "stream 1 size" (String.length data1) (Bigarray.Array1.dim s1);
   Alcotest.(check string) "stream 1 content" data1 (string_of_buffer s1);
   (* Verify stream 2 *)
   let s2 = Pdb.Msf.get_stream_exn msf 2 in
@@ -80,16 +80,17 @@ let test_superblock_fields () =
   let buf = buffer_of_string msf_bytes in
   let msf = Pdb.Msf.read buf in
   let sb = Pdb.Msf.superblock msf in
-  Alcotest.(check int) "block size" 4096
-    (Unsigned.UInt32.to_int sb.block_size);
-  Alcotest.(check int) "free block map block" 1
+  Alcotest.(check int) "block size" 4096 (Unsigned.UInt32.to_int sb.block_size);
+  Alcotest.(check int)
+    "free block map block" 1
     (Unsigned.UInt32.to_int sb.free_block_map_block)
 
 let test_magic_validation () =
   (* A buffer with wrong magic should fail *)
   let bad = buffer_of_string (String.make 4096 '\000') in
-  Alcotest.check_raises "bad magic" (Object.Buffer.Invalid_format "Invalid MSF magic")
-    (fun () -> ignore (Pdb.Msf.read bad))
+  Alcotest.check_raises "bad magic"
+    (Object.Buffer.Invalid_format "Invalid MSF magic") (fun () ->
+      ignore (Pdb.Msf.read bad))
 
 let test_get_stream_out_of_range () =
   let builder = Pdb.Msf_write.create ~block_size:512 in
@@ -97,9 +98,11 @@ let test_get_stream_out_of_range () =
   let msf_bytes = Pdb.Msf_write.finalize builder in
   let buf = buffer_of_string msf_bytes in
   let msf = Pdb.Msf.read buf in
-  Alcotest.(check bool) "stream -1 is None" true
+  Alcotest.(check bool)
+    "stream -1 is None" true
     (Option.is_none (Pdb.Msf.get_stream msf (-1)));
-  Alcotest.(check bool) "stream 5 is None" true
+  Alcotest.(check bool)
+    "stream 5 is None" true
     (Option.is_none (Pdb.Msf.get_stream msf 5))
 
 let test_multiple_block_sizes () =

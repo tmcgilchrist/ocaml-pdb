@@ -29,16 +29,28 @@ let write (buf : Buffer.t) (records : Codeview_types.type_record list) : unit =
   (* Write header (56 bytes) *)
   write_u32_le buf tpi_version_v80;
   write_u32_le buf tpi_header_size;
-  write_u32_le buf first_type_index; (* TypeIndexBegin *)
-  write_u32_le buf (first_type_index + num_records); (* TypeIndexEnd *)
+  write_u32_le buf first_type_index;
+  (* TypeIndexBegin *)
+  write_u32_le buf (first_type_index + num_records);
+  (* TypeIndexEnd *)
   write_u32_le buf type_record_bytes;
-  write_u16_le buf 0xFFFF; (* HashStreamIndex: -1 = no hash stream *)
-  write_u16_le buf 0xFFFF; (* HashAuxStreamIndex *)
-  write_u32_le buf 4; (* HashKeySize *)
-  write_u32_le buf 0x40000; (* NumHashBuckets *)
+  write_u16_le buf 0xFFFF;
+  (* HashStreamIndex: -1 = no hash stream *)
+  write_u16_le buf 0xFFFF;
+  (* HashAuxStreamIndex *)
+  write_u32_le buf 4;
+  (* HashKeySize *)
+  write_u32_le buf 0x40000;
+  (* NumHashBuckets *)
   (* Three EmbeddedBuf fields (offset + length), all zero *)
-  write_u32_le buf 0; write_u32_le buf 0; (* HashValueBuffer *)
-  write_u32_le buf 0; write_u32_le buf 0; (* IndexOffsetBuffer *)
-  write_u32_le buf 0; write_u32_le buf 0; (* HashAdjBuffer *)
+  write_u32_le buf 0;
+  write_u32_le buf 0;
+  (* HashValueBuffer *)
+  write_u32_le buf 0;
+  write_u32_le buf 0;
+  (* IndexOffsetBuffer *)
+  write_u32_le buf 0;
+  write_u32_le buf 0;
+  (* HashAdjBuffer *)
   (* Write type records *)
   Buffer.add_string buf (Buffer.contents rec_buf)

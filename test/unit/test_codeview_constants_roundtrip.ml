@@ -1,8 +1,8 @@
 (** QCheck roundtrip tests for CodeView constants.
 
-    Uses ppx_import to copy type definitions and ppx_deriving_qcheck
-    to generate random generators. When variants are added to the
-    library, the generators update automatically. *)
+    Uses ppx_import to copy type definitions and ppx_deriving_qcheck to generate
+    random generators. When variants are added to the library, the generators
+    update automatically. *)
 
 open Pdb.Codeview_constants
 
@@ -75,11 +75,10 @@ let roundtrip_tests =
 
 let string_tests =
   [
-    QCheck.Test.make ~name:"leaf_kind string non-empty"
-      (arb gen_leaf_kind) (fun v -> String.length (string_of_leaf_kind v) > 0);
-    QCheck.Test.make ~name:"symbol_kind string non-empty"
-      (arb gen_symbol_kind) (fun v ->
-        String.length (string_of_symbol_kind v) > 0);
+    QCheck.Test.make ~name:"leaf_kind string non-empty" (arb gen_leaf_kind)
+      (fun v -> String.length (string_of_leaf_kind v) > 0);
+    QCheck.Test.make ~name:"symbol_kind string non-empty" (arb gen_symbol_kind)
+      (fun v -> String.length (string_of_symbol_kind v) > 0);
     QCheck.Test.make ~name:"simple_type_kind string non-empty"
       (arb gen_simple_type_kind) (fun v ->
         String.length (string_of_simple_type_kind v) > 0);

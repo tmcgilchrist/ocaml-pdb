@@ -7,17 +7,8 @@
 
 open Pdb_types
 
-type pdb_version =
-  | VC70
-  | VC80
-  | VC110
-  | VC140
-  | Unknown of int
-
-type feature =
-  | ContainsIdStream
-  | NoTypeMerging
-  | MinimalDebugInfo
+type pdb_version = VC70 | VC80 | VC110 | VC140 | Unknown of int
+type feature = ContainsIdStream | NoTypeMerging | MinimalDebugInfo
 
 type t = {
   version : pdb_version;
@@ -75,18 +66,23 @@ let read (cur : Object.Buffer.cursor) : t =
      We read as many as available. VC110 stops further reading. *)
   let features = ref [] in
   let stop = ref false in
-  while not !stop && not (Object.Buffer.at_end cur) do
+  while (not !stop) && not (Object.Buffer.at_end cur) do
     let sig_val = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
-    (match sig_val with
+    match sig_val with
     | v when v = feature_vc110 ->
         features := ContainsIdStream :: !features;
         stop := true
-    | v when v = feature_vc140 ->
-        features := ContainsIdStream :: !features
-    | v when v = feature_no_type_merge ->
-        features := NoTypeMerging :: !features
+    | v when v = feature_vc140 -> features := ContainsIdStream :: !features
+    | v when v = feature_no_type_merge -> features := NoTypeMerging :: !features
     | v when v = feature_minimal_debug_info ->
         features := MinimalDebugInfo :: !features
-    | _ -> ())
+    | _ -> ()
   done;
-  { version; signature; age; guid; named_streams; features = List.rev !features }
+  {
+    version;
+    signature;
+    age;
+    guid;
+    named_streams;
+    features = List.rev !features;
+  }

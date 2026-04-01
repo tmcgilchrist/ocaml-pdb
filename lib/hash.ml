@@ -1,7 +1,7 @@
 (** PDB hash functions.
 
-    Ported from LLVM's llvm/lib/DebugInfo/PDB/Native/Hash.cpp which
-    corresponds to [Hasher::lhashPbCb] in PDB/include/misc.h. *)
+    Ported from LLVM's llvm/lib/DebugInfo/PDB/Native/Hash.cpp which corresponds
+    to [Hasher::lhashPbCb] in PDB/include/misc.h. *)
 
 let hash_string_v1 (str : string) : int =
   let len = String.length str in
@@ -29,7 +29,9 @@ let hash_string_v1 (str : string) : int =
       let v =
         Int32.logor
           (Int32.of_int (Char.code str.[remainder_off]))
-          (Int32.shift_left (Int32.of_int (Char.code str.[remainder_off + 1])) 8)
+          (Int32.shift_left
+             (Int32.of_int (Char.code str.[remainder_off + 1]))
+             8)
       in
       result := Int32.logxor !result v;
       (remainder_off + 2, remainder_size - 2)
@@ -38,7 +40,8 @@ let hash_string_v1 (str : string) : int =
   in
   (* Hash possible odd byte *)
   if remainder_size = 1 then
-    result := Int32.logxor !result (Int32.of_int (Char.code str.[remainder_off]));
+    result :=
+      Int32.logxor !result (Int32.of_int (Char.code str.[remainder_off]));
   let to_lower_mask = 0x20202020l in
   result := Int32.logor !result to_lower_mask;
   result := Int32.logxor !result (Int32.shift_right_logical !result 11);

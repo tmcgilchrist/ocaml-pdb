@@ -1,19 +1,16 @@
 (** Global/Public Symbol Index (GSI/PSI) reader.
 
-    The GSI and PSI streams provide hash-based lookup for global
-    and public symbols respectively. *)
+    The GSI and PSI streams provide hash-based lookup for global and public
+    symbols respectively. *)
 
 open Pdb_types
 
 type hash_record = {
-  offset : u32;   (** Offset in the symbol record stream *)
-  cref : u32;     (** Reference count *)
+  offset : u32;  (** Offset in the symbol record stream *)
+  cref : u32;  (** Reference count *)
 }
 
-type t = {
-  hash_records : hash_record array;
-  hash_buckets : u32 array;
-}
+type t = { hash_records : hash_record array; hash_buckets : u32 array }
 
 val parse_gsi : Object.Buffer.cursor -> int -> t
 (** [parse_gsi cur stream_size] parses a GSI or PSI hash table. *)

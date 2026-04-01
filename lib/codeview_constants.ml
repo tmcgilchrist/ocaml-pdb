@@ -1,8 +1,7 @@
 (** CodeView constant definitions.
 
-    Enum types for leaf kinds (type records), symbol kinds,
-    simple type kinds, calling conventions, pointer attributes,
-    and member access flags.
+    Enum types for leaf kinds (type records), symbol kinds, simple type kinds,
+    calling conventions, pointer attributes, and member access flags.
 
     References:
     - LLVM: llvm/include/llvm/DebugInfo/CodeView/CodeView.h
@@ -451,8 +450,8 @@ let string_of_symbol_kind = function
 
 (** {2 Simple Type Kind}
 
-    Built-in type indices below 0x1000. The low byte is the type kind
-    and the high byte is the pointer mode. *)
+    Built-in type indices below 0x1000. The low byte is the type kind and the
+    high byte is the pointer mode. *)
 
 type simple_type_kind =
   | None
@@ -903,11 +902,7 @@ let string_of_pointer_mode = function
 
 (** {2 Member Access} *)
 
-type member_access =
-  | NoAccess
-  | Private
-  | Protected
-  | Public
+type member_access = NoAccess | Private | Protected | Public
 
 let member_access_of_int = function
   | 0 -> NoAccess

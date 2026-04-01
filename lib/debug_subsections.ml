@@ -6,7 +6,6 @@
     - LLVM: llvm/lib/DebugInfo/CodeView/DebugLinesSubsection.cpp *)
 
 open Pdb_types
-
 module Buffer = Stdlib.Buffer
 
 type line_entry = {
@@ -16,10 +15,7 @@ type line_entry = {
   is_statement : bool;
 }
 
-type line_block = {
-  file_index : u32;
-  lines : line_entry array;
-}
+type line_block = { file_index : u32; lines : line_entry array }
 
 type lines_subsection = {
   contrib_offset : u32;
@@ -37,11 +33,7 @@ type file_checksum_entry = {
   checksum : string;
 }
 
-type inlinee_line = {
-  inlinee : u32;
-  file_id : u32;
-  source_line : u32;
-}
+type inlinee_line = { inlinee : u32; file_id : u32; source_line : u32 }
 
 type subsection =
   | Lines of lines_subsection
@@ -66,11 +58,7 @@ let int_of_checksum_kind = function
   | SHA1 -> 2
   | SHA256 -> 3
 
-let checksum_size = function
-  | None -> 0
-  | MD5 -> 16
-  | SHA1 -> 20
-  | SHA256 -> 32
+let checksum_size = function None -> 0 | MD5 -> 16 | SHA1 -> 20 | SHA256 -> 32
 
 let parse_line_entry (cur : Object.Buffer.cursor) : line_entry =
   let offset = read_u32 cur in
@@ -80,7 +68,8 @@ let parse_line_entry (cur : Object.Buffer.cursor) : line_entry =
   let is_statement = flags land 0x80000000 <> 0 in
   { offset; line_start; delta_line_end; is_statement }
 
-let parse_lines (cur : Object.Buffer.cursor) (sub_end : int) : lines_subsection =
+let parse_lines (cur : Object.Buffer.cursor) (sub_end : int) : lines_subsection
+    =
   (* LineFragmentHeader: u32 offset, u16 segment, u16 flags, u32 code_size *)
   let contrib_offset = read_u32 cur in
   let contrib_segment = read_u16 cur in
@@ -97,8 +86,13 @@ let parse_lines (cur : Object.Buffer.cursor) (sub_end : int) : lines_subsection 
     (* Skip column info if present - for now we don't parse it *)
     blocks := { file_index; lines } :: !blocks
   done;
-  { contrib_offset; contrib_segment; flags; contrib_size;
-    blocks = Array.of_list (List.rev !blocks) }
+  {
+    contrib_offset;
+    contrib_segment;
+    flags;
+    contrib_size;
+    blocks = Array.of_list (List.rev !blocks);
+  }
 
 let parse_file_checksums (cur : Object.Buffer.cursor) (sub_end : int) :
     file_checksum_entry array =
@@ -115,9 +109,8 @@ let parse_file_checksums (cur : Object.Buffer.cursor) (sub_end : int) :
     entries := { file_name_offset; checksum_kind; checksum } :: !entries;
     (* Align to 4 bytes *)
     let pos = cur.position in
-    let aligned = (pos + 3) land (lnot 3) in
-    if aligned > pos && aligned <= sub_end then
-      Object.Buffer.seek cur aligned
+    let aligned = (pos + 3) land lnot 3 in
+    if aligned > pos && aligned <= sub_end then Object.Buffer.seek cur aligned
   done;
   Array.of_list (List.rev !entries)
 
@@ -126,10 +119,8 @@ let parse_string_table (cur : Object.Buffer.cursor) (sub_end : int) :
   let strings = ref [] in
   while cur.position < sub_end do
     match Object.Buffer.Read.zero_string cur () with
-    | Some s ->
-        if String.length s > 0 then strings := s :: !strings
-    | Option.None ->
-        Object.Buffer.seek cur sub_end
+    | Some s -> if String.length s > 0 then strings := s :: !strings
+    | Option.None -> Object.Buffer.seek cur sub_end
   done;
   Array.of_list (List.rev !strings)
 
@@ -164,14 +155,13 @@ let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
         | 0xf6 -> InlineeLines (parse_inlinee_lines cur sub_end)
         | _ ->
             let data =
-              if size > 0 then Object.Buffer.Read.fixed_string cur size
-              else ""
+              if size > 0 then Object.Buffer.Read.fixed_string cur size else ""
             in
             Unknown { kind; data }
       in
       (* Ensure cursor is at sub_end, aligned to 4 *)
       if cur.position < sub_end then Object.Buffer.seek cur sub_end;
-      let aligned = (sub_end + 3) land (lnot 3) in
+      let aligned = (sub_end + 3) land lnot 3 in
       if aligned > sub_end && aligned <= end_pos then
         Object.Buffer.seek cur aligned;
       Seq.Cons (sub, next)
@@ -218,9 +208,9 @@ let write_subsection (buf : Buffer.t) (sub : subsection) : unit =
               (fun (le : line_entry) ->
                 write_u32_le content_buf (Unsigned.UInt32.to_int le.offset);
                 let flags =
-                  (le.line_start land 0x00FFFFFF)
+                  le.line_start land 0x00FFFFFF
                   lor ((le.delta_line_end land 0x7F) lsl 24)
-                  lor (if le.is_statement then 0x80000000 else 0)
+                  lor if le.is_statement then 0x80000000 else 0
                 in
                 write_u32_le content_buf flags)
               block.lines)
@@ -246,7 +236,8 @@ let write_subsection (buf : Buffer.t) (sub : subsection) : unit =
           strings;
         0xf3
     | InlineeLines entries ->
-        write_u32_le content_buf 0; (* signature *)
+        write_u32_le content_buf 0;
+        (* signature *)
         Array.iter
           (fun (e : inlinee_line) ->
             write_u32_le content_buf (Unsigned.UInt32.to_int e.inlinee);

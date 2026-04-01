@@ -1,8 +1,8 @@
 (** CodeView symbol record definitions and parsing.
 
-    Symbol records appear in module symbol streams (referenced from
-    the DBI stream) and in the global/public symbol streams.
-    Each record has a 2-byte length prefix, a 2-byte symbol kind, then payload. *)
+    Symbol records appear in module symbol streams (referenced from the DBI
+    stream) and in the global/public symbol streams. Each record has a 2-byte
+    length prefix, a 2-byte symbol kind, then payload. *)
 
 open Pdb_types
 
@@ -47,9 +47,26 @@ type symbol_record =
   | GThread32 of data_record
   | LThread32 of data_record
   | Local of { type_index : u32; flags : int; name : string }
-  | DefRangeFramePointerRel of { offset : int32; range_offset : u32; range_section : int; range_length : int }
-  | DefRangeRegisterRel of { base_register : int; offset : int32; range_offset : u32; range_section : int; range_length : int }
-  | DefRangeRegister of { register : int; may_have_no_name : int; range_offset : u32; range_section : int; range_length : int }
+  | DefRangeFramePointerRel of {
+      offset : int32;
+      range_offset : u32;
+      range_section : int;
+      range_length : int;
+    }
+  | DefRangeRegisterRel of {
+      base_register : int;
+      offset : int32;
+      range_offset : u32;
+      range_section : int;
+      range_length : int;
+    }
+  | DefRangeRegister of {
+      register : int;
+      may_have_no_name : int;
+      range_offset : u32;
+      range_section : int;
+      range_length : int;
+    }
   | DefRangeFramePointerRelFullScope of { offset : int32 }
   | Block32 of {
       parent : u32;
@@ -59,7 +76,12 @@ type symbol_record =
       segment : int;
       name : string;
     }
-  | InlineSite of { parent : u32; end_ : u32; inlinee : u32; annotations : string }
+  | InlineSite of {
+      parent : u32;
+      end_ : u32;
+      inlinee : u32;
+      annotations : string;
+    }
   | InlineSiteEnd
   | ProcIdEnd
   | Udt of { type_index : u32; name : string }
@@ -74,7 +96,12 @@ type symbol_record =
       exception_handler_section : int;
       frame_proc_flags : u32;
     }
-  | RegRel32 of { offset : int32; type_index : u32; register : int; name : string }
+  | RegRel32 of {
+      offset : int32;
+      type_index : u32;
+      register : int;
+      name : string;
+    }
   | BPRel32 of { offset : int32; type_index : u32; name : string }
   | Register of { type_index : u32; register : int; name : string }
   | Label32 of { offset : u32; segment : int; flags : int; name : string }
@@ -82,13 +109,13 @@ type symbol_record =
   | Unknown of { kind : int; data : string }
 
 val parse_symbol_record : Object.Buffer.cursor -> int -> symbol_record
-(** [parse_symbol_record cur record_length] parses a single symbol record.
-    The cursor should be positioned at the symbol kind u16.
-    [record_length] is the remaining payload bytes. *)
+(** [parse_symbol_record cur record_length] parses a single symbol record. The
+    cursor should be positioned at the symbol kind u16. [record_length] is the
+    remaining payload bytes. *)
 
 val write_symbol_record : Stdlib.Buffer.t -> symbol_record -> unit
-(** [write_symbol_record buf record] serializes a symbol record
-    including the length prefix and symbol kind. *)
+(** [write_symbol_record buf record] serializes a symbol record including the
+    length prefix and symbol kind. *)
 
 val parse_symbol_stream : Object.Buffer.cursor -> int -> symbol_record Seq.t
 (** [parse_symbol_stream cur total_bytes] lazily iterates symbol records. *)
