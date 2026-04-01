@@ -33,3 +33,9 @@
  (libraries pdb object alcotest)
  (action
   (run %{exe:test_codeview_types.exe})))
+
+(test
+ (name test_codeview_symbols)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_codeview_symbols.exe})))

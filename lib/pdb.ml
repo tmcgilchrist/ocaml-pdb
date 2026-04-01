@@ -9,3 +9,4 @@ module Codeview_constants = Codeview_constants
 module Codeview_types = Codeview_types
 module Tpi = Tpi
 module Tpi_write = Tpi_write
+module Codeview_symbols = Codeview_symbols
