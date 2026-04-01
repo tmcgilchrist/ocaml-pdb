@@ -27,3 +27,9 @@
  (libraries pdb alcotest qcheck-core qcheck-alcotest)
  (preprocess
   (staged_pps ppx_import ppx_deriving_qcheck)))
+
+(test
+ (name test_codeview_types)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_codeview_types.exe})))
