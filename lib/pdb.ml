@@ -14,3 +14,4 @@ module Dbi = Dbi
 module Dbi_write = Dbi_write
 module Debug_subsections = Debug_subsections
 module Gsi = Gsi
+module Gsi_write = Gsi_write

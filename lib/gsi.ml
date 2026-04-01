@@ -47,7 +47,7 @@ let parse_gsi (cur : Object.Buffer.cursor) (stream_size : int) : t =
   let _ver_signature = read_u32 cur in
   let _ver_hdr = read_u32 cur in
   let hr_size = Unsigned.UInt32.to_int (read_u32 cur) in
-  let num_buckets = Unsigned.UInt32.to_int (read_u32 cur) in
+  let buckets_byte_size = Unsigned.UInt32.to_int (read_u32 cur) in
   (* Hash records: HrSize bytes of (u32 offset, u32 cref) pairs *)
   let num_records = hr_size / 8 in
   let hash_records =
@@ -56,6 +56,8 @@ let parse_gsi (cur : Object.Buffer.cursor) (stream_size : int) : t =
         let cref = read_u32 cur in
         { offset; cref })
   in
-  (* Hash buckets: NumBuckets u32 values *)
-  let hash_buckets = Array.init num_buckets (fun _ -> read_u32 cur) in
+  (* The remaining buckets_byte_size bytes contain the bitmap + bucket offsets.
+     Read them all as u32 values. *)
+  let num_bucket_words = buckets_byte_size / 4 in
+  let hash_buckets = Array.init num_bucket_words (fun _ -> read_u32 cur) in
   { hash_records; hash_buckets }

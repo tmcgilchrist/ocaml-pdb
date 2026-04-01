@@ -51,3 +51,9 @@
  (libraries pdb object alcotest)
  (action
   (run %{exe:test_debug_subsections.exe})))
+
+(test
+ (name test_gsi)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_gsi.exe})))
