@@ -5,3 +5,9 @@
   (file %{project_root}/test/fixtures/simple.pdb))
  (action
   (run %{exe:test_pdb_integration.exe})))
+
+(test
+ (name test_cross_validate)
+ (libraries pdb object alcotest str)
+ (action
+  (run %{exe:test_cross_validate.exe})))
