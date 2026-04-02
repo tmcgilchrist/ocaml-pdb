@@ -63,3 +63,9 @@
  (libraries pdb object alcotest qcheck-core qcheck-alcotest)
  (action
   (run %{exe:test_codeview_qcheck.exe})))
+
+(test
+ (name test_malformed)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_malformed.exe})))
