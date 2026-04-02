@@ -57,3 +57,9 @@
  (libraries pdb object alcotest)
  (action
   (run %{exe:test_gsi.exe})))
+
+(test
+ (name test_codeview_qcheck)
+ (libraries pdb object alcotest qcheck-core qcheck-alcotest)
+ (action
+  (run %{exe:test_codeview_qcheck.exe})))
