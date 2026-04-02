@@ -121,6 +121,119 @@ let test_multiple_block_sizes () =
         data (string_of_buffer s))
     [ 512; 1024; 2048; 4096 ]
 
+let test_too_small_for_superblock () =
+  (* A file smaller than the superblock should fail *)
+  let tiny = buffer_of_string (String.make 10 '\000') in
+  Alcotest.check_raises "too small"
+    (Object.Buffer.Invalid_format "MSF file too small for superblock")
+    (fun () -> ignore (Pdb.Msf.read tiny))
+
+let test_elf_magic_rejected () =
+  (* An ELF file should be rejected with Invalid MSF magic *)
+  let elf = buffer_of_string ("\x7fELF" ^ String.make 4092 '\000') in
+  Alcotest.check_raises "ELF rejected"
+    (Object.Buffer.Invalid_format "Invalid MSF magic")
+    (fun () -> ignore (Pdb.Msf.read elf))
+
+let test_invalid_block_size () =
+  (* Construct a buffer with valid magic but invalid block size (256) *)
+  let buf = Stdlib.Buffer.create 4096 in
+  Stdlib.Buffer.add_string buf Pdb.Msf.msf_magic;
+  (* block_size = 256 (invalid) *)
+  Stdlib.Buffer.add_char buf '\x00';
+  Stdlib.Buffer.add_char buf '\x01';
+  Stdlib.Buffer.add_char buf '\x00';
+  Stdlib.Buffer.add_char buf '\x00';
+  (* Fill rest to at least magic_len + 24 bytes *)
+  for _ = 1 to 20 do
+    Stdlib.Buffer.add_char buf '\x00'
+  done;
+  (* Pad to reasonable size *)
+  while Stdlib.Buffer.length buf < 512 do
+    Stdlib.Buffer.add_char buf '\x00'
+  done;
+  let bytes = Stdlib.Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  Alcotest.check_raises "invalid block size"
+    (Object.Buffer.Invalid_format "Invalid MSF block size: 256")
+    (fun () -> ignore (Pdb.Msf.read obj_buf))
+
+let test_invalid_block_size_builder () =
+  (* The MSF builder should reject invalid block sizes *)
+  Alcotest.check_raises "builder rejects 256"
+    (Invalid_argument "MSF block_size must be 512, 1024, 2048, or 4096")
+    (fun () -> ignore (Pdb.Msf_write.create ~block_size:256));
+  Alcotest.check_raises "builder rejects 3000"
+    (Invalid_argument "MSF block_size must be 512, 1024, 2048, or 4096")
+    (fun () -> ignore (Pdb.Msf_write.create ~block_size:3000))
+
+let test_multi_block_stream_directory () =
+  (* Create enough streams/data that the stream directory requires
+     multiple blocks. With block_size=512, we need the directory to
+     exceed 512 bytes. Each stream adds 4 bytes (size) + 4 bytes per
+     block to the directory. With 60 streams of ~600 bytes each,
+     directory should be well over 512 bytes. *)
+  let builder = Pdb.Msf_write.create ~block_size:512 in
+  let expected = Array.init 60 (fun i ->
+    let data = String.make 600 (Char.chr ((i mod 26) + 65)) in
+    let _ = Pdb.Msf_write.add_stream builder data in
+    data)
+  in
+  let msf_bytes = Pdb.Msf_write.finalize builder in
+  let buf = buffer_of_string msf_bytes in
+  let msf = Pdb.Msf.read buf in
+  Alcotest.(check int) "stream count" 60 (Pdb.Msf.stream_count msf);
+  (* Verify a few streams *)
+  for i = 0 to 59 do
+    let s = Pdb.Msf.get_stream_exn msf i in
+    Alcotest.(check int)
+      (Printf.sprintf "stream %d size" i)
+      600 (Bigarray.Array1.dim s);
+    Alcotest.(check string)
+      (Printf.sprintf "stream %d content" i)
+      expected.(i) (string_of_buffer s)
+  done
+
+let test_many_small_streams () =
+  (* Test with many empty/tiny streams *)
+  let builder = Pdb.Msf_write.create ~block_size:512 in
+  for _ = 1 to 100 do
+    ignore (Pdb.Msf_write.add_empty_stream builder)
+  done;
+  let msf_bytes = Pdb.Msf_write.finalize builder in
+  let buf = buffer_of_string msf_bytes in
+  let msf = Pdb.Msf.read buf in
+  Alcotest.(check int) "100 streams" 100 (Pdb.Msf.stream_count msf);
+  (* All should be empty *)
+  for i = 0 to 99 do
+    let s = Pdb.Msf.get_stream_exn msf i in
+    Alcotest.(check int)
+      (Printf.sprintf "stream %d empty" i)
+      0 (Bigarray.Array1.dim s)
+  done
+
+let test_exact_block_boundary () =
+  (* Stream whose size is exactly one block -- no partial block *)
+  let builder = Pdb.Msf_write.create ~block_size:512 in
+  let data = String.make 512 'X' in
+  let _ = Pdb.Msf_write.add_stream builder data in
+  let msf_bytes = Pdb.Msf_write.finalize builder in
+  let buf = buffer_of_string msf_bytes in
+  let msf = Pdb.Msf.read buf in
+  let s = Pdb.Msf.get_stream_exn msf 0 in
+  Alcotest.(check int) "exact block size" 512 (Bigarray.Array1.dim s);
+  Alcotest.(check string) "content" data (string_of_buffer s)
+
+let test_one_byte_stream () =
+  let builder = Pdb.Msf_write.create ~block_size:4096 in
+  let _ = Pdb.Msf_write.add_stream builder "X" in
+  let msf_bytes = Pdb.Msf_write.finalize builder in
+  let buf = buffer_of_string msf_bytes in
+  let msf = Pdb.Msf.read buf in
+  let s = Pdb.Msf.get_stream_exn msf 0 in
+  Alcotest.(check int) "1 byte" 1 (Bigarray.Array1.dim s);
+  Alcotest.(check string) "content" "X" (string_of_buffer s)
+
 let () =
   Alcotest.run "MSF"
     [
@@ -134,5 +247,21 @@ let () =
           Alcotest.test_case "out of range" `Quick test_get_stream_out_of_range;
           Alcotest.test_case "multiple block sizes" `Quick
             test_multiple_block_sizes;
+        ] );
+      ( "edge_cases",
+        [
+          Alcotest.test_case "too small" `Quick test_too_small_for_superblock;
+          Alcotest.test_case "ELF rejected" `Quick test_elf_magic_rejected;
+          Alcotest.test_case "invalid block size" `Quick
+            test_invalid_block_size;
+          Alcotest.test_case "invalid block size builder" `Quick
+            test_invalid_block_size_builder;
+          Alcotest.test_case "multi-block directory" `Quick
+            test_multi_block_stream_directory;
+          Alcotest.test_case "many small streams" `Quick
+            test_many_small_streams;
+          Alcotest.test_case "exact block boundary" `Quick
+            test_exact_block_boundary;
+          Alcotest.test_case "one byte stream" `Quick test_one_byte_stream;
         ] );
     ]
