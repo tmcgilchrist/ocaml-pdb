@@ -261,6 +261,226 @@ let test_udt_src_line_roundtrip () =
           Alcotest.(check int) (name ^ " line") 42 (Unsigned.UInt32.to_int line)
       | _ -> Alcotest.fail "expected UdtSrcLine")
 
+(** {2 Field list entry roundtrips} *)
+
+(** Helper: wrap field entries in a FieldList, roundtrip, return parsed members *)
+let roundtrip_fieldlist members =
+  let buf = Buffer.create 128 in
+  Pdb.Codeview_types.write_type_record buf
+    (Pdb.Codeview_types.FieldList { members });
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let rec_len = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
+  match Pdb.Codeview_types.parse_type_record cur rec_len with
+  | Pdb.Codeview_types.FieldList { members = m } -> m
+  | _ -> Alcotest.fail "expected FieldList"
+
+let test_onemethod_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [
+        Pdb.Codeview_types.OneMethod
+          {
+            attrs = 3;
+            method_type = u32 0x1009;
+            vftable_offset = Option.None;
+            name = "doStuff";
+          };
+      ]
+  in
+  Alcotest.(check int) "one entry" 1 (List.length members);
+  match List.hd members with
+  | Pdb.Codeview_types.OneMethod { attrs; method_type; vftable_offset; name } ->
+      Alcotest.(check int) "attrs" 3 attrs;
+      Alcotest.(check int) "type" 0x1009
+        (Unsigned.UInt32.to_int method_type);
+      Alcotest.(check (option int)) "vft" Option.None vftable_offset;
+      Alcotest.(check string) "name" "doStuff" name
+  | _ -> Alcotest.fail "expected OneMethod"
+
+let test_onemethod_virtual_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [
+        Pdb.Codeview_types.OneMethod
+          {
+            attrs = 0x13;
+            method_type = u32 0x100A;
+            vftable_offset = Some 0;
+            name = "virtualMethod";
+          };
+      ]
+  in
+  match List.hd members with
+  | Pdb.Codeview_types.OneMethod { attrs; vftable_offset; name; _ } ->
+      Alcotest.(check int) "attrs" 0x13 attrs;
+      Alcotest.(check (option int)) "vft offset" (Some 0) vftable_offset;
+      Alcotest.(check string) "name" "virtualMethod" name
+  | _ -> Alcotest.fail "expected OneMethod"
+
+let test_method_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [
+        Pdb.Codeview_types.Method
+          { count = 2; method_list = u32 0x100B; name = "overloaded" };
+      ]
+  in
+  match List.hd members with
+  | Pdb.Codeview_types.Method { count; method_list; name } ->
+      Alcotest.(check int) "count" 2 count;
+      Alcotest.(check int) "list" 0x100B
+        (Unsigned.UInt32.to_int method_list);
+      Alcotest.(check string) "name" "overloaded" name
+  | _ -> Alcotest.fail "expected Method"
+
+let test_baseclass_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [
+        Pdb.Codeview_types.BaseClass
+          { attrs = 3; base_type = u32 0x1007; offset = 0L };
+      ]
+  in
+  match List.hd members with
+  | Pdb.Codeview_types.BaseClass { attrs; base_type; offset } ->
+      Alcotest.(check int) "attrs" 3 attrs;
+      Alcotest.(check int) "base" 0x1007
+        (Unsigned.UInt32.to_int base_type);
+      Alcotest.(check int64) "offset" 0L offset
+  | _ -> Alcotest.fail "expected BaseClass"
+
+let test_vbaseclass_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [
+        Pdb.Codeview_types.VBaseClass
+          {
+            attrs = 3;
+            base_type = u32 0x1007;
+            vbptr_type = u32 0x1008;
+            vbptr_offset = 0L;
+            vbtable_index = 1L;
+          };
+      ]
+  in
+  match List.hd members with
+  | Pdb.Codeview_types.VBaseClass
+      { attrs; base_type; vbptr_type; vbptr_offset; vbtable_index } ->
+      Alcotest.(check int) "attrs" 3 attrs;
+      Alcotest.(check int) "base" 0x1007
+        (Unsigned.UInt32.to_int base_type);
+      Alcotest.(check int) "vbptr" 0x1008
+        (Unsigned.UInt32.to_int vbptr_type);
+      Alcotest.(check int64) "vbptr_offset" 0L vbptr_offset;
+      Alcotest.(check int64) "vbtable_index" 1L vbtable_index
+  | _ -> Alcotest.fail "expected VBaseClass"
+
+let test_nestedtype_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [
+        Pdb.Codeview_types.NestedType
+          { attrs = 0; nested_type = u32 0x1010; name = "InnerClass" };
+      ]
+  in
+  match List.hd members with
+  | Pdb.Codeview_types.NestedType { attrs; nested_type; name } ->
+      Alcotest.(check int) "attrs" 0 attrs;
+      Alcotest.(check int) "type" 0x1010
+        (Unsigned.UInt32.to_int nested_type);
+      Alcotest.(check string) "name" "InnerClass" name
+  | _ -> Alcotest.fail "expected NestedType"
+
+let test_vfunctab_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [ Pdb.Codeview_types.VFuncTab { vftable_type = u32 0x100A } ]
+  in
+  match List.hd members with
+  | Pdb.Codeview_types.VFuncTab { vftable_type } ->
+      Alcotest.(check int) "type" 0x100A
+        (Unsigned.UInt32.to_int vftable_type)
+  | _ -> Alcotest.fail "expected VFuncTab"
+
+let test_staticmember_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [
+        Pdb.Codeview_types.StaticMember
+          { attrs = 3; field_type = u32 0x0074; name = "s_count" };
+      ]
+  in
+  match List.hd members with
+  | Pdb.Codeview_types.StaticMember { attrs; field_type; name } ->
+      Alcotest.(check int) "attrs" 3 attrs;
+      Alcotest.(check int) "type" 0x0074
+        (Unsigned.UInt32.to_int field_type);
+      Alcotest.(check string) "name" "s_count" name
+  | _ -> Alcotest.fail "expected StaticMember"
+
+let test_index_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [ Pdb.Codeview_types.Index { continuation = u32 0x1020 } ]
+  in
+  match List.hd members with
+  | Pdb.Codeview_types.Index { continuation } ->
+      Alcotest.(check int) "continuation" 0x1020
+        (Unsigned.UInt32.to_int continuation)
+  | _ -> Alcotest.fail "expected Index"
+
+let test_mixed_fieldlist_roundtrip () =
+  let members =
+    roundtrip_fieldlist
+      [
+        Pdb.Codeview_types.BaseClass
+          { attrs = 3; base_type = u32 0x1007; offset = 0L };
+        Pdb.Codeview_types.VFuncTab { vftable_type = u32 0x100A };
+        Pdb.Codeview_types.Member
+          { attrs = 3; field_type = u32 0x0074; offset = 8L; name = "x" };
+        Pdb.Codeview_types.Member
+          { attrs = 3; field_type = u32 0x0074; offset = 12L; name = "y" };
+        Pdb.Codeview_types.StaticMember
+          { attrs = 3; field_type = u32 0x0074; name = "count" };
+        Pdb.Codeview_types.OneMethod
+          {
+            attrs = 3;
+            method_type = u32 0x1009;
+            vftable_offset = Option.None;
+            name = "getX";
+          };
+        Pdb.Codeview_types.NestedType
+          { attrs = 0; nested_type = u32 0x1015; name = "Iterator" };
+      ]
+  in
+  Alcotest.(check int) "7 entries" 7 (List.length members);
+  (match List.nth members 0 with
+  | Pdb.Codeview_types.BaseClass _ -> ()
+  | _ -> Alcotest.fail "entry 0: expected BaseClass");
+  (match List.nth members 1 with
+  | Pdb.Codeview_types.VFuncTab _ -> ()
+  | _ -> Alcotest.fail "entry 1: expected VFuncTab");
+  (match List.nth members 2 with
+  | Pdb.Codeview_types.Member { name; _ } ->
+      Alcotest.(check string) "entry 2 name" "x" name
+  | _ -> Alcotest.fail "entry 2: expected Member");
+  (match List.nth members 4 with
+  | Pdb.Codeview_types.StaticMember { name; _ } ->
+      Alcotest.(check string) "entry 4 name" "count" name
+  | _ -> Alcotest.fail "entry 4: expected StaticMember");
+  (match List.nth members 5 with
+  | Pdb.Codeview_types.OneMethod { name; _ } ->
+      Alcotest.(check string) "entry 5 name" "getX" name
+  | _ -> Alcotest.fail "entry 5: expected OneMethod");
+  match List.nth members 6 with
+  | Pdb.Codeview_types.NestedType { name; _ } ->
+      Alcotest.(check string) "entry 6 name" "Iterator" name
+  | _ -> Alcotest.fail "entry 6: expected NestedType"
+
+(** {2 Previously untested type record roundtrips} *)
+
 let test_mfunction_roundtrip () =
   roundtrip_record "mfunction"
     (Pdb.Codeview_types.MFunction
@@ -553,6 +773,24 @@ let () =
           Alcotest.test_case "func_id" `Quick test_func_id_roundtrip;
           Alcotest.test_case "string_id" `Quick test_string_id_roundtrip;
           Alcotest.test_case "udt_src_line" `Quick test_udt_src_line_roundtrip;
+        ] );
+      ( "field_entries",
+        [
+          Alcotest.test_case "onemethod" `Quick test_onemethod_roundtrip;
+          Alcotest.test_case "onemethod virtual" `Quick
+            test_onemethod_virtual_roundtrip;
+          Alcotest.test_case "method" `Quick test_method_roundtrip;
+          Alcotest.test_case "baseclass" `Quick test_baseclass_roundtrip;
+          Alcotest.test_case "vbaseclass" `Quick test_vbaseclass_roundtrip;
+          Alcotest.test_case "nestedtype" `Quick test_nestedtype_roundtrip;
+          Alcotest.test_case "vfunctab" `Quick test_vfunctab_roundtrip;
+          Alcotest.test_case "staticmember" `Quick test_staticmember_roundtrip;
+          Alcotest.test_case "index" `Quick test_index_roundtrip;
+          Alcotest.test_case "mixed fieldlist" `Quick
+            test_mixed_fieldlist_roundtrip;
+        ] );
+      ( "type_record_extended",
+        [
           Alcotest.test_case "mfunction" `Quick test_mfunction_roundtrip;
           Alcotest.test_case "array" `Quick test_array_roundtrip;
           Alcotest.test_case "class" `Quick test_class_roundtrip;
