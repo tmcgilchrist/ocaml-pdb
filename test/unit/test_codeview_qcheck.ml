@@ -608,6 +608,245 @@ let test_local_roundtrip =
           Unsigned.UInt32.equal ti type_index && f = flags && n = name
       | _ -> false)
 
+let gen_proc_record =
+  QCheck.Gen.(
+    let+ code_size = int_range 1 1000
+    and+ type_index = gen_u32
+    and+ offset = gen_u32
+    and+ segment = int_range 1 5
+    and+ name = gen_name in
+    {
+      Pdb.Codeview_symbols.parent = u32 0;
+      end_ = u32 0;
+      next = u32 0;
+      code_size = u32 code_size;
+      debug_start = u32 0;
+      debug_end = u32 (code_size - 1);
+      type_index;
+      offset;
+      segment;
+      flags = 0;
+      name;
+    })
+
+let check_proc_roundtrip name constructor extractor =
+  QCheck.Test.make ~name ~count:200
+    (QCheck.make gen_proc_record)
+    (fun proc ->
+      let r = symbol_record_roundtrip (constructor proc) in
+      match extractor r with
+      | Some (p : Pdb.Codeview_symbols.proc_record) ->
+          p.name = proc.name
+          && Unsigned.UInt32.equal p.code_size proc.code_size
+          && p.segment = proc.segment
+      | Option.None -> false)
+
+let test_qc_lproc32 =
+  check_proc_roundtrip "LProc32 roundtrip"
+    (fun p -> Pdb.Codeview_symbols.LProc32 p)
+    (function Pdb.Codeview_symbols.LProc32 p -> Some p | _ -> Option.None)
+
+let test_qc_gproc32id =
+  check_proc_roundtrip "GProc32Id roundtrip"
+    (fun p -> Pdb.Codeview_symbols.GProc32Id p)
+    (function Pdb.Codeview_symbols.GProc32Id p -> Some p | _ -> Option.None)
+
+let test_qc_lproc32id =
+  check_proc_roundtrip "LProc32Id roundtrip"
+    (fun p -> Pdb.Codeview_symbols.LProc32Id p)
+    (function Pdb.Codeview_symbols.LProc32Id p -> Some p | _ -> Option.None)
+
+let test_qc_gthread32 =
+  QCheck.Test.make ~name:"GThread32 roundtrip" ~count:200
+    (QCheck.make
+       QCheck.Gen.(
+         let+ type_index = gen_u32
+         and+ offset = gen_u32
+         and+ segment = int_range 1 5
+         and+ name = gen_name in
+         (type_index, offset, segment, name)))
+    (fun (type_index, offset, segment, name) ->
+      let r =
+        symbol_record_roundtrip
+          (Pdb.Codeview_symbols.GThread32 { type_index; offset; segment; name })
+      in
+      match r with
+      | Pdb.Codeview_symbols.GThread32 d ->
+          Unsigned.UInt32.equal d.type_index type_index && d.name = name
+      | _ -> false)
+
+let test_qc_lthread32 =
+  QCheck.Test.make ~name:"LThread32 roundtrip" ~count:200
+    (QCheck.make
+       QCheck.Gen.(
+         let+ type_index = gen_u32
+         and+ offset = gen_u32
+         and+ segment = int_range 1 5
+         and+ name = gen_name in
+         (type_index, offset, segment, name)))
+    (fun (type_index, offset, segment, name) ->
+      let r =
+        symbol_record_roundtrip
+          (Pdb.Codeview_symbols.LThread32 { type_index; offset; segment; name })
+      in
+      match r with
+      | Pdb.Codeview_symbols.LThread32 d ->
+          Unsigned.UInt32.equal d.type_index type_index && d.name = name
+      | _ -> false)
+
+let test_qc_regrel32 =
+  QCheck.Test.make ~name:"RegRel32 roundtrip" ~count:200
+    (QCheck.make
+       QCheck.Gen.(
+         let+ offset = map Int32.of_int (int_range (-1000) 1000)
+         and+ type_index = gen_u32
+         and+ register = int_range 0 400
+         and+ name = gen_name in
+         (offset, type_index, register, name)))
+    (fun (offset, type_index, register, name) ->
+      let r =
+        symbol_record_roundtrip
+          (Pdb.Codeview_symbols.RegRel32
+             { offset; type_index; register; name })
+      in
+      match r with
+      | Pdb.Codeview_symbols.RegRel32
+          { offset = o; type_index = ti; register = reg; name = n } ->
+          o = offset && Unsigned.UInt32.equal ti type_index
+          && reg = register && n = name
+      | _ -> false)
+
+let test_qc_register =
+  QCheck.Test.make ~name:"Register roundtrip" ~count:200
+    (QCheck.make
+       QCheck.Gen.(
+         let+ type_index = gen_u32
+         and+ register = int_range 0 400
+         and+ name = gen_name in
+         (type_index, register, name)))
+    (fun (type_index, register, name) ->
+      let r =
+        symbol_record_roundtrip
+          (Pdb.Codeview_symbols.Register { type_index; register; name })
+      in
+      match r with
+      | Pdb.Codeview_symbols.Register
+          { type_index = ti; register = reg; name = n } ->
+          Unsigned.UInt32.equal ti type_index && reg = register && n = name
+      | _ -> false)
+
+let test_qc_label32 =
+  QCheck.Test.make ~name:"Label32 roundtrip" ~count:200
+    (QCheck.make
+       QCheck.Gen.(
+         let+ offset = gen_u32
+         and+ segment = int_range 1 5
+         and+ name = gen_name in
+         (offset, segment, name)))
+    (fun (offset, segment, name) ->
+      let r =
+        symbol_record_roundtrip
+          (Pdb.Codeview_symbols.Label32
+             { offset; segment; flags = 0; name })
+      in
+      match r with
+      | Pdb.Codeview_symbols.Label32
+          { offset = o; segment = s; name = n; _ } ->
+          Unsigned.UInt32.equal o offset && s = segment && n = name
+      | _ -> false)
+
+let test_qc_ldata32 =
+  QCheck.Test.make ~name:"LData32 roundtrip" ~count:200
+    (QCheck.make
+       QCheck.Gen.(
+         let+ type_index = gen_u32
+         and+ offset = gen_u32
+         and+ segment = int_range 1 5
+         and+ name = gen_name in
+         (type_index, offset, segment, name)))
+    (fun (type_index, offset, segment, name) ->
+      let r =
+        symbol_record_roundtrip
+          (Pdb.Codeview_symbols.LData32 { type_index; offset; segment; name })
+      in
+      match r with
+      | Pdb.Codeview_symbols.LData32 d ->
+          Unsigned.UInt32.equal d.type_index type_index && d.name = name
+      | _ -> false)
+
+let test_qc_gdata32 =
+  QCheck.Test.make ~name:"GData32 roundtrip" ~count:200
+    (QCheck.make
+       QCheck.Gen.(
+         let+ type_index = gen_u32
+         and+ offset = gen_u32
+         and+ segment = int_range 1 5
+         and+ name = gen_name in
+         (type_index, offset, segment, name)))
+    (fun (type_index, offset, segment, name) ->
+      let r =
+        symbol_record_roundtrip
+          (Pdb.Codeview_symbols.GData32 { type_index; offset; segment; name })
+      in
+      match r with
+      | Pdb.Codeview_symbols.GData32 d ->
+          Unsigned.UInt32.equal d.type_index type_index && d.name = name
+      | _ -> false)
+
+let test_qc_block32 =
+  QCheck.Test.make ~name:"Block32 roundtrip" ~count:200
+    (QCheck.make
+       QCheck.Gen.(
+         let+ length = int_range 1 1000
+         and+ offset = gen_u32
+         and+ segment = int_range 1 5
+         and+ name = gen_name in
+         (length, offset, segment, name)))
+    (fun (length, offset, segment, name) ->
+      let r =
+        symbol_record_roundtrip
+          (Pdb.Codeview_symbols.Block32
+             { parent = u32 0; end_ = u32 0; length = u32 length;
+               offset; segment; name })
+      in
+      match r with
+      | Pdb.Codeview_symbols.Block32
+          { length = l; offset = o; segment = s; name = n; _ } ->
+          Unsigned.UInt32.to_int l = length
+          && Unsigned.UInt32.equal o offset
+          && s = segment && n = name
+      | _ -> false)
+
+let test_qc_frameproc =
+  QCheck.Test.make ~name:"FrameProc roundtrip" ~count:200
+    (QCheck.make
+       QCheck.Gen.(
+         let+ total = int_range 0 1000
+         and+ callee_saved = int_range 0 64
+         and+ flags = int_range 0 0xFFFFFF in
+         (total, callee_saved, flags)))
+    (fun (total, callee_saved, flags) ->
+      let r =
+        symbol_record_roundtrip
+          (Pdb.Codeview_symbols.FrameProc
+             {
+               total_frame_bytes = u32 total;
+               padding_frame_bytes = u32 0;
+               offset_to_padding = u32 0;
+               callee_saved_reg_bytes = u32 callee_saved;
+               exception_handler_offset = u32 0;
+               exception_handler_section = 0;
+               frame_proc_flags = u32 flags;
+             })
+      in
+      match r with
+      | Pdb.Codeview_symbols.FrameProc
+          { total_frame_bytes; callee_saved_reg_bytes; frame_proc_flags; _ } ->
+          Unsigned.UInt32.to_int total_frame_bytes = total
+          && Unsigned.UInt32.to_int callee_saved_reg_bytes = callee_saved
+          && Unsigned.UInt32.to_int frame_proc_flags = flags
+      | _ -> false)
+
 (** {2 Named Stream Map Round-trip} *)
 
 let test_named_stream_map_roundtrip =
@@ -673,6 +912,18 @@ let () =
             test_constant_roundtrip;
             test_bprel32_roundtrip;
             test_local_roundtrip;
+            test_qc_lproc32;
+            test_qc_gproc32id;
+            test_qc_lproc32id;
+            test_qc_gthread32;
+            test_qc_lthread32;
+            test_qc_regrel32;
+            test_qc_register;
+            test_qc_label32;
+            test_qc_ldata32;
+            test_qc_gdata32;
+            test_qc_block32;
+            test_qc_frameproc;
           ] );
       ( "named_stream_map",
         [ QCheck_alcotest.to_alcotest test_named_stream_map_roundtrip ] );
