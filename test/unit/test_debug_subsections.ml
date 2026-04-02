@@ -46,6 +46,7 @@ let test_lines_roundtrip () =
                   is_statement = true;
                 };
               |];
+            columns = Option.None;
           };
         |];
     }
@@ -189,6 +190,121 @@ let test_multiple_subsections () =
   | Pdb.Debug_subsections.FileChecksums _ -> ()
   | _ -> Alcotest.fail "expected FileChecksums second"
 
+(** {2 Column info tests} *)
+
+let test_lines_with_columns () =
+  let lines : Pdb.Debug_subsections.lines_subsection =
+    {
+      contrib_offset = u32 0;
+      contrib_segment = 1;
+      flags = 0; (* writer will set HaveColumns automatically *)
+      contrib_size = u32 50;
+      blocks =
+        [|
+          {
+            file_index = u32 0;
+            lines =
+              [|
+                {
+                  offset = u32 0;
+                  line_start = 5;
+                  delta_line_end = 0;
+                  is_statement = true;
+                };
+                {
+                  offset = u32 10;
+                  line_start = 6;
+                  delta_line_end = 0;
+                  is_statement = true;
+                };
+                {
+                  offset = u32 25;
+                  line_start = 7;
+                  delta_line_end = 0;
+                  is_statement = true;
+                };
+              |];
+            columns =
+              Some
+                [|
+                  { Pdb.Debug_subsections.start_column = 3; end_column = 15 };
+                  { start_column = 5; end_column = 20 };
+                  { start_column = 3; end_column = 10 };
+                |];
+          };
+        |];
+    }
+  in
+  let buf = Buffer.create 128 in
+  Pdb.Debug_subsections.write_subsection buf (Lines lines);
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let subs = Pdb.Debug_subsections.parse_subsections cur (String.length bytes) in
+  let sub_list = List.of_seq subs in
+  Alcotest.(check int) "one subsection" 1 (List.length sub_list);
+  match List.hd sub_list with
+  | Pdb.Debug_subsections.Lines ls ->
+      Alcotest.(check int) "HaveColumns flag" 1 (ls.flags land 0x0001);
+      Alcotest.(check int) "one block" 1 (Array.length ls.blocks);
+      let block = ls.blocks.(0) in
+      Alcotest.(check int) "three lines" 3 (Array.length block.lines);
+      Alcotest.(check int) "line 0" 5 block.lines.(0).line_start;
+      Alcotest.(check int) "line 1" 6 block.lines.(1).line_start;
+      (* Verify columns *)
+      (match block.columns with
+      | Some cols ->
+          Alcotest.(check int) "three cols" 3 (Array.length cols);
+          Alcotest.(check int) "col 0 start" 3 cols.(0).start_column;
+          Alcotest.(check int) "col 0 end" 15 cols.(0).end_column;
+          Alcotest.(check int) "col 1 start" 5 cols.(1).start_column;
+          Alcotest.(check int) "col 1 end" 20 cols.(1).end_column;
+          Alcotest.(check int) "col 2 start" 3 cols.(2).start_column;
+          Alcotest.(check int) "col 2 end" 10 cols.(2).end_column
+      | Option.None -> Alcotest.fail "expected columns")
+  | _ -> Alcotest.fail "expected Lines subsection"
+
+let test_lines_no_columns_parsed_as_none () =
+  (* Lines without column info should have columns = None *)
+  let lines : Pdb.Debug_subsections.lines_subsection =
+    {
+      contrib_offset = u32 0;
+      contrib_segment = 1;
+      flags = 0;
+      contrib_size = u32 20;
+      blocks =
+        [|
+          {
+            file_index = u32 0;
+            lines =
+              [|
+                {
+                  offset = u32 0;
+                  line_start = 1;
+                  delta_line_end = 0;
+                  is_statement = true;
+                };
+              |];
+            columns = Option.None;
+          };
+        |];
+    }
+  in
+  let buf = Buffer.create 64 in
+  Pdb.Debug_subsections.write_subsection buf (Lines lines);
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let subs = Pdb.Debug_subsections.parse_subsections cur (String.length bytes) in
+  let sub_list = List.of_seq subs in
+  match List.hd sub_list with
+  | Pdb.Debug_subsections.Lines ls ->
+      Alcotest.(check int) "no HaveColumns" 0 (ls.flags land 0x0001);
+      let block = ls.blocks.(0) in
+      Alcotest.(check bool) "no columns" true
+        (block.columns = Option.None)
+  | _ -> Alcotest.fail "expected Lines subsection"
+
 let () =
   Alcotest.run "Debug Subsections"
     [
@@ -201,5 +317,12 @@ let () =
           Alcotest.test_case "inlinee lines" `Quick test_inlinee_lines_roundtrip;
           Alcotest.test_case "multiple subsections" `Quick
             test_multiple_subsections;
+        ] );
+      ( "columns",
+        [
+          Alcotest.test_case "lines with columns" `Quick
+            test_lines_with_columns;
+          Alcotest.test_case "lines without columns" `Quick
+            test_lines_no_columns_parsed_as_none;
         ] );
     ]

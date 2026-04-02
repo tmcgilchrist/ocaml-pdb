@@ -12,7 +12,13 @@ type line_entry = {
   is_statement : bool;
 }
 
-type line_block = { file_index : u32; lines : line_entry array }
+type column_entry = { start_column : int; end_column : int }
+
+type line_block = {
+  file_index : u32;
+  lines : line_entry array;
+  columns : column_entry array option;
+}
 
 type lines_subsection = {
   contrib_offset : u32;

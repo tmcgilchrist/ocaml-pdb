@@ -15,7 +15,13 @@ type line_entry = {
   is_statement : bool;
 }
 
-type line_block = { file_index : u32; lines : line_entry array }
+type column_entry = { start_column : int; end_column : int }
+
+type line_block = {
+  file_index : u32;
+  lines : line_entry array;
+  columns : column_entry array option;
+}
 
 type lines_subsection = {
   contrib_offset : u32;
@@ -75,7 +81,7 @@ let parse_lines (cur : Object.Buffer.cursor) (sub_end : int) : lines_subsection
   let contrib_segment = read_u16 cur in
   let flags = read_u16 cur in
   let contrib_size = read_u32 cur in
-  let _has_columns = flags land 0x0001 <> 0 in
+  let has_columns = flags land 0x0001 <> 0 in
   (* Parse line blocks *)
   let blocks = ref [] in
   while cur.position < sub_end do
@@ -83,8 +89,16 @@ let parse_lines (cur : Object.Buffer.cursor) (sub_end : int) : lines_subsection
     let num_lines = Unsigned.UInt32.to_int (read_u32 cur) in
     let _block_size = read_u32 cur in
     let lines = Array.init num_lines (fun _ -> parse_line_entry cur) in
-    (* Skip column info if present - for now we don't parse it *)
-    blocks := { file_index; lines } :: !blocks
+    let columns =
+      if has_columns then
+        Some
+          (Array.init num_lines (fun _ ->
+               let start_column = read_u16 cur in
+               let end_column = read_u16 cur in
+               { start_column; end_column }))
+      else Option.None
+    in
+    blocks := { file_index; lines; columns } :: !blocks
   done;
   {
     contrib_offset;
@@ -192,28 +206,54 @@ let write_subsection (buf : Buffer.t) (sub : subsection) : unit =
   let kind =
     match sub with
     | Lines ls ->
+        (* Determine if any block has column info *)
+        let has_columns =
+          Array.exists
+            (fun (b : line_block) -> b.columns <> Option.None)
+            ls.blocks
+        in
+        let flags =
+          if has_columns then ls.flags lor 0x0001 else ls.flags land lnot 0x0001
+        in
         (* LineFragmentHeader *)
         write_u32_le content_buf (Unsigned.UInt32.to_int ls.contrib_offset);
         write_u16_le content_buf ls.contrib_segment;
-        write_u16_le content_buf ls.flags;
+        write_u16_le content_buf flags;
         write_u32_le content_buf (Unsigned.UInt32.to_int ls.contrib_size);
         Array.iter
           (fun (block : line_block) ->
             let num_lines = Array.length block.lines in
             write_u32_le content_buf (Unsigned.UInt32.to_int block.file_index);
             write_u32_le content_buf num_lines;
-            (* BlockSize = 12 (header) + num_lines * 8 (line entries) *)
-            write_u32_le content_buf (12 + (num_lines * 8));
+            (* BlockSize = 12 (header) + num_lines * 8 (lines)
+               + if columns: num_lines * 4 (columns) *)
+            let col_size =
+              if has_columns then num_lines * 4 else 0
+            in
+            write_u32_le content_buf (12 + (num_lines * 8) + col_size);
             Array.iter
               (fun (le : line_entry) ->
                 write_u32_le content_buf (Unsigned.UInt32.to_int le.offset);
-                let flags =
+                let f =
                   le.line_start land 0x00FFFFFF
                   lor ((le.delta_line_end land 0x7F) lsl 24)
-                  lor if le.is_statement then 0x80000000 else 0
+                  lor (if le.is_statement then 0x80000000 else 0)
                 in
-                write_u32_le content_buf flags)
-              block.lines)
+                write_u32_le content_buf f)
+              block.lines;
+            if has_columns then
+              let cols =
+                match block.columns with
+                | Some c -> c
+                | Option.None ->
+                    (* Fill with zeros if this block has no columns but others do *)
+                    Array.make num_lines { start_column = 0; end_column = 0 }
+              in
+              Array.iter
+                (fun (c : column_entry) ->
+                  write_u16_le content_buf c.start_column;
+                  write_u16_le content_buf c.end_column)
+                cols)
           ls.blocks;
         0xf2
     | FileChecksums entries ->
