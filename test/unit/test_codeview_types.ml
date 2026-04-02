@@ -261,6 +261,225 @@ let test_udt_src_line_roundtrip () =
           Alcotest.(check int) (name ^ " line") 42 (Unsigned.UInt32.to_int line)
       | _ -> Alcotest.fail "expected UdtSrcLine")
 
+let test_mfunction_roundtrip () =
+  roundtrip_record "mfunction"
+    (Pdb.Codeview_types.MFunction
+       {
+         return_type = u32 0x0074;
+         class_type = u32 0x1007;
+         this_type = u32 0x1008;
+         calling_conv = Pdb.Codeview_constants.ThisCall;
+         param_count = 2;
+         arg_list = u32 0x1003;
+         this_adjust = 0l;
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.MFunction
+          { return_type; class_type; this_type; calling_conv; param_count;
+            arg_list; this_adjust } ->
+          Alcotest.(check int) (name ^ " ret") 0x0074
+            (Unsigned.UInt32.to_int return_type);
+          Alcotest.(check int) (name ^ " class") 0x1007
+            (Unsigned.UInt32.to_int class_type);
+          Alcotest.(check int) (name ^ " this") 0x1008
+            (Unsigned.UInt32.to_int this_type);
+          Alcotest.(check bool) (name ^ " cc") true
+            (calling_conv = Pdb.Codeview_constants.ThisCall);
+          Alcotest.(check int) (name ^ " params") 2 param_count;
+          Alcotest.(check int) (name ^ " arglist") 0x1003
+            (Unsigned.UInt32.to_int arg_list);
+          Alcotest.(check int) (name ^ " this_adjust") 0
+            (Int32.to_int this_adjust)
+      | _ -> Alcotest.fail "expected MFunction")
+
+let test_array_roundtrip () =
+  roundtrip_record "array"
+    (Pdb.Codeview_types.Array
+       {
+         element_type = u32 0x0074;
+         index_type = u32 0x0075;
+         size = 40L;
+         name = "int[10]";
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.Array { element_type; index_type; size; name = n } ->
+          Alcotest.(check int) (name ^ " elem") 0x0074
+            (Unsigned.UInt32.to_int element_type);
+          Alcotest.(check int) (name ^ " idx") 0x0075
+            (Unsigned.UInt32.to_int index_type);
+          Alcotest.(check int64) (name ^ " size") 40L size;
+          Alcotest.(check string) (name ^ " name") "int[10]" n
+      | _ -> Alcotest.fail "expected Array")
+
+let test_class_roundtrip () =
+  roundtrip_record "class"
+    (Pdb.Codeview_types.Class
+       {
+         field_count = 3;
+         properties =
+           Pdb.Codeview_types.parse_type_properties 0x0200;
+         field_list = u32 0x100B;
+         derived_from = u32 0;
+         vtable_shape = u32 0x100A;
+         size = 16L;
+         name = "FooClass";
+         unique_name = Some ".?AVFooClass@@";
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.Class
+          { field_count; properties; vtable_shape; size; name = n;
+            unique_name; _ } ->
+          Alcotest.(check int) (name ^ " count") 3 field_count;
+          Alcotest.(check bool) (name ^ " has_unique_name") true
+            properties.has_unique_name;
+          Alcotest.(check int) (name ^ " vtshape") 0x100A
+            (Unsigned.UInt32.to_int vtable_shape);
+          Alcotest.(check int64) (name ^ " size") 16L size;
+          Alcotest.(check string) (name ^ " name") "FooClass" n;
+          Alcotest.(check (option string)) (name ^ " unique")
+            (Some ".?AVFooClass@@") unique_name
+      | _ -> Alcotest.fail "expected Class")
+
+let test_structure_roundtrip () =
+  roundtrip_record "structure"
+    (Pdb.Codeview_types.Structure
+       {
+         field_count = 2;
+         properties = Pdb.Codeview_types.parse_type_properties 0;
+         field_list = u32 0x1003;
+         derived_from = u32 0;
+         vtable_shape = u32 0;
+         size = 8L;
+         name = "Point";
+         unique_name = Option.None;
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.Structure { field_count; size; name = n; _ } ->
+          Alcotest.(check int) (name ^ " count") 2 field_count;
+          Alcotest.(check int64) (name ^ " size") 8L size;
+          Alcotest.(check string) (name ^ " name") "Point" n
+      | _ -> Alcotest.fail "expected Structure")
+
+let test_union_roundtrip () =
+  roundtrip_record "union"
+    (Pdb.Codeview_types.Union
+       {
+         field_count = 2;
+         properties =
+           Pdb.Codeview_types.parse_type_properties 0x0200;
+         field_list = u32 0x1010;
+         size = 4L;
+         name = "MyUnion";
+         unique_name = Some ".?ATMyUnion@@";
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.Union
+          { field_count; size; name = n; unique_name; _ } ->
+          Alcotest.(check int) (name ^ " count") 2 field_count;
+          Alcotest.(check int64) (name ^ " size") 4L size;
+          Alcotest.(check string) (name ^ " name") "MyUnion" n;
+          Alcotest.(check (option string)) (name ^ " unique")
+            (Some ".?ATMyUnion@@") unique_name
+      | _ -> Alcotest.fail "expected Union")
+
+let test_vtshape_roundtrip () =
+  roundtrip_record "vtshape"
+    (Pdb.Codeview_types.VTShape { descriptors = [| 0; 0; 0; 4 |] })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.VTShape { descriptors } ->
+          Alcotest.(check int) (name ^ " count") 4 (Array.length descriptors);
+          Alcotest.(check int) (name ^ " desc[0]") 0 descriptors.(0);
+          Alcotest.(check int) (name ^ " desc[3]") 4 descriptors.(3)
+      | _ -> Alcotest.fail "expected VTShape")
+
+let test_methodlist_roundtrip () =
+  roundtrip_record "methodlist"
+    (Pdb.Codeview_types.MethodList
+       {
+         entries =
+           [
+             (* Vanilla method, attrs=3 (public), no vftable offset *)
+             (3, u32 0x1009, Option.None);
+             (* IntroducingVirtual method (kind=4), attrs=0x13, with vftable offset *)
+             (0x13, u32 0x100A, Some 0);
+           ];
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.MethodList { entries } ->
+          Alcotest.(check int) (name ^ " count") 2 (List.length entries);
+          let attrs0, type0, vft0 = List.nth entries 0 in
+          Alcotest.(check int) (name ^ " e0 attrs") 3 attrs0;
+          Alcotest.(check int) (name ^ " e0 type") 0x1009
+            (Unsigned.UInt32.to_int type0);
+          Alcotest.(check (option int)) (name ^ " e0 vft") Option.None vft0;
+          let attrs1, type1, vft1 = List.nth entries 1 in
+          Alcotest.(check int) (name ^ " e1 attrs") 0x13 attrs1;
+          Alcotest.(check int) (name ^ " e1 type") 0x100A
+            (Unsigned.UInt32.to_int type1);
+          Alcotest.(check (option int)) (name ^ " e1 vft") (Some 0) vft1
+      | _ -> Alcotest.fail "expected MethodList")
+
+let test_mfunc_id_roundtrip () =
+  roundtrip_record "mfunc_id"
+    (Pdb.Codeview_types.MFuncId
+       { parent_type = u32 0x1007; func_type = u32 0x1009; name = "method" })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.MFuncId { parent_type; func_type; name = n } ->
+          Alcotest.(check int) (name ^ " parent") 0x1007
+            (Unsigned.UInt32.to_int parent_type);
+          Alcotest.(check int) (name ^ " type") 0x1009
+            (Unsigned.UInt32.to_int func_type);
+          Alcotest.(check string) (name ^ " name") "method" n
+      | _ -> Alcotest.fail "expected MFuncId")
+
+let test_buildinfo_type_roundtrip () =
+  roundtrip_record "buildinfo"
+    (Pdb.Codeview_types.BuildInfo
+       { args = [| u32 0x1000; u32 0x1001; u32 0x1002; u32 0; u32 0x1003 |] })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.BuildInfo { args } ->
+          Alcotest.(check int) (name ^ " count") 5 (Array.length args);
+          Alcotest.(check int) (name ^ " arg0") 0x1000
+            (Unsigned.UInt32.to_int args.(0));
+          Alcotest.(check int) (name ^ " arg4") 0x1003
+            (Unsigned.UInt32.to_int args.(4))
+      | _ -> Alcotest.fail "expected BuildInfo")
+
+let test_udt_mod_src_line_roundtrip () =
+  roundtrip_record "udt_mod_src_line"
+    (Pdb.Codeview_types.UdtModSrcLine
+       { udt = u32 0x1004; source = u32 0x1001; line = u32 15; module_ = 0 })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.UdtModSrcLine { udt; line; module_; _ } ->
+          Alcotest.(check int) (name ^ " udt") 0x1004
+            (Unsigned.UInt32.to_int udt);
+          Alcotest.(check int) (name ^ " line") 15
+            (Unsigned.UInt32.to_int line);
+          Alcotest.(check int) (name ^ " module") 0 module_
+      | _ -> Alcotest.fail "expected UdtModSrcLine")
+
+let test_substr_list_roundtrip () =
+  roundtrip_record "substr_list"
+    (Pdb.Codeview_types.SubstrList
+       { strings = [| u32 0x1000; u32 0x1001 |] })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.SubstrList { strings } ->
+          Alcotest.(check int) (name ^ " count") 2 (Array.length strings);
+          Alcotest.(check int) (name ^ " s0") 0x1000
+            (Unsigned.UInt32.to_int strings.(0))
+      | _ -> Alcotest.fail "expected SubstrList")
+
 (** {2 TPI stream round-trip} *)
 
 let test_tpi_stream_roundtrip () =
@@ -334,6 +553,19 @@ let () =
           Alcotest.test_case "func_id" `Quick test_func_id_roundtrip;
           Alcotest.test_case "string_id" `Quick test_string_id_roundtrip;
           Alcotest.test_case "udt_src_line" `Quick test_udt_src_line_roundtrip;
+          Alcotest.test_case "mfunction" `Quick test_mfunction_roundtrip;
+          Alcotest.test_case "array" `Quick test_array_roundtrip;
+          Alcotest.test_case "class" `Quick test_class_roundtrip;
+          Alcotest.test_case "structure" `Quick test_structure_roundtrip;
+          Alcotest.test_case "union" `Quick test_union_roundtrip;
+          Alcotest.test_case "vtshape" `Quick test_vtshape_roundtrip;
+          Alcotest.test_case "methodlist" `Quick test_methodlist_roundtrip;
+          Alcotest.test_case "mfunc_id" `Quick test_mfunc_id_roundtrip;
+          Alcotest.test_case "buildinfo_type" `Quick
+            test_buildinfo_type_roundtrip;
+          Alcotest.test_case "udt_mod_src_line" `Quick
+            test_udt_mod_src_line_roundtrip;
+          Alcotest.test_case "substr_list" `Quick test_substr_list_roundtrip;
         ] );
       ( "tpi_stream",
         [ Alcotest.test_case "roundtrip" `Quick test_tpi_stream_roundtrip ] );
