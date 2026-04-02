@@ -486,6 +486,52 @@ let test_ldata32_roundtrip () =
           Alcotest.(check int) (name ^ " segment") 2 d.segment
       | _ -> Alcotest.fail (name ^ ": expected LData32"))
 
+(** {2 Unknown record handling} *)
+
+let write_u16_le buf v =
+  Buffer.add_char buf (Char.chr (v land 0xFF));
+  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
+
+let test_unknown_symbol_record () =
+  (* Construct a binary symbol record with an unrecognized kind (0xAAAA) *)
+  let buf = Buffer.create 16 in
+  let payload = "WXYZ" in
+  let rec_len = 2 + String.length payload in
+  write_u16_le buf rec_len;
+  write_u16_le buf 0xAAAA;
+  Buffer.add_string buf payload;
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let len = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
+  let result = Pdb.Codeview_symbols.parse_symbol_record cur len in
+  match result with
+  | Pdb.Codeview_symbols.Unknown { kind; data } ->
+      Alcotest.(check int) "kind" 0xAAAA kind;
+      Alcotest.(check int) "data length" 4 (String.length data);
+      Alcotest.(check string) "data" "WXYZ" data
+  | _ -> Alcotest.fail "expected Unknown symbol record"
+
+let test_unknown_symbol_roundtrip () =
+  roundtrip_symbol "unknown"
+    (Pdb.Codeview_symbols.Unknown { kind = 0xDEAD; data = "\xAA\xBB" })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_symbols.Unknown { kind; data } ->
+          Alcotest.(check int) (name ^ " kind") 0xDEAD kind;
+          Alcotest.(check int) (name ^ " data len") 2 (String.length data)
+      | _ -> Alcotest.fail (name ^ ": expected Unknown"))
+
+let test_unknown_symbol_empty_payload () =
+  roundtrip_symbol "unknown_empty"
+    (Pdb.Codeview_symbols.Unknown { kind = 0xFFFF; data = "" })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_symbols.Unknown { kind; data } ->
+          Alcotest.(check int) (name ^ " kind") 0xFFFF kind;
+          Alcotest.(check int) (name ^ " data len") 0 (String.length data)
+      | _ -> Alcotest.fail (name ^ ": expected Unknown"))
+
 let () =
   Alcotest.run "CodeView Symbols"
     [
@@ -533,4 +579,13 @@ let () =
       ( "symbol_stream",
         [ Alcotest.test_case "roundtrip" `Quick test_symbol_stream_roundtrip ]
       );
+      ( "unknown_records",
+        [
+          Alcotest.test_case "unknown symbol from binary" `Quick
+            test_unknown_symbol_record;
+          Alcotest.test_case "unknown symbol roundtrip" `Quick
+            test_unknown_symbol_roundtrip;
+          Alcotest.test_case "unknown symbol empty payload" `Quick
+            test_unknown_symbol_empty_payload;
+        ] );
     ]

@@ -745,6 +745,44 @@ let test_tpi_stream_roundtrip () =
       Alcotest.(check int) "procedure params" 0 param_count
   | _ -> Alcotest.fail "expected Procedure as second record"
 
+(** {2 Unknown record handling} *)
+
+let write_u16_le buf v =
+  Buffer.add_char buf (Char.chr (v land 0xFF));
+  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
+
+let test_unknown_type_record () =
+  (* Construct a binary type record with an unrecognized leaf kind (0x9999).
+     Format: u16 length, u16 leaf_kind, payload bytes *)
+  let buf = Buffer.create 16 in
+  let payload = "ABCD" in
+  let rec_len = 2 + String.length payload in (* leaf kind + payload *)
+  write_u16_le buf rec_len;
+  write_u16_le buf 0x9999; (* unrecognized leaf kind *)
+  Buffer.add_string buf payload;
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let len = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
+  let result = Pdb.Codeview_types.parse_type_record cur len in
+  match result with
+  | Pdb.Codeview_types.Unknown { kind; data } ->
+      Alcotest.(check int) "kind" 0x9999 kind;
+      Alcotest.(check int) "data length" 4 (String.length data);
+      Alcotest.(check string) "data" "ABCD" data
+  | _ -> Alcotest.fail "expected Unknown type record"
+
+let test_unknown_type_roundtrip () =
+  (* Write an Unknown record and read it back *)
+  roundtrip_record "unknown"
+    (Pdb.Codeview_types.Unknown { kind = 0xBEEF; data = "\x01\x02\x03" })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.Unknown { kind; data } ->
+          Alcotest.(check int) (name ^ " kind") 0xBEEF kind;
+          Alcotest.(check int) (name ^ " data len") 3 (String.length data)
+      | _ -> Alcotest.fail "expected Unknown")
+
 let () =
   Alcotest.run "CodeView Types"
     [
@@ -807,4 +845,11 @@ let () =
         ] );
       ( "tpi_stream",
         [ Alcotest.test_case "roundtrip" `Quick test_tpi_stream_roundtrip ] );
+      ( "unknown_records",
+        [
+          Alcotest.test_case "unknown type record" `Quick
+            test_unknown_type_record;
+          Alcotest.test_case "unknown type roundtrip" `Quick
+            test_unknown_type_roundtrip;
+        ] );
     ]
