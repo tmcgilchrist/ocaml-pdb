@@ -1,0 +1,5 @@
+(cram
+ (applies_to test_pdbdump)
+ (deps
+  %{bin:pdbdump}
+  ../fixtures/simple.pdb))
