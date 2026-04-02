@@ -305,6 +305,78 @@ let test_lines_no_columns_parsed_as_none () =
         (block.columns = Option.None)
   | _ -> Alcotest.fail "expected Lines subsection"
 
+(** {2 FrameData tests} *)
+
+let test_frame_data_roundtrip () =
+  let entries =
+    [|
+      {
+        Pdb.Debug_subsections.rva_start = u32 0x1000;
+        code_size = u32 100;
+        local_size = u32 48;
+        params_size = u32 16;
+        max_stack_size = u32 0;
+        frame_func = u32 0;
+        prolog_size = 10;
+        saved_regs_size = 16;
+        flags = u32 0x04;
+      };
+      {
+        rva_start = u32 0x2000;
+        code_size = u32 50;
+        local_size = u32 24;
+        params_size = u32 8;
+        max_stack_size = u32 0;
+        frame_func = u32 0;
+        prolog_size = 5;
+        saved_regs_size = 8;
+        flags = u32 0x04;
+      };
+    |]
+  in
+  let buf = Buffer.create 128 in
+  Pdb.Debug_subsections.write_subsection buf (FrameData entries);
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let subs = Pdb.Debug_subsections.parse_subsections cur (String.length bytes) in
+  let sub_list = List.of_seq subs in
+  Alcotest.(check int) "one subsection" 1 (List.length sub_list);
+  match List.hd sub_list with
+  | Pdb.Debug_subsections.FrameData frames ->
+      Alcotest.(check int) "two frames" 2 (Array.length frames);
+      let f0 = frames.(0) in
+      Alcotest.(check int) "f0 rva" 0x1000
+        (Unsigned.UInt32.to_int f0.rva_start);
+      Alcotest.(check int) "f0 code_size" 100
+        (Unsigned.UInt32.to_int f0.code_size);
+      Alcotest.(check int) "f0 local_size" 48
+        (Unsigned.UInt32.to_int f0.local_size);
+      Alcotest.(check int) "f0 params_size" 16
+        (Unsigned.UInt32.to_int f0.params_size);
+      Alcotest.(check int) "f0 prolog" 10 f0.prolog_size;
+      Alcotest.(check int) "f0 saved_regs" 16 f0.saved_regs_size;
+      Alcotest.(check int) "f0 flags" 0x04 (Unsigned.UInt32.to_int f0.flags);
+      let f1 = frames.(1) in
+      Alcotest.(check int) "f1 rva" 0x2000
+        (Unsigned.UInt32.to_int f1.rva_start);
+      Alcotest.(check int) "f1 code_size" 50
+        (Unsigned.UInt32.to_int f1.code_size)
+  | _ -> Alcotest.fail "expected FrameData subsection"
+
+let test_frame_data_empty () =
+  let buf = Buffer.create 32 in
+  Pdb.Debug_subsections.write_subsection buf (FrameData [||]);
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let subs = Pdb.Debug_subsections.parse_subsections cur (String.length bytes) in
+  let sub_list = List.of_seq subs in
+  match List.hd sub_list with
+  | Pdb.Debug_subsections.FrameData frames ->
+      Alcotest.(check int) "empty" 0 (Array.length frames)
+  | _ -> Alcotest.fail "expected FrameData subsection"
+
 let () =
   Alcotest.run "Debug Subsections"
     [
@@ -324,5 +396,10 @@ let () =
             test_lines_with_columns;
           Alcotest.test_case "lines without columns" `Quick
             test_lines_no_columns_parsed_as_none;
+        ] );
+      ( "frame_data",
+        [
+          Alcotest.test_case "roundtrip" `Quick test_frame_data_roundtrip;
+          Alcotest.test_case "empty" `Quick test_frame_data_empty;
         ] );
     ]

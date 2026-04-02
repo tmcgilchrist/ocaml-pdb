@@ -41,11 +41,24 @@ type file_checksum_entry = {
 
 type inlinee_line = { inlinee : u32; file_id : u32; source_line : u32 }
 
+type frame_data_entry = {
+  rva_start : u32;
+  code_size : u32;
+  local_size : u32;
+  params_size : u32;
+  max_stack_size : u32;
+  frame_func : u32;
+  prolog_size : int;
+  saved_regs_size : int;
+  flags : u32;
+}
+
 type subsection =
   | Lines of lines_subsection
   | FileChecksums of file_checksum_entry array
   | StringTable of string array
   | InlineeLines of inlinee_line array
+  | FrameData of frame_data_entry array
   | Unknown of { kind : int; data : string }
 
 let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
@@ -152,6 +165,30 @@ let parse_inlinee_lines (cur : Object.Buffer.cursor) (sub_end : int) :
   if cur.position < sub_end then Object.Buffer.seek cur sub_end;
   Array.of_list (List.rev !entries)
 
+let parse_frame_data (cur : Object.Buffer.cursor) (sub_end : int) :
+    frame_data_entry array =
+  (* First u32 is a relocation pointer (RVA of the contribution) *)
+  let _reloc_ptr = read_u32 cur in
+  (* Each FrameData entry is 32 bytes *)
+  let entries = ref [] in
+  while cur.position + 32 <= sub_end do
+    let rva_start = read_u32 cur in
+    let code_size = read_u32 cur in
+    let local_size = read_u32 cur in
+    let params_size = read_u32 cur in
+    let max_stack_size = read_u32 cur in
+    let frame_func = read_u32 cur in
+    let prolog_size = read_u16 cur in
+    let saved_regs_size = read_u16 cur in
+    let flags = read_u32 cur in
+    entries :=
+      { rva_start; code_size; local_size; params_size; max_stack_size;
+        frame_func; prolog_size; saved_regs_size; flags }
+      :: !entries
+  done;
+  if cur.position < sub_end then Object.Buffer.seek cur sub_end;
+  Array.of_list (List.rev !entries)
+
 let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
     subsection Seq.t =
   let end_pos = cur.position + total_bytes in
@@ -167,6 +204,7 @@ let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
         | 0xf4 -> FileChecksums (parse_file_checksums cur sub_end)
         | 0xf3 -> StringTable (parse_string_table cur sub_end)
         | 0xf6 -> InlineeLines (parse_inlinee_lines cur sub_end)
+        | 0xf5 -> FrameData (parse_frame_data cur sub_end)
         | _ ->
             let data =
               if size > 0 then Object.Buffer.Read.fixed_string cur size else ""
@@ -285,6 +323,22 @@ let write_subsection (buf : Buffer.t) (sub : subsection) : unit =
             write_u32_le content_buf (Unsigned.UInt32.to_int e.source_line))
           entries;
         0xf6
+    | FrameData entries ->
+        (* Relocation pointer (RVA of contribution start) *)
+        write_u32_le content_buf 0;
+        Array.iter
+          (fun (e : frame_data_entry) ->
+            write_u32_le content_buf (Unsigned.UInt32.to_int e.rva_start);
+            write_u32_le content_buf (Unsigned.UInt32.to_int e.code_size);
+            write_u32_le content_buf (Unsigned.UInt32.to_int e.local_size);
+            write_u32_le content_buf (Unsigned.UInt32.to_int e.params_size);
+            write_u32_le content_buf (Unsigned.UInt32.to_int e.max_stack_size);
+            write_u32_le content_buf (Unsigned.UInt32.to_int e.frame_func);
+            write_u16_le content_buf e.prolog_size;
+            write_u16_le content_buf e.saved_regs_size;
+            write_u32_le content_buf (Unsigned.UInt32.to_int e.flags))
+          entries;
+        0xf5
     | Unknown { kind; data } ->
         Buffer.add_string content_buf data;
         kind

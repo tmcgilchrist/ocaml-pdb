@@ -38,11 +38,24 @@ type file_checksum_entry = {
 
 type inlinee_line = { inlinee : u32; file_id : u32; source_line : u32 }
 
+type frame_data_entry = {
+  rva_start : u32;
+  code_size : u32;
+  local_size : u32;
+  params_size : u32;
+  max_stack_size : u32;
+  frame_func : u32;
+  prolog_size : int;
+  saved_regs_size : int;
+  flags : u32;
+}
+
 type subsection =
   | Lines of lines_subsection
   | FileChecksums of file_checksum_entry array
   | StringTable of string array
   | InlineeLines of inlinee_line array
+  | FrameData of frame_data_entry array
   | Unknown of { kind : int; data : string }
 
 val parse_subsections : Object.Buffer.cursor -> int -> subsection Seq.t
