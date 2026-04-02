@@ -2,7 +2,8 @@
  (name test_pdb_integration)
  (libraries pdb object alcotest)
  (deps
-  (file %{project_root}/test/fixtures/simple.pdb))
+  (file %{project_root}/test/fixtures/simple.pdb)
+  (file %{project_root}/test/fixtures/complex.pdb))
  (action
   (run %{exe:test_pdb_integration.exe})))
 

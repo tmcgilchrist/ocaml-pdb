@@ -1,0 +1,199 @@
+---
+TpiStream:
+  Records:
+    # (int, char**)                                   [Index: 0x1000]
+    - Kind:            LF_ARGLIST
+      ArgList:
+        ArgIndices:  [ 116, 1136 ]
+    # int main(int, char**)                           [Index: 0x1001]
+    - Kind:            LF_PROCEDURE
+      Procedure:
+        ReturnType:      116
+        CallConv:        NearC
+        Options:         [ None ]
+        ParameterCount:  2
+        ArgumentList:    0x1000
+    # struct Base (fwd ref)                           [Index: 0x1002]
+    - Kind:            LF_STRUCTURE
+      Class:
+        MemberCount:     0
+        Options:         [ None, ForwardReference, HasUniqueName ]
+        FieldList:       0
+        Name:            'Base'
+        UniqueName:      '.?AUBase@@'
+        DerivationList:  0
+        VTableShape:     0
+        Size:            0
+    # vtshape (2 entries)                             [Index: 0x1003]
+    - Kind:            LF_VTSHAPE
+      VFTableShape:
+        Slots:
+          - Near
+          - Near
+    # const Base*                                     [Index: 0x1004]
+    - Kind:            LF_POINTER
+      Pointer:
+        ReferentType:    0x1002
+        Attrs:           33802
+    # ()                                              [Index: 0x1005]
+    - Kind:            LF_ARGLIST
+      ArgList:
+        ArgIndices:  []
+    # void Base::vfunc(void)                          [Index: 0x1006]
+    - Kind:            LF_MFUNCTION
+      MemberFunction:
+        ReturnType:      3
+        ClassType:       0x1002
+        ThisType:        0x1004
+        CallConv:        ThisCall
+        Options:         [ None ]
+        ParameterCount:  0
+        ArgumentList:    0x1005
+        ThisPointerAdjustment: 0
+    # int Base::getValue(void)                        [Index: 0x1007]
+    - Kind:            LF_MFUNCTION
+      MemberFunction:
+        ReturnType:      116
+        ClassType:       0x1002
+        ThisType:        0x1004
+        CallConv:        ThisCall
+        Options:         [ None ]
+        ParameterCount:  0
+        ArgumentList:    0x1005
+        ThisPointerAdjustment: 0
+    # <field list for Base>                           [Index: 0x1008]
+    - Kind:            LF_FIELDLIST
+      FieldList:
+        - Kind:            LF_VFUNCTAB
+          VFPtr:
+            Type:            0x1003
+        - Kind:            LF_MEMBER
+          DataMember:
+            Attrs:           3
+            Type:            116
+            FieldOffset:     8
+            Name:            value
+        - Kind:            LF_ONEMETHOD
+          OneMethod:
+            Type:            0x1006
+            Attrs:           5
+            VFTableOffset:   0
+            Name:            vfunc
+        - Kind:            LF_ONEMETHOD
+          OneMethod:
+            Type:            0x1007
+            Attrs:           3
+            VFTableOffset:   -1
+            Name:            getValue
+    # struct Base (complete)                          [Index: 0x1009]
+    - Kind:            LF_STRUCTURE
+      Class:
+        MemberCount:     4
+        Options:         [ None, HasUniqueName ]
+        FieldList:       0x1008
+        Name:            'Base'
+        UniqueName:      '.?AUBase@@'
+        DerivationList:  0
+        VTableShape:     0x1003
+        Size:            16
+    # struct Derived (fwd ref)                        [Index: 0x100A]
+    - Kind:            LF_STRUCTURE
+      Class:
+        MemberCount:     0
+        Options:         [ None, ForwardReference, HasUniqueName ]
+        FieldList:       0
+        Name:            'Derived'
+        UniqueName:      '.?AUDerived@@'
+        DerivationList:  0
+        VTableShape:     0
+        Size:            0
+    # <field list for Derived>                        [Index: 0x100B]
+    - Kind:            LF_FIELDLIST
+      FieldList:
+        - Kind:            LF_BCLASS
+          BaseClass:
+            Attrs:           3
+            Type:            0x1002
+            Offset:          0
+        - Kind:            LF_MEMBER
+          DataMember:
+            Attrs:           3
+            Type:            116
+            FieldOffset:     16
+            Name:            extra
+        - Kind:            LF_ONEMETHOD
+          OneMethod:
+            Type:            0x1006
+            Attrs:           5
+            VFTableOffset:   0
+            Name:            vfunc
+    # struct Derived (complete)                       [Index: 0x100C]
+    - Kind:            LF_STRUCTURE
+      Class:
+        MemberCount:     3
+        Options:         [ None, HasUniqueName ]
+        FieldList:       0x100B
+        Name:            'Derived'
+        UniqueName:      '.?AUDerived@@'
+        DerivationList:  0
+        VTableShape:     0x1003
+        Size:            24
+    # enum Color { RED=0, GREEN=1, BLUE=2 }           [Index: 0x100D]
+    - Kind:            LF_FIELDLIST
+      FieldList:
+        - Kind:            LF_ENUMERATE
+          Enumerator:
+            Attrs:           3
+            Value:           0
+            Name:            RED
+        - Kind:            LF_ENUMERATE
+          Enumerator:
+            Attrs:           3
+            Value:           1
+            Name:            GREEN
+        - Kind:            LF_ENUMERATE
+          Enumerator:
+            Attrs:           3
+            Value:           2
+            Name:            BLUE
+    # enum Color                                      [Index: 0x100E]
+    - Kind:            LF_ENUM
+      Enum:
+        NumEnumerators:  3
+        Options:         [ None, HasUniqueName ]
+        FieldList:       0x100D
+        Name:            'Color'
+        UniqueName:      '.?AW4Color@@'
+        UnderlyingType:  116
+IpiStream:
+  Records:
+    # LF_FUNC_ID for main                            [Index: 0x1000]
+    - Kind:            LF_FUNC_ID
+      FuncId:
+        ParentScope:     0
+        FunctionType:    0x1001
+        Name:            main
+    # LF_STRING_ID for source                        [Index: 0x1001]
+    - Kind:            LF_STRING_ID
+      StringId:
+        Id:              0
+        String:          'complex.cpp'
+    # LF_UDT_SRC_LINE for Base                       [Index: 0x1002]
+    - Kind:            LF_UDT_SRC_LINE
+      UdtSourceLine:
+        UDT:             0x1009
+        SourceFile:      0x1001
+        LineNumber:      3
+    # LF_UDT_SRC_LINE for Derived                    [Index: 0x1003]
+    - Kind:            LF_UDT_SRC_LINE
+      UdtSourceLine:
+        UDT:             0x100C
+        SourceFile:      0x1001
+        LineNumber:      12
+DbiStream:
+  Modules:
+    - Module:          'complex.obj'
+      ObjFile:         'complex.obj'
+    - Module:          '* Linker *'
+      ObjFile:         ''
+...
