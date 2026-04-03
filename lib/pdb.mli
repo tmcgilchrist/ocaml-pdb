@@ -16,3 +16,4 @@ module Debug_subsections = Debug_subsections
 module Gsi = Gsi
 module Gsi_write = Gsi_write
 module Pdb_string_table = Pdb_string_table
+module Pdb_builder = Pdb_builder

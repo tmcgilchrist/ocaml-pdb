@@ -12,3 +12,9 @@
  (libraries pdb object alcotest str)
  (action
   (run %{exe:test_cross_validate.exe})))
+
+(test
+ (name test_pdb_builder)
+ (libraries pdb object alcotest str)
+ (action
+  (run %{exe:test_pdb_builder.exe})))
