@@ -75,3 +75,9 @@
  (libraries pdb object alcotest)
  (action
   (run %{exe:test_string_table.exe})))
+
+(test
+ (name test_type_merge)
+ (libraries pdb alcotest)
+ (action
+  (run %{exe:test_type_merge.exe})))
