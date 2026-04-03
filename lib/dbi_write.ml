@@ -66,8 +66,9 @@ let write_module_info buf (m : Dbi.module_info) =
 (* DBI version: V70 = 19990903 *)
 let dbi_version_v70 = 19990903
 
-let write (buf : Buffer.t) (modules : Dbi.module_info list)
-    (section_contribs : Dbi.section_contribution list) ~machine : unit =
+let write_full (buf : Buffer.t) (modules : Dbi.module_info list)
+    (section_contribs : Dbi.section_contribution list) ~machine ~global_stream
+    ~public_stream ~sym_record_stream : unit =
   (* Build substreams *)
   let mod_buf = Buffer.create 256 in
   List.iter (write_module_info mod_buf) modules;
@@ -84,15 +85,15 @@ let write (buf : Buffer.t) (modules : Dbi.module_info list)
   write_u32_le buf dbi_version_v70;
   write_u32_le buf 1;
   (* Age *)
-  write_u16_le buf 0xFFFF;
+  write_u16_le buf global_stream;
   (* GlobalSymbolStreamIndex *)
   write_u16_le buf 0;
   (* BuildNumber *)
-  write_u16_le buf 0xFFFF;
+  write_u16_le buf public_stream;
   (* PublicSymbolStreamIndex *)
   write_u16_le buf 0;
   (* PdbDllVersion *)
-  write_u16_le buf 0xFFFF;
+  write_u16_le buf sym_record_stream;
   (* SymRecordStreamIndex *)
   write_u16_le buf 0;
   (* PdbDllRbld *)
@@ -118,3 +119,7 @@ let write (buf : Buffer.t) (modules : Dbi.module_info list)
   (* Write substreams *)
   Buffer.add_string buf (Buffer.contents mod_buf);
   Buffer.add_string buf (Buffer.contents sc_buf)
+
+let write buf modules section_contribs ~machine =
+  write_full buf modules section_contribs ~machine ~global_stream:0xFFFF
+    ~public_stream:0xFFFF ~sym_record_stream:0xFFFF

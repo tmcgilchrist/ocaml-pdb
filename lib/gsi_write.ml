@@ -196,3 +196,93 @@ let write_publics_stream (buf : Buffer.t)
   (* The symbol records themselves go in a separate stream *)
   ignore sym_bytes;
   ignore sym_buf
+
+type gsi_streams = {
+  sym_record_stream : string;
+  globals_stream : string;
+  publics_stream : string;
+}
+
+(** Extract symbol name for GSI hashing *)
+let global_name = function
+  | Codeview_symbols.GData32 d -> d.name
+  | LData32 d -> d.name
+  | GThread32 d -> d.name
+  | LThread32 d -> d.name
+  | GProc32 p -> p.name
+  | LProc32 p -> p.name
+  | GProc32Id p -> p.name
+  | LProc32Id p -> p.name
+  | Constant { name; _ } -> name
+  | Udt { name; _ } -> name
+  | _ -> ""
+
+let build_gsi_streams ~(publics : Codeview_symbols.symbol_record list)
+    ~(globals : Codeview_symbols.symbol_record list) : gsi_streams =
+  (* Build the symbol record stream: publics first, then globals *)
+  let sym_buf = Buffer.create 512 in
+  (* Serialize publics and collect entries for the publics hash *)
+  let pub_entries =
+    List.map
+      (fun sym ->
+        let offset = Buffer.length sym_buf in
+        Codeview_symbols.write_symbol_record sym_buf sym;
+        let name = pub_name sym in
+        { name; sym_offset = offset })
+      publics
+  in
+  let pub_record_bytes = Buffer.length sym_buf in
+  (* Serialize globals and collect entries for the globals hash *)
+  let global_entries =
+    List.map
+      (fun sym ->
+        let offset = Buffer.length sym_buf in
+        Codeview_symbols.write_symbol_record sym_buf sym;
+        let name = global_name sym in
+        { name; sym_offset = offset })
+      globals
+  in
+  let sym_record_stream = Buffer.contents sym_buf in
+  (* Build publics hash stream *)
+  let pub_hash_buf = Buffer.create 256 in
+  let gsi_buf = Buffer.create 256 in
+  write_gsi gsi_buf pub_entries;
+  let gsi_bytes = Buffer.length gsi_buf in
+  (* Address map: sorted by (segment, offset) *)
+  let addr_map_entries =
+    List.filter_map
+      (fun (i, sym) ->
+        match sym with
+        | Codeview_symbols.Pub32 { offset; segment; _ } ->
+            Some (i, Unsigned.UInt32.to_int offset, segment)
+        | _ -> Option.None)
+      (List.mapi (fun i s -> (i, s)) publics)
+  in
+  let sorted_addr =
+    List.sort
+      (fun (_, off1, seg1) (_, off2, seg2) ->
+        let c = compare seg1 seg2 in
+        if c <> 0 then c else compare off1 off2)
+      addr_map_entries
+  in
+  let addr_map_size = List.length sorted_addr * 4 in
+  (* Publics header *)
+  write_u32_le pub_hash_buf gsi_bytes;
+  write_u32_le pub_hash_buf addr_map_size;
+  write_u32_le pub_hash_buf 0;
+  write_u32_le pub_hash_buf 0;
+  write_u16_le pub_hash_buf 0;
+  write_u16_le pub_hash_buf 0;
+  write_u32_le pub_hash_buf 0;
+  write_u32_le pub_hash_buf 0;
+  Buffer.add_string pub_hash_buf (Buffer.contents gsi_buf);
+  List.iter (fun (idx, _, _) -> write_u32_le pub_hash_buf idx) sorted_addr;
+  let publics_stream = Buffer.contents pub_hash_buf in
+  (* Build globals hash stream.
+     Global symbol offsets are already correct -- they point into the
+     combined symbol record stream where publics come first. *)
+  let _ = pub_record_bytes in
+  let global_hash_buf = Buffer.create 256 in
+  write_gsi global_hash_buf global_entries;
+  let globals_stream = Buffer.contents global_hash_buf in
+  { sym_record_stream; globals_stream; publics_stream }

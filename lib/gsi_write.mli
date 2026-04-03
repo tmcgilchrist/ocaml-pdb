@@ -17,3 +17,19 @@ val write_publics_stream :
 (** [write_publics_stream buf symbols] writes a complete publics stream
     including the publics header, GSI hash table, and address map.
     [symbols] should be the public symbol records (S_PUB32). *)
+
+type gsi_streams = {
+  sym_record_stream : string;
+  globals_stream : string;
+  publics_stream : string;
+}
+(** The three streams needed for global/public symbol support. *)
+
+val build_gsi_streams :
+  publics:Codeview_symbols.symbol_record list ->
+  globals:Codeview_symbols.symbol_record list ->
+  gsi_streams
+(** [build_gsi_streams ~publics ~globals] builds the symbol record stream
+    (public records followed by global records), the publics hash stream,
+    and the globals hash stream. These should be added as MSF streams and
+    their indices wired into the DBI header. *)

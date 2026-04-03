@@ -116,6 +116,76 @@ let test_publics_stream () =
   let gsi = Pdb.Gsi.parse_gsi cur ph.sym_hash_size in
   Alcotest.(check int) "2 hash records" 2 (Array.length gsi.hash_records)
 
+(** {2 build_gsi_streams tests} *)
+
+let test_build_gsi_streams () =
+  let publics =
+    [
+      Pdb.Codeview_symbols.Pub32
+        { flags = u32 2; offset = u32 0x1000; segment = 1; name = "_main" };
+      Pdb.Codeview_symbols.Pub32
+        { flags = u32 0; offset = u32 0x2000; segment = 1; name = "_helper" };
+    ]
+  in
+  let globals =
+    [
+      Pdb.Codeview_symbols.GData32
+        { type_index = u32 0x0074; offset = u32 0x3000; segment = 2;
+          name = "g_count" };
+    ]
+  in
+  let streams = Pdb.Gsi_write.build_gsi_streams ~publics ~globals in
+  (* Symbol record stream should contain all 3 records *)
+  Alcotest.(check bool) "sym_record non-empty" true
+    (String.length streams.sym_record_stream > 0);
+  (* Parse the sym record stream to verify contents *)
+  let sym_buf = buffer_of_string streams.sym_record_stream in
+  let sym_cur = Object.Buffer.cursor sym_buf in
+  let syms =
+    List.of_seq
+      (Pdb.Codeview_symbols.parse_symbol_stream sym_cur
+         (String.length streams.sym_record_stream))
+  in
+  Alcotest.(check int) "3 symbol records" 3 (List.length syms);
+  (* First two should be publics *)
+  (match List.nth syms 0 with
+  | Pdb.Codeview_symbols.Pub32 { name; _ } ->
+      Alcotest.(check string) "pub 0" "_main" name
+  | _ -> Alcotest.fail "expected Pub32");
+  (* Third should be global *)
+  (match List.nth syms 2 with
+  | Pdb.Codeview_symbols.GData32 d ->
+      Alcotest.(check string) "global" "g_count" d.name
+  | _ -> Alcotest.fail "expected GData32");
+  (* Publics stream should be parseable *)
+  let pub_buf = buffer_of_string streams.publics_stream in
+  let pub_cur = Object.Buffer.cursor pub_buf in
+  let ph = Pdb.Gsi.parse_publics_header pub_cur in
+  Alcotest.(check bool) "pub sym_hash > 0" true (ph.sym_hash_size > 0);
+  (* Globals stream should be parseable *)
+  let gbl_buf = buffer_of_string streams.globals_stream in
+  let gbl_cur = Object.Buffer.cursor gbl_buf in
+  let gsi = Pdb.Gsi.parse_gsi gbl_cur (String.length streams.globals_stream) in
+  Alcotest.(check int) "1 global hash record" 1
+    (Array.length gsi.hash_records)
+
+let test_build_gsi_streams_empty () =
+  let streams = Pdb.Gsi_write.build_gsi_streams ~publics:[] ~globals:[] in
+  Alcotest.(check int) "empty sym record" 0
+    (String.length streams.sym_record_stream)
+
+let test_dbi_write_full_roundtrip () =
+  let buf = Buffer.create 256 in
+  Pdb.Dbi_write.write_full buf [] []
+    ~machine:0x8664 ~global_stream:7 ~public_stream:8 ~sym_record_stream:9;
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let dbi = Pdb.Dbi.parse cur in
+  Alcotest.(check int) "global stream" 7 dbi.header.global_stream_index;
+  Alcotest.(check int) "public stream" 8 dbi.header.public_stream_index;
+  Alcotest.(check int) "sym record stream" 9 dbi.header.sym_record_stream
+
 let () =
   Alcotest.run "GSI"
     [
@@ -128,7 +198,15 @@ let () =
             test_gsi_hash_buckets_nonempty;
         ] );
       ( "publics",
+        [ Alcotest.test_case "publics stream" `Quick test_publics_stream ] );
+      ( "build_gsi_streams",
         [
-          Alcotest.test_case "publics stream" `Quick test_publics_stream;
+          Alcotest.test_case "with symbols" `Quick test_build_gsi_streams;
+          Alcotest.test_case "empty" `Quick test_build_gsi_streams_empty;
+        ] );
+      ( "dbi_wiring",
+        [
+          Alcotest.test_case "write_full roundtrip" `Quick
+            test_dbi_write_full_roundtrip;
         ] );
     ]
