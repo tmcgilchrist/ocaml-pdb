@@ -69,3 +69,9 @@
  (libraries pdb object alcotest)
  (action
   (run %{exe:test_malformed.exe})))
+
+(test
+ (name test_string_table)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_string_table.exe})))
