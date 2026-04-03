@@ -98,17 +98,41 @@ let finalize t =
   for _ = 1 to block_size - superblock_size do
     Buffer.add_char out '\000'
   done;
-  (* Block 1: FPM0 - mark all blocks as used (bit=1 means free).
-     For simplicity, we mark everything as allocated (all zeros),
-     except we could be more precise. PDB readers generally don't
-     validate the FPM strictly. *)
-  for _ = 1 to block_size do
-    Buffer.add_char out '\000'
+  (* Build Free Page Map: bit=1 means free, bit=0 means allocated.
+     Allocated blocks: 0 (superblock), 1 (FPM0), 2 (FPM1),
+     block_map blocks, directory blocks, stream data blocks. *)
+  let used = Array.make total_blocks false in
+  used.(0) <- true;
+  (* superblock *)
+  used.(1) <- true;
+  (* FPM0 *)
+  used.(2) <- true;
+  (* FPM1 *)
+  for i = 0 to block_map_blocks - 1 do
+    used.(block_map_addr + i) <- true
   done;
-  (* Block 2: FPM1 - alternate FPM, also zeroed *)
-  for _ = 1 to block_size do
-    Buffer.add_char out '\000'
+  for i = 0 to num_directory_blocks - 1 do
+    used.(directory_block_start + i) <- true
   done;
+  List.iter
+    (fun blocks -> Array.iter (fun b -> used.(b) <- true) blocks)
+    stream_block_lists;
+  (* Write FPM: one bit per block, packed into bytes.
+     Blocks beyond total_blocks are marked free (1). *)
+  let fpm_bytes = Bytes.make block_size '\xFF' in
+  for i = 0 to total_blocks - 1 do
+    if used.(i) then begin
+      let byte_idx = i / 8 in
+      let bit_idx = i mod 8 in
+      let b = Char.code (Bytes.get fpm_bytes byte_idx) in
+      Bytes.set fpm_bytes byte_idx (Char.chr (b land lnot (1 lsl bit_idx)))
+    end
+  done;
+  let fpm_str = Bytes.to_string fpm_bytes in
+  (* Block 1: FPM0 *)
+  Buffer.add_string out fpm_str;
+  (* Block 2: FPM1 - identical copy *)
+  Buffer.add_string out fpm_str;
   (* Block 3+: Block map (directory block indices) *)
   for i = 0 to num_directory_blocks - 1 do
     write_u32_le out (directory_block_start + i)

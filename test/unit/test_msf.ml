@@ -234,6 +234,56 @@ let test_one_byte_stream () =
   Alcotest.(check int) "1 byte" 1 (Bigarray.Array1.dim s);
   Alcotest.(check string) "content" "X" (string_of_buffer s)
 
+(** {2 Free Page Map tests} *)
+
+let test_fpm_correctness () =
+  (* Build an MSF and verify the FPM bitmap is correct:
+     allocated blocks should have bit=0, free blocks should have bit=1. *)
+  let builder = Pdb.Msf_write.create ~block_size:512 in
+  let _ = Pdb.Msf_write.add_stream builder (String.make 1000 'A') in
+  let _ = Pdb.Msf_write.add_stream builder (String.make 500 'B') in
+  let msf_bytes = Pdb.Msf_write.finalize builder in
+  let buf = buffer_of_string msf_bytes in
+  let msf = Pdb.Msf.read buf in
+  let sb = Pdb.Msf.superblock msf in
+  let block_size = Unsigned.UInt32.to_int sb.block_size in
+  let num_blocks = Unsigned.UInt32.to_int sb.num_blocks in
+  (* Read FPM from block 1 *)
+  let fpm_offset = block_size in
+  (* Block 0 (superblock) must be allocated: bit 0 of byte 0 should be 0 *)
+  let fpm_byte0 = Char.code msf_bytes.[fpm_offset] in
+  Alcotest.(check int) "block 0 allocated" 0 (fpm_byte0 land 1);
+  (* Block 1 (FPM0) must be allocated: bit 1 *)
+  Alcotest.(check int) "block 1 allocated" 0 (fpm_byte0 land 2);
+  (* Block 2 (FPM1) must be allocated: bit 2 *)
+  Alcotest.(check int) "block 2 allocated" 0 (fpm_byte0 land 4);
+  (* All blocks beyond num_blocks should be free (bit=1).
+     Check the byte containing the last block. *)
+  let last_block = num_blocks - 1 in
+  let last_byte_idx = last_block / 8 in
+  let last_bit_idx = last_block mod 8 in
+  let last_fpm_byte = Char.code msf_bytes.[fpm_offset + last_byte_idx] in
+  (* The last allocated block should have bit=0 *)
+  Alcotest.(check int) "last block allocated" 0
+    (last_fpm_byte land (1 lsl last_bit_idx));
+  (* Byte after the last block's byte should have free bits *)
+  if last_byte_idx + 1 < block_size then begin
+    let beyond_byte = Char.code msf_bytes.[fpm_offset + last_byte_idx + 1] in
+    Alcotest.(check int) "beyond blocks free" 0xFF beyond_byte
+  end;
+  (* Verify data still reads correctly *)
+  let s0 = Pdb.Msf.get_stream_exn msf 0 in
+  Alcotest.(check int) "stream 0 size" 1000 (Bigarray.Array1.dim s0)
+
+let test_fpm_blocks_1_and_2_identical () =
+  let builder = Pdb.Msf_write.create ~block_size:512 in
+  let _ = Pdb.Msf_write.add_stream builder "data" in
+  let msf_bytes = Pdb.Msf_write.finalize builder in
+  (* FPM0 is at block 1, FPM1 is at block 2 *)
+  let fpm0 = String.sub msf_bytes 512 512 in
+  let fpm1 = String.sub msf_bytes 1024 512 in
+  Alcotest.(check string) "FPM0 == FPM1" fpm0 fpm1
+
 let () =
   Alcotest.run "MSF"
     [
@@ -263,5 +313,11 @@ let () =
           Alcotest.test_case "exact block boundary" `Quick
             test_exact_block_boundary;
           Alcotest.test_case "one byte stream" `Quick test_one_byte_stream;
+        ] );
+      ( "fpm",
+        [
+          Alcotest.test_case "correctness" `Quick test_fpm_correctness;
+          Alcotest.test_case "blocks 1 and 2 identical" `Quick
+            test_fpm_blocks_1_and_2_identical;
         ] );
     ]
