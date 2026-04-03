@@ -783,6 +783,41 @@ let test_unknown_type_roundtrip () =
           Alcotest.(check int) (name ^ " data len") 3 (String.length data)
       | _ -> Alcotest.fail "expected Unknown")
 
+let test_tpi_hash_stream () =
+  let records =
+    [
+      Pdb.Codeview_types.ArgList { args = [||] };
+      Pdb.Codeview_types.Procedure
+        {
+          return_type = u32 0x0074;
+          calling_conv = Pdb.Codeview_constants.NearC;
+          param_count = 0;
+          arg_list = u32 0x1000;
+        };
+      Pdb.Codeview_types.Modifier { modified_type = u32 0x0074; modifiers = 1 };
+    ]
+  in
+  let buf = Buffer.create 256 in
+  let hash_bytes =
+    Pdb.Tpi_write.write_with_hash buf records ~hash_stream_index:5
+  in
+  (* Parse the TPI stream back *)
+  let tpi_buf = buffer_of_string (Buffer.contents buf) in
+  let cur = Object.Buffer.cursor tpi_buf in
+  let header = Pdb.Tpi.parse_header cur in
+  Alcotest.(check int) "3 records" 3 (Pdb.Tpi.num_type_records header);
+  Alcotest.(check int) "hash stream index" 5 header.hash_stream_index;
+  (* The hash stream should have 3 * 4 = 12 bytes of hash values *)
+  Alcotest.(check bool) "hash stream non-empty" true
+    (String.length hash_bytes >= 12);
+  (* Parse the records to verify they're still correct *)
+  let parsed = List.of_seq (Pdb.Tpi.parse_type_records cur header) in
+  Alcotest.(check int) "parsed 3" 3 (List.length parsed);
+  match List.nth parsed 0 with
+  | Pdb.Codeview_types.ArgList { args } ->
+      Alcotest.(check int) "arglist" 0 (Array.length args)
+  | _ -> Alcotest.fail "expected ArgList"
+
 let () =
   Alcotest.run "CodeView Types"
     [
@@ -844,7 +879,10 @@ let () =
           Alcotest.test_case "substr_list" `Quick test_substr_list_roundtrip;
         ] );
       ( "tpi_stream",
-        [ Alcotest.test_case "roundtrip" `Quick test_tpi_stream_roundtrip ] );
+        [
+          Alcotest.test_case "roundtrip" `Quick test_tpi_stream_roundtrip;
+          Alcotest.test_case "hash stream" `Quick test_tpi_hash_stream;
+        ] );
       ( "unknown_records",
         [
           Alcotest.test_case "unknown type record" `Quick

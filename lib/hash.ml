@@ -47,3 +47,24 @@ let hash_string_v1 (str : string) : int =
   result := Int32.logxor !result (Int32.shift_right_logical !result 11);
   result := Int32.logxor !result (Int32.shift_right_logical !result 16);
   Int32.to_int !result land 0xFFFFFFFF
+
+(** CRC32 lookup table (standard polynomial 0xEDB88320, reflected). *)
+let crc32_table =
+  Array.init 256 (fun i ->
+      let crc = ref (Int32.of_int i) in
+      for _ = 0 to 7 do
+        if Int32.logand !crc 1l <> 0l then
+          crc := Int32.logxor (Int32.shift_right_logical !crc 1) 0xEDB88320l
+        else crc := Int32.shift_right_logical !crc 1
+      done;
+      !crc)
+
+let hash_buffer_v8 (data : string) : int =
+  (* JamCRC: CRC32 with initial value 0 (not 0xFFFFFFFF) *)
+  let crc = ref 0l in
+  for i = 0 to String.length data - 1 do
+    let byte = Int32.of_int (Char.code data.[i]) in
+    let idx = Int32.to_int (Int32.logand (Int32.logxor !crc byte) 0xFFl) in
+    crc := Int32.logxor (Int32.shift_right_logical !crc 8) crc32_table.(idx)
+  done;
+  Int32.to_int !crc land 0xFFFFFFFF

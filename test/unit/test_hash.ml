@@ -102,6 +102,21 @@ let test_hash_exact_unique_name () =
   Alcotest.(check int) "\".?AUPoint@@\"" 0x3B2F6E43
     (Pdb.Hash.hash_string_v1 ".?AUPoint@@")
 
+(** Exact CRC32/JamCRC values (hash_buffer_v8), validated against C reference. *)
+
+let test_crc32_empty () =
+  Alcotest.(check int) "crc32 empty" 0x00000000 (Pdb.Hash.hash_buffer_v8 "")
+
+let test_crc32_a () =
+  Alcotest.(check int) "crc32 a" 0x3AB551CE (Pdb.Hash.hash_buffer_v8 "a")
+
+let test_crc32_abc () =
+  Alcotest.(check int) "crc32 abc" 0xCA6598D0 (Pdb.Hash.hash_buffer_v8 "abc")
+
+let test_crc32_123456789 () =
+  Alcotest.(check int) "crc32 123456789" 0x2DFD2D88
+    (Pdb.Hash.hash_buffer_v8 "123456789")
+
 let () =
   Alcotest.run "PDB Hash"
     [
@@ -134,5 +149,12 @@ let () =
           Alcotest.test_case "int" `Quick test_hash_exact_int;
           Alcotest.test_case "Point" `Quick test_hash_exact_point;
           Alcotest.test_case ".?AUPoint@@" `Quick test_hash_exact_unique_name;
+        ] );
+      ( "crc32",
+        [
+          Alcotest.test_case "empty" `Quick test_crc32_empty;
+          Alcotest.test_case "a" `Quick test_crc32_a;
+          Alcotest.test_case "abc" `Quick test_crc32_abc;
+          Alcotest.test_case "123456789" `Quick test_crc32_123456789;
         ] );
     ]
