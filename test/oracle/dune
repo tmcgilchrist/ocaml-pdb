@@ -1,0 +1,4 @@
+; This directory contains C reference implementations for differential testing.
+; The hash_oracle binary is built manually outside dune:
+;   cc -DSTANDALONE -o hash_oracle hash_oracle.c
+(dirs :standard)

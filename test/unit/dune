@@ -81,3 +81,9 @@
  (libraries pdb alcotest)
  (action
   (run %{exe:test_type_merge.exe})))
+
+(test
+ (name test_hash_differential)
+ (libraries pdb alcotest qcheck-core qcheck-alcotest)
+ (action
+  (run %{exe:test_hash_differential.exe})))
