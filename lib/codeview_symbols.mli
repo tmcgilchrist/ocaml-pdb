@@ -106,6 +106,7 @@ type symbol_record =
   | Register of { type_index : u32; register : int; name : string }
   | Label32 of { offset : u32; segment : int; flags : int; name : string }
   | UNamespace of { name : string }
+  | EnvBlock of { fields : string list }
   | Unknown of { kind : int; data : string }
 
 val parse_symbol_record : Object.Buffer.cursor -> int -> symbol_record

@@ -492,6 +492,38 @@ let write_u16_le buf v =
   Buffer.add_char buf (Char.chr (v land 0xFF));
   Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
 
+let test_envblock_roundtrip () =
+  roundtrip_symbol "envblock"
+    (Pdb.Codeview_symbols.EnvBlock
+       {
+         fields =
+           [
+             "cwd"; "C:\\project";
+             "cl"; "C:\\msvc\\cl.exe";
+             "cmd"; "-Zi -Od";
+           ];
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_symbols.EnvBlock { fields } ->
+          Alcotest.(check int) (name ^ " field count") 6 (List.length fields);
+          Alcotest.(check string) (name ^ " field 0") "cwd" (List.nth fields 0);
+          Alcotest.(check string) (name ^ " field 1") "C:\\project"
+            (List.nth fields 1);
+          Alcotest.(check string) (name ^ " field 4") "cmd" (List.nth fields 4);
+          Alcotest.(check string) (name ^ " field 5") "-Zi -Od"
+            (List.nth fields 5)
+      | _ -> Alcotest.fail (name ^ ": expected EnvBlock"))
+
+let test_envblock_empty () =
+  roundtrip_symbol "envblock_empty"
+    (Pdb.Codeview_symbols.EnvBlock { fields = [] })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_symbols.EnvBlock { fields } ->
+          Alcotest.(check int) (name ^ " empty") 0 (List.length fields)
+      | _ -> Alcotest.fail (name ^ ": expected EnvBlock"))
+
 let test_unknown_symbol_record () =
   (* Construct a binary symbol record with an unrecognized kind (0xAAAA) *)
   let buf = Buffer.create 16 in
@@ -579,6 +611,11 @@ let () =
       ( "symbol_stream",
         [ Alcotest.test_case "roundtrip" `Quick test_symbol_stream_roundtrip ]
       );
+      ( "envblock",
+        [
+          Alcotest.test_case "roundtrip" `Quick test_envblock_roundtrip;
+          Alcotest.test_case "empty" `Quick test_envblock_empty;
+        ] );
       ( "unknown_records",
         [
           Alcotest.test_case "unknown symbol from binary" `Quick

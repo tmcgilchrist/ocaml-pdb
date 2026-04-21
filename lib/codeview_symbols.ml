@@ -107,6 +107,7 @@ type symbol_record =
   | Register of { type_index : u32; register : int; name : string }
   | Label32 of { offset : u32; segment : int; flags : int; name : string }
   | UNamespace of { name : string }
+  | EnvBlock of { fields : string list }
   | Unknown of { kind : int; data : string }
 
 let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
@@ -312,6 +313,16 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
   | 0x1124 (* S_UNAMESPACE *) ->
       let name = read_cstring cur in
       UNamespace { name }
+  | 0x113d (* S_ENVBLOCK *) ->
+      let _reserved = Object.Buffer.Read.u8 cur in
+      (* Read null-terminated strings until double-null or end of record *)
+      let fields = ref [] in
+      while cur.position < end_pos do
+        match Object.Buffer.Read.zero_string cur () with
+        | Some s when String.length s > 0 -> fields := s :: !fields
+        | _ -> Object.Buffer.seek cur end_pos
+      done;
+      EnvBlock { fields = List.rev !fields }
   | _ ->
       let remaining = end_pos - cur.position in
       let data =
@@ -506,6 +517,11 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
   | UNamespace { name } ->
       write_u16_le rec_buf 0x1124;
       write_cstring rec_buf name
+  | EnvBlock { fields } ->
+      write_u16_le rec_buf 0x113d;
+      Buffer.add_char rec_buf '\000'; (* reserved byte *)
+      List.iter (write_cstring rec_buf) fields;
+      Buffer.add_char rec_buf '\000' (* double-null terminator *)
   | Unknown { kind; data } ->
       write_u16_le rec_buf kind;
       Buffer.add_string rec_buf data);
