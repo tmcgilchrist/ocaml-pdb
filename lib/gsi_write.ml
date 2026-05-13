@@ -248,15 +248,16 @@ let build_gsi_streams ~(publics : Codeview_symbols.symbol_record list)
   let gsi_buf = Buffer.create 256 in
   write_gsi gsi_buf pub_entries;
   let gsi_bytes = Buffer.length gsi_buf in
-  (* Address map: sorted by (segment, offset) *)
+  (* Address map: sorted by (segment, offset), containing the byte offsets
+     of the public symbols in the symbol record stream (not list indices). *)
   let addr_map_entries =
     List.filter_map
-      (fun (i, sym) ->
+      (fun (sym, entry) ->
         match sym with
         | Codeview_symbols.Pub32 { offset; segment; _ } ->
-            Some (i, Unsigned.UInt32.to_int offset, segment)
+            Some (entry.sym_offset, Unsigned.UInt32.to_int offset, segment)
         | _ -> Option.None)
-      (List.mapi (fun i s -> (i, s)) publics)
+      (List.combine publics pub_entries)
   in
   let sorted_addr =
     List.sort
@@ -276,7 +277,9 @@ let build_gsi_streams ~(publics : Codeview_symbols.symbol_record list)
   write_u32_le pub_hash_buf 0;
   write_u32_le pub_hash_buf 0;
   Buffer.add_string pub_hash_buf (Buffer.contents gsi_buf);
-  List.iter (fun (idx, _, _) -> write_u32_le pub_hash_buf idx) sorted_addr;
+  List.iter
+    (fun (sym_off, _, _) -> write_u32_le pub_hash_buf sym_off)
+    sorted_addr;
   let publics_stream = Buffer.contents pub_hash_buf in
   (* Build globals hash stream.
      Global symbol offsets are already correct -- they point into the

@@ -232,6 +232,176 @@ let test_llvm_pdbutil_validates () =
        with Not_found -> false)
   end
 
+(** End-to-end test exercising every Pdb_builder feature and validating
+    the output with llvm-pdbutil. Also serves as documentation for how
+    to use the library to produce a realistic PDB. *)
+let test_full_pdb_for_ocaml () =
+  if not (has_llvm_pdbutil ()) then Alcotest.skip ()
+  else begin
+    let b =
+      Pdb.Pdb_builder.create
+        ~guid:
+          {
+            data1 = u32 0xDEADBEEF;
+            data2 = Unsigned.UInt16.of_int 0xCAFE;
+            data3 = Unsigned.UInt16.of_int 0xBABE;
+            data4 = "\x01\x02\x03\x04\x05\x06\x07\x08";
+          }
+        ~age:1 Pdb.Pdb_builder.AMD64
+    in
+
+    (* Register source filenames in /names and build file checksums *)
+    let src_main = Pdb.Pdb_builder.add_string b "C:\\proj\\main.ml" in
+    let src_util = Pdb.Pdb_builder.add_string b "C:\\proj\\util.ml" in
+
+    (* Types: int32 arglist + `int -> int` procedure type *)
+    let arglist_ti =
+      Pdb.Pdb_builder.add_type b
+        (Pdb.Codeview_types.ArgList { args = [| u32 0x0074 |] })
+    in
+    let proc_ti =
+      Pdb.Pdb_builder.add_type b
+        (Pdb.Codeview_types.Procedure
+           {
+             return_type = u32 0x0074;
+             calling_conv = Pdb.Codeview_constants.NearC;
+             param_count = 1;
+             arg_list = arglist_ti;
+           })
+    in
+
+    (* IPI: func_id + string_id for source filenames *)
+    let _ =
+      Pdb.Pdb_builder.add_id b
+        (Pdb.Codeview_types.FuncId
+           { scope_id = u32 0; func_type = proc_ti; name = "main" })
+    in
+    let _ =
+      Pdb.Pdb_builder.add_id b
+        (Pdb.Codeview_types.StringId { id = u32 0; str = "C:\\proj\\main.ml" })
+    in
+
+    (* Module with symbols + C13 debug subsections *)
+    Pdb.Pdb_builder.add_module b
+      {
+        name = "main.obj";
+        obj_file = "C:\\proj\\main.obj";
+        symbols =
+          [
+            Pdb.Codeview_symbols.ObjName
+              { signature = u32 0; name = "C:\\proj\\main.obj" };
+            Pdb.Codeview_symbols.Compile3
+              {
+                flags = u32 0;
+                machine = 0xD0;
+                (* CV_CFL_X64 *)
+                frontend_version = (5, 3, 0, 0);
+                backend_version = (5, 3, 0, 0);
+                version_string = "ocaml-pdb 0.1";
+              };
+            Pdb.Codeview_symbols.EnvBlock
+              {
+                fields = [ "cwd"; "C:\\proj"; "cl"; "ocamlopt" ];
+              };
+          ];
+        subsections =
+          [
+            Pdb.Debug_subsections.FileChecksums
+              [|
+                {
+                  file_name_offset = u32 src_main;
+                  checksum_kind = None;
+                  checksum = "";
+                };
+                {
+                  file_name_offset = u32 src_util;
+                  checksum_kind = None;
+                  checksum = "";
+                };
+              |];
+          ];
+        section_contrib =
+          Some
+            {
+              section = 1;
+              offset = 0l;
+              size = 100l;
+              characteristics = u32 0x60000020;
+              module_index = 0;
+              data_crc = u32 0;
+              reloc_crc = u32 0;
+            };
+      };
+
+    (* Publics: main and a helper *)
+    Pdb.Pdb_builder.add_public b
+      (Pdb.Codeview_symbols.Pub32
+         {
+           flags = u32 2;
+           offset = u32 0;
+           segment = 1;
+           name = "main";
+         });
+    Pdb.Pdb_builder.add_public b
+      (Pdb.Codeview_symbols.Pub32
+         {
+           flags = u32 0;
+           offset = u32 32;
+           segment = 1;
+           name = "helper";
+         });
+
+    (* Globals: a data symbol *)
+    Pdb.Pdb_builder.add_global b
+      (Pdb.Codeview_symbols.GData32
+         {
+           type_index = u32 0x0074;
+           offset = u32 0;
+           segment = 2;
+           name = "g_counter";
+         });
+
+    let pdb_bytes = Pdb.Pdb_builder.finalize b in
+    let tmpfile = "/tmp/ocaml_pdb_full_debug.pdb" in
+    let oc = open_out_bin tmpfile in
+    output_string oc pdb_bytes;
+    close_out oc;
+
+    (* Read back with our own parser and verify structure *)
+    let buf = buffer_of_string pdb_bytes in
+    let msf = Pdb.Msf.read buf in
+    let s1 = Pdb.Msf.get_stream_exn msf 1 in
+    let info = Pdb.Pdb_stream.read (Object.Buffer.cursor s1) in
+    Alcotest.(check int) "age" 1 (Unsigned.UInt32.to_int info.age);
+    Alcotest.(check int) "guid data1" 0xDEADBEEF
+      (Unsigned.UInt32.to_int info.guid.data1);
+
+    (* Validate with llvm-pdbutil *)
+    let output =
+      run_command
+        (Printf.sprintf
+           "llvm-pdbutil dump --summary --types --ids --modules %s 2>&1"
+           tmpfile)
+    in
+    print_string output;
+
+    let contains re =
+      try
+        ignore (Str.search_forward (Str.regexp re) output 0);
+        true
+      with Not_found -> false
+    in
+    Alcotest.(check bool) "has Age: 1" true (contains "Age: 1");
+    Alcotest.(check bool) "Has Types: true" true (contains "Has Types: true");
+    Alcotest.(check bool) "Has IDs: true" true (contains "Has IDs: true");
+    Alcotest.(check bool) "Has Debug Info: true" true
+      (contains "Has Debug Info: true");
+    Alcotest.(check bool) "has LF_PROCEDURE" true (contains "LF_PROCEDURE");
+    Alcotest.(check bool) "has LF_FUNC_ID" true (contains "LF_FUNC_ID");
+    Alcotest.(check bool) "has LF_STRING_ID" true (contains "LF_STRING_ID");
+    Alcotest.(check bool) "has main.obj" true (contains "main.obj")
+  end
+
 let () =
   Alcotest.run "PDB Builder"
     [
@@ -244,5 +414,7 @@ let () =
           Alcotest.test_case "with strings" `Quick test_pdb_with_strings;
           Alcotest.test_case "llvm-pdbutil validates" `Quick
             test_llvm_pdbutil_validates;
+          Alcotest.test_case "full OCaml-style PDB" `Quick
+            test_full_pdb_for_ocaml;
         ] );
     ]

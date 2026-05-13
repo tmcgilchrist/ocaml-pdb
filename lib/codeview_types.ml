@@ -520,10 +520,19 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       SubstrList { strings }
   | _ ->
       let remaining = end_pos - cur.position in
-      let data =
+      let raw =
         if remaining > 0 then Object.Buffer.Read.fixed_string cur remaining
         else ""
       in
+      (* Strip trailing padding bytes (0xf0..0xff) added by the writer. *)
+      let strip_trailing_padding s =
+        let len = ref (String.length s) in
+        while !len > 0 && Char.code s.[!len - 1] >= 0xf0 do
+          decr len
+        done;
+        String.sub s 0 !len
+      in
+      let data = strip_trailing_padding raw in
       Unknown { kind; data }
 
 (** {2 Writing} *)
@@ -793,12 +802,16 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       Buffer.add_string rec_buf data);
   (* Write length prefix + record content *)
   let content = Buffer.contents rec_buf in
-  let len = String.length content in
-  write_u16_le buf len;
+  let content_len = String.length content in
+  (* Pad to 4-byte alignment. Padding bytes 0xf1..0xf3 are appended to
+     the content, and the length field records content+padding (not
+     including the length field itself), so readers can find the next
+     record at offset + 2 + length. *)
+  let total_unaligned = 2 + content_len in
+  let align = (4 - (total_unaligned mod 4)) mod 4 in
+  let padded_len = content_len + align in
+  write_u16_le buf padded_len;
   Buffer.add_string buf content;
-  (* Pad to 4-byte alignment *)
-  let total = 2 + len in
-  let align = (4 - (total mod 4)) mod 4 in
   for i = 1 to align do
     Buffer.add_char buf (Char.chr (0xf0 + i))
   done
