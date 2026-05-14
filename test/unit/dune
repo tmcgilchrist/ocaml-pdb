@@ -87,3 +87,9 @@
  (libraries pdb alcotest qcheck-core qcheck-alcotest)
  (action
   (run %{exe:test_hash_differential.exe})))
+
+(test
+ (name test_unwind)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_unwind.exe})))
