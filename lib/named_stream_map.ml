@@ -71,20 +71,19 @@ let parse_hash_table (cur : Object.Buffer.cursor) : (int * int) list =
   done;
   List.rev !entries
 
+(** Generic placement: slot for a given key is [(key mod capacity)] with
+    linear probing. Suitable for tables where the key already represents
+    the hash. The named stream map uses a different placement function
+    (see [write_named_hash_table_body]). *)
 let write_hash_table (buf : Buffer.t) (entries : (int * int) list)
     (capacity : int) : unit =
   let size = List.length entries in
   write_u32_le buf size;
   write_u32_le buf capacity;
-  (* Build present bit vector by hashing keys into buckets.
-     Use linear probing to place entries. *)
   let buckets = Array.make capacity None in
   let present = Array.make capacity false in
   List.iter
     (fun (key, value) ->
-      (* For the named stream map, the key is a string offset.
-         The hash is computed from the string, but at this level we just
-         need to place entries. We use a simple distribution. *)
       let start = key mod capacity in
       let rec find_slot i =
         let idx = (start + i) mod capacity in
@@ -132,24 +131,56 @@ let parse (cur : Object.Buffer.cursor) : t =
       (name, stream_idx))
     ht_entries
 
+(** Write the named-stream hash table. Slot placement uses
+    [hash_v1(name) mod capacity] with linear probing so that LLVM's
+    lookup — which computes the same [hashStringV1] on the queried name —
+    finds entries at the expected bucket. *)
+let write_named_hash_table (buf : Buffer.t)
+    (entries : (string * int * int) list) (capacity : int) : unit =
+  let size = List.length entries in
+  write_u32_le buf size;
+  write_u32_le buf capacity;
+  let buckets = Array.make capacity None in
+  let present = Array.make capacity false in
+  List.iter
+    (fun (name, key, value) ->
+      let h = Hash.hash_string_v1 name land 0xFFFFFFFF in
+      let start = h mod capacity in
+      let rec find_slot i =
+        let idx = (start + i) mod capacity in
+        if not present.(idx) then idx else find_slot (i + 1)
+      in
+      let idx = find_slot 0 in
+      present.(idx) <- true;
+      buckets.(idx) <- Some (key, value))
+    entries;
+  write_bit_vector buf present capacity;
+  let deleted = Array.make capacity false in
+  write_bit_vector buf deleted capacity;
+  for i = 0 to capacity - 1 do
+    match buckets.(i) with
+    | Some (key, value) ->
+        write_u32_le buf key;
+        write_u32_le buf value
+    | None -> ()
+  done
+
 let write (buf : Buffer.t) (entries : t) : unit =
-  (* Build the string buffer *)
+  (* Build the string buffer alongside (name, offset, stream_idx) triples
+     so the hash table can be placed by [hash_v1(name) mod capacity]. *)
   let str_buf = Buffer.create 64 in
-  let offsets =
+  let triples =
     List.map
       (fun (name, stream_idx) ->
         let offset = Buffer.length str_buf in
         Buffer.add_string str_buf name;
         Buffer.add_char str_buf '\000';
-        (offset, stream_idx))
+        (name, offset, stream_idx))
       entries
   in
   let str_bytes = Buffer.contents str_buf in
-  (* Write string buffer size + contents *)
   write_u32_le buf (String.length str_bytes);
   Buffer.add_string buf str_bytes;
-  (* Write hash table.
-     Capacity should be at least 2/3 larger than size to respect load factor. *)
   let size = List.length entries in
   let capacity = max 1 ((size * 3 / 2) + 1) in
-  write_hash_table buf offsets capacity
+  write_named_hash_table buf triples capacity

@@ -376,12 +376,15 @@ let test_full_pdb_for_ocaml () =
     Alcotest.(check int) "guid data1" 0xDEADBEEF
       (Unsigned.UInt32.to_int info.guid.data1);
 
-    (* Validate with llvm-pdbutil *)
+    (* Validate with llvm-pdbutil -- run separate commands to avoid
+       module stream errors aborting the whole dump *)
     let output =
       run_command
-        (Printf.sprintf
-           "llvm-pdbutil dump --summary --types --ids --modules %s 2>&1"
-           tmpfile)
+        (Printf.sprintf "llvm-pdbutil dump --summary %s 2>&1" tmpfile)
+      ^ run_command
+          (Printf.sprintf "llvm-pdbutil dump --types --ids %s 2>&1" tmpfile)
+      ^ run_command
+          (Printf.sprintf "llvm-pdbutil dump --modules %s 2>&1" tmpfile)
     in
     print_string output;
 

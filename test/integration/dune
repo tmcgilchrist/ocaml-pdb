@@ -18,3 +18,9 @@
  (libraries pdb object alcotest str)
  (action
   (run %{exe:test_pdb_builder.exe})))
+
+(test
+ (name test_llvm_equiv)
+ (libraries pdb object alcotest str unix)
+ (action
+  (run %{exe:test_llvm_equiv.exe})))

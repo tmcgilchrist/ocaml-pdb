@@ -107,25 +107,33 @@ let finalize t =
   let ipi_records = List.rev t.ipi_records in
   let publics = List.rev t.publics in
   let globals = List.rev t.globals in
-  let num_modules = List.length modules in
-  (* Build per-module streams *)
+  (* A module gets its own debug stream only if it has content
+     (symbols or C13 subsections). An empty module records
+     module_sym_stream = 0xFFFF, matching llvm-pdbutil's yaml2pdb. *)
+  let module_has_stream (m : module_desc) =
+    m.symbols <> [] || m.subsections <> []
+  in
+  (* Build per-module stream bodies, only for modules that need one *)
   let module_streams =
-    List.map
+    List.filter_map
       (fun (m : module_desc) ->
-        let buf = Buffer.create 256 in
-        (* CV signature *)
-        write_u32_le buf cv_signature_c13;
-        (* Symbol records *)
-        List.iter
-          (fun sym -> Codeview_symbols.write_symbol_record buf sym)
-          m.symbols;
-        (* C13 debug subsections *)
-        List.iter
-          (fun sub -> Debug_subsections.write_subsection buf sub)
-          m.subsections;
-        Buffer.contents buf)
+        if not (module_has_stream m) then Option.None
+        else
+          let buf = Buffer.create 256 in
+          (* CV signature *)
+          write_u32_le buf cv_signature_c13;
+          (* Symbol records *)
+          List.iter
+            (fun sym -> Codeview_symbols.write_symbol_record buf sym)
+            m.symbols;
+          (* C13 debug subsections *)
+          List.iter
+            (fun sub -> Debug_subsections.write_subsection buf sub)
+            m.subsections;
+          Some (Buffer.contents buf))
       modules
   in
+  let num_module_streams = List.length module_streams in
   (* Build GSI/PSI streams *)
   let gsi = Gsi_write.build_gsi_streams ~publics ~globals in
   (* Build /names stream *)
@@ -137,7 +145,7 @@ let finalize t =
      5..5+N-1: module streams
      5+N: sym record, 5+N+1: globals, 5+N+2: publics, 5+N+3: /names *)
   let first_module_stream = 5 in
-  let sym_record_stream_idx = first_module_stream + num_modules in
+  let sym_record_stream_idx = first_module_stream + num_module_streams in
   let globals_stream_idx = sym_record_stream_idx + 1 in
   let publics_stream_idx = globals_stream_idx + 1 in
   let names_stream_idx = publics_stream_idx + 1 in
@@ -161,20 +169,31 @@ let finalize t =
       reloc_crc = Unsigned.UInt32.zero;
     }
   in
+  (* Walk modules and assign module debug stream indices to those that
+     have content; others record 0xFFFF (no stream). *)
   let module_infos =
+    let next_stream = ref first_module_stream in
     List.mapi
       (fun i (m : module_desc) ->
-        let stream_bytes = List.nth module_streams i in
-        let sym_byte_size =
-          (* The sym_byte_size includes the 4-byte CV signature *)
-          let sym_buf = Buffer.create 64 in
-          write_u32_le sym_buf cv_signature_c13;
-          List.iter
-            (fun sym -> Codeview_symbols.write_symbol_record sym_buf sym)
-            m.symbols;
-          Buffer.length sym_buf
+        let module_sym_stream, sym_byte_size, c13_byte_size =
+          if module_has_stream m then begin
+            let stream_idx = !next_stream in
+            incr next_stream;
+            let sym_buf = Buffer.create 64 in
+            (* sym_byte_size includes the 4-byte CV signature *)
+            write_u32_le sym_buf cv_signature_c13;
+            List.iter
+              (fun sym -> Codeview_symbols.write_symbol_record sym_buf sym)
+              m.symbols;
+            let sym_size = Buffer.length sym_buf in
+            let sub_buf = Buffer.create 64 in
+            List.iter
+              (fun sub -> Debug_subsections.write_subsection sub_buf sub)
+              m.subsections;
+            (stream_idx, sym_size, Buffer.length sub_buf)
+          end
+          else (0xFFFF, 0, 0)
         in
-        let c13_byte_size = String.length stream_bytes - sym_byte_size in
         let sc =
           match m.section_contrib with
           | Some sc -> { sc with module_index = i }
@@ -183,7 +202,7 @@ let finalize t =
         ({
            Dbi.section_contrib = sc;
            flags = 0;
-           module_sym_stream = first_module_stream + i;
+           module_sym_stream;
            sym_byte_size;
            c11_byte_size = 0;
            c13_byte_size;

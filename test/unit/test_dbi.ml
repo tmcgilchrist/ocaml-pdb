@@ -149,9 +149,9 @@ let test_dbi_header_fields () =
   (* Verify module fields preserved *)
   Alcotest.(check int) "mod sym_stream" 5 dbi.modules.(0).module_sym_stream;
   Alcotest.(check int) "mod sym_bytes" 100 dbi.modules.(0).sym_byte_size;
-  (* No optional debug header since writer doesn't emit one *)
-  Alcotest.(check bool) "no opt debug header" true
-    (dbi.header.optional_dbg_header_size = 0)
+  (* Writer emits a 22-byte optional debug header (11 x u16, all 0xFFFF) *)
+  Alcotest.(check int) "opt debug header size" 22
+    dbi.header.optional_dbg_header_size
 
 let test_dbi_module_c13_fields () =
   let m : Pdb.Dbi.module_info =
