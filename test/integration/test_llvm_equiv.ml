@@ -181,6 +181,87 @@ let one_symbol_scenario =
     build = build_one_symbol;
   }
 
+(** Equivalent of [merge-types-1.yaml]: 8 TPI records spanning LF_POINTER,
+    LF_STRUCTURE (forward ref with unique name), LF_ARGLIST, LF_PROCEDURE.
+    Type indices are referenced by both basic-type values (e.g. 0x75 for
+    [unsigned]) and user-defined indices (>= 0x1000). *)
+let build_merge_types () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  let u = Unsigned.UInt32.of_int in
+  (* Attrs 32778 = 0x800A: pointer size=4, kind=Near32 *)
+  let ptr_attrs = u 32778 in
+  (* 0x1000: uint32_t* (referent = 0x75 = T_UINT4) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 117; attrs = ptr_attrs })
+  in
+  (* 0x1001: int64_t* (referent = 0x76 = T_INT8) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 118; attrs = ptr_attrs })
+  in
+  (* 0x1002: struct OnlyInMerge1 (forward ref + has-unique-name) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Structure
+         {
+           field_count = 0;
+           properties = Pdb.Codeview_types.parse_type_properties 0x0280;
+           field_list = u 0;
+           derived_from = u 0;
+           vtable_shape = u 0;
+           size = 0L;
+           name = "OnlyInMerge1";
+           unique_name = Some "OnlyInMerge1";
+         })
+  in
+  (* 0x1003: uint32_t** *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 0x1000; attrs = ptr_attrs })
+  in
+  (* 0x1004: uint32_t triple-ptr *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 0x1003; attrs = ptr_attrs })
+  in
+  (* 0x1005: int64_t* (second copy) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 0x1001; attrs = ptr_attrs })
+  in
+  (* 0x1006: (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.ArgList
+         { args = [| u 117; u 0x1000; u 0x1003 |] })
+  in
+  (* 0x1007: uint32_t (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Procedure
+         {
+           return_type = u 117;
+           calling_conv = Pdb.Codeview_constants.NearC;
+           param_count = 0;
+           arg_list = u 0x1006;
+         })
+  in
+  Pdb.Pdb_builder.finalize b
+
+let merge_types_scenario =
+  {
+    name = "merge_types";
+    yaml = "merge-types-1.yaml";
+    dump_args = "--types";
+    build = build_merge_types;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -193,5 +274,6 @@ let () =
         [
           test_of_scenario objfilename_scenario;
           test_of_scenario one_symbol_scenario;
+          test_of_scenario merge_types_scenario;
         ] );
     ]
