@@ -262,6 +262,171 @@ let merge_types_scenario =
     build = build_merge_types;
   }
 
+(** Decode an even-length hex string into raw bytes. *)
+let hex_decode (s : string) : string =
+  let nibble c =
+    match c with
+    | '0' .. '9' -> Char.code c - Char.code '0'
+    | 'a' .. 'f' -> Char.code c - Char.code 'a' + 10
+    | 'A' .. 'F' -> Char.code c - Char.code 'A' + 10
+    | _ -> invalid_arg "hex_decode"
+  in
+  let n = String.length s / 2 in
+  String.init n (fun i ->
+      Char.chr ((nibble s.[2 * i] lsl 4) lor nibble s.[(2 * i) + 1]))
+
+(** Equivalent of [debug-subsections.yaml] (subset matching [-l] and [--il]
+    dump output). The fixture defines four modules:
+      0. Foo.obj, 1. Bar.obj — exercise CrossModuleExports/Imports
+         subsections (not currently implemented in our writer), so we
+         emit them as empty modules. Only their DBI entries matter for
+         [-l] / [--il] output, which shows just the module header.
+      2. empty.obj — FileChecksums + Lines + InlineeLines, the path that
+         actually matters for source-level debugging.
+      3. ObjFileSubsections — StringTable/Symbols/FrameData subsections
+         (also empty for our purposes here).
+    Filenames referenced by the line info are registered in /names so
+    file_name_offset matches LLVM's. *)
+let build_debug_subsections () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  let u = Unsigned.UInt32.of_int in
+  let empty_cpp =
+    "d:\\src\\llvm\\test\\debuginfo\\pdb\\inputs\\empty.cpp"
+  in
+  let winerror_h =
+    "f:\\dd\\externalapis\\windows\\10\\sdk\\inc\\winerror.h"
+  in
+  let empty_cpp_off = Pdb.Pdb_builder.add_string b empty_cpp in
+  let winerror_h_off = Pdb.Pdb_builder.add_string b winerror_h in
+  (* File checksum table entries are aligned to 4 bytes: each MD5 entry
+     is 4 (file_name_offset) + 1 (size) + 1 (kind) + 16 (digest) = 22
+     bytes, padded to 24. Block file_index / inlinee file_id fields
+     point at byte offsets into this table. *)
+  let empty_cpp_md5 = hex_decode "A0A5BD0D3ECD93FC29D19DE826FBF4BC" in
+  let winerror_h_md5 = hex_decode "1154D69F5B2650196E1FC34F4134E56B" in
+  let file_checksums =
+    Pdb.Debug_subsections.FileChecksums
+      [|
+        {
+          file_name_offset = u empty_cpp_off;
+          checksum_kind = MD5;
+          checksum = empty_cpp_md5;
+        };
+        {
+          file_name_offset = u winerror_h_off;
+          checksum_kind = MD5;
+          checksum = winerror_h_md5;
+        };
+      |]
+  in
+  let lines =
+    Pdb.Debug_subsections.Lines
+      {
+        contrib_offset = u 100016;
+        contrib_segment = 1;
+        flags = 0;
+        contrib_size = u 10;
+        blocks =
+          [|
+            {
+              file_index = u 0;
+              (* empty.cpp checksum entry starts at offset 0 *)
+              lines =
+                [|
+                  {
+                    offset = u 0;
+                    line_start = 5;
+                    delta_line_end = 0;
+                    is_statement = true;
+                  };
+                  {
+                    offset = u 3;
+                    line_start = 6;
+                    delta_line_end = 0;
+                    is_statement = true;
+                  };
+                  {
+                    offset = u 8;
+                    line_start = 7;
+                    delta_line_end = 0;
+                    is_statement = true;
+                  };
+                |];
+              columns = None;
+            };
+          |];
+      }
+  in
+  let inlinee_lines =
+    Pdb.Debug_subsections.InlineeLines
+      [|
+        {
+          inlinee = u 22767;
+          file_id = u 24;
+          (* winerror.h checksum entry at byte offset 24 *)
+          source_line = u 26950;
+        };
+      |]
+  in
+  (* The LLVM fixture gives Foo/Bar/ObjFileSubsections debug streams
+     populated with subsection kinds we don't write (CrossModule*,
+     StringTable in subsections, FrameData). Without an allocated module
+     stream, llvm-pdbutil's [-l] dump iterator reuses the previously
+     opened module's subsections (see SymbolGroup::initializeForPdb in
+     InputFile.cpp), so empty.obj's lines would erroneously re-render
+     for these placeholder modules. We allocate an empty stream for each
+     by giving them a single zero-length subsection of a kind the [-l]
+     and [--il] dumpers ignore. 0xF7 is CrossModuleExports — picked
+     because it matches the kind LLVM uses for Foo/Bar in this fixture. *)
+  let placeholder_subsection =
+    Pdb.Debug_subsections.Unknown { kind = 0xF7; data = "" }
+  in
+  (* Module 0: Foo.obj — empty stream so the dump iterator resets. *)
+  Pdb.Pdb_builder.add_module b
+    {
+      name = "Foo.obj";
+      obj_file = "Foo.obj";
+      symbols = [];
+      subsections = [ placeholder_subsection ];
+      section_contrib = None;
+    };
+  (* Module 1: Bar.obj — likewise *)
+  Pdb.Pdb_builder.add_module b
+    {
+      name = "Bar.obj";
+      obj_file = "Bar.obj";
+      symbols = [];
+      subsections = [ placeholder_subsection ];
+      section_contrib = None;
+    };
+  (* Module 2: empty.obj with the line info *)
+  Pdb.Pdb_builder.add_module b
+    {
+      name = "d:\\src\\llvm\\test\\DebugInfo\\PDB\\Inputs\\empty.obj";
+      obj_file = "d:\\src\\llvm\\test\\DebugInfo\\PDB\\Inputs\\empty.obj";
+      symbols = [];
+      subsections = [ file_checksums; lines; inlinee_lines ];
+      section_contrib = None;
+    };
+  (* Module 3: ObjFileSubsections — likewise empty *)
+  Pdb.Pdb_builder.add_module b
+    {
+      name = "ObjFileSubsections";
+      obj_file = "ObjFileSubsections";
+      symbols = [];
+      subsections = [ placeholder_subsection ];
+      section_contrib = None;
+    };
+  Pdb.Pdb_builder.finalize b
+
+let debug_subsections_scenario =
+  {
+    name = "debug_subsections";
+    yaml = "debug-subsections.yaml";
+    dump_args = "-l --il";
+    build = build_debug_subsections;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -275,5 +440,6 @@ let () =
           test_of_scenario objfilename_scenario;
           test_of_scenario one_symbol_scenario;
           test_of_scenario merge_types_scenario;
+          test_of_scenario debug_subsections_scenario;
         ] );
     ]
