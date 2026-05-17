@@ -250,10 +250,20 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       let end_ = read_u32 cur in
       let inlinee = read_u32 cur in
       let remaining = end_pos - cur.position in
-      let annotations =
+      let raw =
         if remaining > 0 then Object.Buffer.Read.fixed_string cur remaining
         else ""
       in
+      (* BinaryAnnotations stream: opcode 0 is invalid and acts as a
+         terminator, so trailing null bytes (including the record's
+         4-byte alignment padding) are not part of the logical content. *)
+      let rec trim_trailing_nulls s =
+        let len = String.length s in
+        if len > 0 && s.[len - 1] = '\000' then
+          trim_trailing_nulls (String.sub s 0 (len - 1))
+        else s
+      in
+      let annotations = trim_trailing_nulls raw in
       InlineSite { parent; end_; inlinee; annotations }
   | 0x1108 (* S_UDT *) ->
       let type_index = read_u32 cur in
@@ -525,14 +535,18 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
   | Unknown { kind; data } ->
       write_u16_le rec_buf kind;
       Buffer.add_string rec_buf data);
-  let content = Buffer.contents rec_buf in
-  let len = String.length content in
+  (* CodeView symbol records must be padded to 4-byte alignment, and the
+     length field includes the padding (LLVM's CVRecord parser uses
+     Length to advance to the next record). Pad the content before
+     emitting the length so total = 2 + Length is a multiple of 4. *)
+  let content_raw = Buffer.contents rec_buf in
+  let raw_len = String.length content_raw in
+  let total_unaligned = 2 + raw_len in
+  let pad = (4 - (total_unaligned mod 4)) mod 4 in
+  let len = raw_len + pad in
   write_u16_le buf len;
-  Buffer.add_string buf content;
-  (* Pad to 4-byte alignment *)
-  let total = 2 + len in
-  let align = (4 - (total mod 4)) mod 4 in
-  for _ = 1 to align do
+  Buffer.add_string buf content_raw;
+  for _ = 1 to pad do
     Buffer.add_char buf '\000'
   done
 

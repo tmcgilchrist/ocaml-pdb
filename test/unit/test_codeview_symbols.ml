@@ -545,13 +545,20 @@ let test_unknown_symbol_record () =
   | _ -> Alcotest.fail "expected Unknown symbol record"
 
 let test_unknown_symbol_roundtrip () =
+  (* CodeView symbol records are padded to 4-byte boundaries and the length
+     field includes the padding (matching LLVM's wire format). For an
+     [Unknown] record, the writer cannot distinguish padding from data, so
+     the parser returns the full padded tail. A 2-byte payload becomes
+     4 bytes (2 data + 2 padding). *)
   roundtrip_symbol "unknown"
     (Pdb.Codeview_symbols.Unknown { kind = 0xDEAD; data = "\xAA\xBB" })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Unknown { kind; data } ->
           Alcotest.(check int) (name ^ " kind") 0xDEAD kind;
-          Alcotest.(check int) (name ^ " data len") 2 (String.length data)
+          Alcotest.(check int) (name ^ " data len") 4 (String.length data);
+          Alcotest.(check char) (name ^ " data[0]") '\xAA' data.[0];
+          Alcotest.(check char) (name ^ " data[1]") '\xBB' data.[1]
       | _ -> Alcotest.fail (name ^ ": expected Unknown"))
 
 let test_unknown_symbol_empty_payload () =

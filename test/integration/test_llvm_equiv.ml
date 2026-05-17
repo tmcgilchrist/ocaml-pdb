@@ -152,6 +152,35 @@ let objfilename_scenario =
     build = build_objfilename;
   }
 
+(** Equivalent of [one-symbol.yaml]: one DBI module containing a single
+    S_OBJNAME symbol. Exercises module symbol stream layout. *)
+let build_one_symbol () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  Pdb.Pdb_builder.add_module b
+    {
+      name = "one-symbol.yaml";
+      obj_file = "one-symbol.yaml";
+      symbols =
+        [
+          Pdb.Codeview_symbols.ObjName
+            {
+              signature = Unsigned.UInt32.zero;
+              name = "c:\\foo\\one-symbol.yaml";
+            };
+        ];
+      subsections = [];
+      section_contrib = None;
+    };
+  Pdb.Pdb_builder.finalize b
+
+let one_symbol_scenario =
+  {
+    name = "one_symbol";
+    yaml = "one-symbol.yaml";
+    dump_args = "--modules --symbols";
+    build = build_one_symbol;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -159,4 +188,10 @@ let test_of_scenario s =
 
 let () =
   Alcotest.run "LLVM Equivalence"
-    [ ("scenarios", [ test_of_scenario objfilename_scenario ]) ]
+    [
+      ( "scenarios",
+        [
+          test_of_scenario objfilename_scenario;
+          test_of_scenario one_symbol_scenario;
+        ] );
+    ]

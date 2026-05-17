@@ -113,16 +113,19 @@ let finalize t =
   let module_has_stream (m : module_desc) =
     m.symbols <> [] || m.subsections <> []
   in
-  (* Build per-module stream bodies, only for modules that need one *)
+  (* Build per-module stream bodies, only for modules that need one.
+     Layout per LLVM's ModuleDebugStreamRef::reloadSerialize:
+       [SymbolsSubstream | C11Lines | C13Lines | u32 GlobalRefsSize | globals]
+     SymbolsSubstream begins with the 4-byte CV signature. We don't emit
+     globals refs, so we always write GlobalRefsSize = 0. *)
   let module_streams =
     List.filter_map
       (fun (m : module_desc) ->
         if not (module_has_stream m) then Option.None
         else
           let buf = Buffer.create 256 in
-          (* CV signature *)
+          (* CV signature + symbol records *)
           write_u32_le buf cv_signature_c13;
-          (* Symbol records *)
           List.iter
             (fun sym -> Codeview_symbols.write_symbol_record buf sym)
             m.symbols;
@@ -130,6 +133,8 @@ let finalize t =
           List.iter
             (fun sub -> Debug_subsections.write_subsection buf sub)
             m.subsections;
+          (* GlobalRefs trailer (size = 0, no body) *)
+          write_u32_le buf 0;
           Some (Buffer.contents buf))
       modules
   in
@@ -140,11 +145,16 @@ let finalize t =
   let names_buf = Buffer.create 256 in
   Pdb_string_table.write names_buf t.string_table;
   let names_bytes = Buffer.contents names_buf in
-  (* Assign stream indices:
-     0: empty, 1: PDB info, 2: TPI, 3: DBI, 4: IPI
-     5..5+N-1: module streams
-     5+N: sym record, 5+N+1: globals, 5+N+2: publics, 5+N+3: /names *)
-  let first_module_stream = 5 in
+  (* Assign stream indices. LLVM's PDBs always allocate an empty
+     /LinkInfo named stream at index 5 (used for incremental link
+     metadata); matching that layout keeps stream-index references in
+     llvm-pdbutil dumps consistent with yaml2pdb output.
+       0: empty, 1: PDB info, 2: TPI, 3: DBI, 4: IPI
+       5: /LinkInfo (empty)
+       6..6+N-1: module streams
+       6+N: sym record, 6+N+1: globals, 6+N+2: publics, 6+N+3: /names *)
+  let link_info_stream_idx = 5 in
+  let first_module_stream = 6 in
   let sym_record_stream_idx = first_module_stream + num_module_streams in
   let globals_stream_idx = sym_record_stream_idx + 1 in
   let publics_stream_idx = globals_stream_idx + 1 in
@@ -236,7 +246,7 @@ let finalize t =
   let dbi_bytes = Buffer.contents dbi_buf in
   (* Build PDB Info Stream *)
   let named_streams =
-    [ ("/names", names_stream_idx) ]
+    [ ("/names", names_stream_idx); ("/LinkInfo", link_info_stream_idx) ]
   in
   let info_buf = Buffer.create 128 in
   Pdb_stream_write.write info_buf
@@ -261,6 +271,9 @@ let finalize t =
   (* stream 3 *)
   let _s4 = Msf_write.add_stream msf ipi_bytes in
   (* stream 4 *)
+  let _s5 = Msf_write.add_empty_stream msf in
+  (* stream 5: /LinkInfo (empty) *)
+  ignore link_info_stream_idx;
   (* Module streams *)
   List.iter
     (fun stream_bytes -> ignore (Msf_write.add_stream msf stream_bytes))
