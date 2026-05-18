@@ -670,6 +670,59 @@ let merge_types_2_scenario =
     build = build_merge_types_2;
   }
 
+(** Equivalent of [merge-ids-1.yaml]: 7 IPI records exercising LF_STRING_ID
+    (with and without a parent ID) and LF_SUBSTR_LIST. Validates that
+    [Pdb_builder.add_id] emits IPI records byte-for-byte equivalent to
+    yaml2pdb output. *)
+let build_merge_ids () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  let u = Unsigned.UInt32.of_int in
+  (* 0x1000: 'One' *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0; str = "One" })
+  in
+  (* 0x1001: 'Two' *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0; str = "Two" })
+  in
+  (* 0x1002: 'OnlyInFirst' *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0; str = "OnlyInFirst" })
+  in
+  (* 0x1003: 'SubOne' *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0; str = "SubOne" })
+  in
+  (* 0x1004: 'SubTwo' *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0; str = "SubTwo" })
+  in
+  (* 0x1005: LF_SUBSTR_LIST [0x1003, 0x1004] *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.SubstrList
+         { strings = [| u 0x1003; u 0x1004 |] })
+  in
+  (* 0x1006: 'Main' with parent id = 0x1005 *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0x1005; str = "Main" })
+  in
+  Pdb.Pdb_builder.finalize b
+
+let merge_ids_scenario =
+  {
+    name = "merge_ids";
+    yaml = "merge-ids-1.yaml";
+    dump_args = "--ids";
+    build = build_merge_ids;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -689,5 +742,6 @@ let () =
           test_of_scenario unknown_symbol_scenario;
           test_of_scenario longname_truncation_scenario;
           test_of_scenario merge_types_2_scenario;
+          test_of_scenario merge_ids_scenario;
         ] );
     ]
