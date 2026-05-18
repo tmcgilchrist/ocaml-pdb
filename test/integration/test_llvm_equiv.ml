@@ -723,6 +723,53 @@ let merge_ids_scenario =
     build = build_merge_ids;
   }
 
+(** Equivalent of [merge-ids-2.yaml]: companion to merge-ids-1 with a
+    different ordering of LF_STRING_ID records and an LF_SUBSTR_LIST
+    that references them out of order. *)
+let build_merge_ids_2 () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  let u = Unsigned.UInt32.of_int in
+  (* 0x1000: 'SubTwo' *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0; str = "SubTwo" })
+  in
+  (* 0x1001: 'OnlyInSecond' *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0; str = "OnlyInSecond" })
+  in
+  (* 0x1002: 'SubOne' *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0; str = "SubOne" })
+  in
+  (* 0x1003: LF_SUBSTR_LIST [0x1002, 0x1000] (SubOne, SubTwo) *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.SubstrList
+         { strings = [| u 0x1002; u 0x1000 |] })
+  in
+  (* 0x1004: 'One' *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0; str = "One" })
+  in
+  (* 0x1005: 'Main' with parent id = 0x1003 *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.StringId { id = u 0x1003; str = "Main" })
+  in
+  Pdb.Pdb_builder.finalize b
+
+let merge_ids_2_scenario =
+  {
+    name = "merge_ids_2";
+    yaml = "merge-ids-2.yaml";
+    dump_args = "--ids";
+    build = build_merge_ids_2;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -743,5 +790,6 @@ let () =
           test_of_scenario longname_truncation_scenario;
           test_of_scenario merge_types_2_scenario;
           test_of_scenario merge_ids_scenario;
+          test_of_scenario merge_ids_2_scenario;
         ] );
     ]
