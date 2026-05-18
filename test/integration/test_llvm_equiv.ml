@@ -484,6 +484,39 @@ let source_names_2_scenario =
     build = build_source_names_2;
   }
 
+(** Equivalent of [unknown-symbol.yaml]: one DBI module containing a single
+    symbol record of kind S_RESERVED1 (0x0001) with 8 bytes of payload.
+    llvm-pdbutil prints the unrecognized kind with its size but no field
+    interpretation, exercising the [Unknown] symbol fallback path. *)
+let build_unknown_symbol () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  Pdb.Pdb_builder.add_module b
+    {
+      name = "unknown-symbol.yaml";
+      obj_file = "unknown-symbol.yaml";
+      symbols =
+        [
+          Pdb.Codeview_symbols.Unknown
+            {
+              kind = 0x101c;
+              (* S_RESERVED1 (S_COMPILE is 0x0001) *)
+              data = hex_decode "123456789ABCDEF0";
+            };
+        ];
+      subsections = [];
+      section_contrib = None;
+      source_files = [];
+    };
+  Pdb.Pdb_builder.finalize b
+
+let unknown_symbol_scenario =
+  {
+    name = "unknown_symbol";
+    yaml = "unknown-symbol.yaml";
+    dump_args = "--modules --symbols";
+    build = build_unknown_symbol;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -500,5 +533,6 @@ let () =
           test_of_scenario debug_subsections_scenario;
           test_of_scenario source_names_scenario;
           test_of_scenario source_names_2_scenario;
+          test_of_scenario unknown_symbol_scenario;
         ] );
     ]
