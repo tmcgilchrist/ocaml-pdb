@@ -589,6 +589,87 @@ let longname_truncation_scenario =
     build = build_longname_truncation;
   }
 
+(** Equivalent of [merge-types-2.yaml]: companion to merge-types-1 with a
+    different ordering of LF_POINTER chains and a struct forward
+    reference (OnlyInMerge2). Exercises TPI coverage for the same record
+    kinds but at different type indices, validating that our builder
+    handles forward references to user-defined indices in any order. *)
+let build_merge_types_2 () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  let u = Unsigned.UInt32.of_int in
+  let ptr_attrs = u 32778 in
+  (* 0x1000: uint32_t* *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 117; attrs = ptr_attrs })
+  in
+  (* 0x1001: uint32_t ptr-ptr *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 0x1000; attrs = ptr_attrs })
+  in
+  (* 0x1002: uint32_t triple-ptr *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 0x1001; attrs = ptr_attrs })
+  in
+  (* 0x1003: (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.ArgList
+         { args = [| u 117; u 0x1000; u 0x1001 |] })
+  in
+  (* 0x1004: uint32_t (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Procedure
+         {
+           return_type = u 117;
+           calling_conv = Pdb.Codeview_constants.NearC;
+           param_count = 0;
+           arg_list = u 0x1003;
+         })
+  in
+  (* 0x1005: int64_t* *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 118; attrs = ptr_attrs })
+  in
+  (* 0x1006: int64_t ptr-ptr *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 0x1005; attrs = ptr_attrs })
+  in
+  (* 0x1007: struct OnlyInMerge2 (forward ref + has-unique-name) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Structure
+         {
+           field_count = 0;
+           properties = Pdb.Codeview_types.parse_type_properties 0x0280;
+           field_list = u 0;
+           derived_from = u 0;
+           vtable_shape = u 0;
+           size = 0L;
+           name = "OnlyInMerge2";
+           unique_name = Some "OnlyInMerge2";
+         })
+  in
+  Pdb.Pdb_builder.finalize b
+
+let merge_types_2_scenario =
+  {
+    name = "merge_types_2";
+    yaml = "merge-types-2.yaml";
+    dump_args = "--types";
+    build = build_merge_types_2;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -607,5 +688,6 @@ let () =
           test_of_scenario source_names_2_scenario;
           test_of_scenario unknown_symbol_scenario;
           test_of_scenario longname_truncation_scenario;
+          test_of_scenario merge_types_2_scenario;
         ] );
     ]
