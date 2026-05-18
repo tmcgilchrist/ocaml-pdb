@@ -459,6 +459,31 @@ let source_names_scenario =
     build = build_source_names;
   }
 
+(** Equivalent of [source-names-2.yaml]: companion to [source-names-1.yaml]
+    with a different source filename (.cc instead of .c). The pair is used
+    by LLVM's PDB-merging tests; for us each is an independent validation
+    of the DBI FileInfo NamesBuffer. *)
+let build_source_names_2 () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  Pdb.Pdb_builder.add_module b
+    {
+      name = "C:\\src\\test.obj";
+      obj_file = "C:\\src\\test.obj";
+      symbols = [];
+      subsections = [];
+      section_contrib = None;
+      source_files = [ "C:\\src\\test.cc" ];
+    };
+  Pdb.Pdb_builder.finalize b
+
+let source_names_2_scenario =
+  {
+    name = "source_names_2";
+    yaml = "source-names-2.yaml";
+    dump_args = "--modules --files";
+    build = build_source_names_2;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -474,5 +499,6 @@ let () =
           test_of_scenario merge_types_scenario;
           test_of_scenario debug_subsections_scenario;
           test_of_scenario source_names_scenario;
+          test_of_scenario source_names_2_scenario;
         ] );
     ]
