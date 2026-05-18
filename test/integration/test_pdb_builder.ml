@@ -59,6 +59,7 @@ let test_pdb_with_types () =
   let _proc = Pdb.Pdb_builder.add_type b
     (Pdb.Codeview_types.Procedure
        { return_type = u32 0x0074; calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
          param_count = 0; arg_list = u32 0x1000 }) in
   (* Add an IPI record *)
   let _func_id = Pdb.Pdb_builder.add_id b
@@ -93,6 +94,7 @@ let test_pdb_with_module () =
   let _proc_ti = Pdb.Pdb_builder.add_type b
     (Pdb.Codeview_types.Procedure
        { return_type = u32 0x0074; calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
          param_count = 0; arg_list = u32 0 }) in
   Pdb.Pdb_builder.add_module b
     {
@@ -189,6 +191,7 @@ let test_llvm_pdbutil_validates () =
       (Pdb.Codeview_types.Procedure
          { return_type = u32 0x0074;
            calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
            param_count = 0; arg_list = u32 0x1000 }) in
     Pdb.Pdb_builder.add_module b
       {
@@ -267,6 +270,7 @@ let test_full_pdb_for_ocaml () =
            {
              return_type = u32 0x0074;
              calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
              param_count = 1;
              arg_list = arglist_ti;
            })

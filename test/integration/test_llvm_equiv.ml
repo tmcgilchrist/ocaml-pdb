@@ -250,6 +250,7 @@ let build_merge_types () =
          {
            return_type = u 117;
            calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
            param_count = 0;
            arg_list = u 0x1006;
          })
@@ -629,6 +630,7 @@ let build_merge_types_2 () =
          {
            return_type = u 117;
            calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
            param_count = 0;
            arg_list = u 0x1003;
          })
@@ -770,6 +772,129 @@ let merge_ids_2_scenario =
     build = build_merge_ids_2;
   }
 
+(** Equivalent of [merge-ids-and-types-1.yaml]: combined TPI + IPI scenario.
+    The TPI defines a [FooBar] struct, an [int main(int, char-ptr-ptr)] procedure,
+    and a member function. The IPI references them via LF_FUNC_ID,
+    LF_MFUNC_ID, and LF_UDT_MOD_SRC_LINE — exercising cross-stream type
+    references. Also exercises the new FunctionOptions field on
+    LF_MFUNCTION (Constructor = 0x02). *)
+let build_merge_ids_and_types () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  let u = Unsigned.UInt32.of_int in
+  let ptr_attrs = u 32778 in
+  (* TPI 0x1000: char** *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 1136; (* char* *) attrs = ptr_attrs })
+  in
+  (* TPI 0x1001: field list with one LF_MEMBER (public void *FooMember) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.FieldList
+         {
+           members =
+             [
+               Pdb.Codeview_types.Member
+                 {
+                   attrs = 3;
+                   (* public *)
+                   field_type = u 1027;
+                   (* void* *)
+                   offset = 0L;
+                   name = "FooMember";
+                 };
+             ];
+         })
+  in
+  (* TPI 0x1002: (int, char ptr-ptr) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.ArgList { args = [| u 116; u 0x1000 |] })
+  in
+  (* TPI 0x1003: struct FooBar (HasUniqueName) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Structure
+         {
+           field_count = 1;
+           properties = Pdb.Codeview_types.parse_type_properties 0x0200;
+           field_list = u 0x1001;
+           derived_from = u 0;
+           vtable_shape = u 0;
+           size = 4L;
+           name = "FooBar";
+           unique_name = Some "FooBar";
+         })
+  in
+  (* TPI 0x1004: FooBar* *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 0x1003; attrs = ptr_attrs })
+  in
+  (* TPI 0x1005: (int) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.ArgList { args = [| u 116 |] })
+  in
+  (* TPI 0x1006: LF_MFUNCTION void(int) on FooBar, ThisCall + Constructor *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.MFunction
+         {
+           return_type = u 3;
+           (* void *)
+           class_type = u 0x1003;
+           this_type = u 0x1004;
+           calling_conv = Pdb.Codeview_constants.ThisCall;
+           options = 0x02;
+           (* Constructor *)
+           param_count = 1;
+           arg_list = u 0x1005;
+           this_adjust = 0l;
+         })
+  in
+  (* TPI 0x1007: LF_PROCEDURE int(int, char ptr-ptr) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Procedure
+         {
+           return_type = u 116;
+           calling_conv = Pdb.Codeview_constants.NearC;
+           options = 0;
+           param_count = 2;
+           arg_list = u 0x1002;
+         })
+  in
+  (* IPI 0x1000: LF_FUNC_ID 'main' referencing TPI 0x1007 *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.FuncId
+         { scope_id = u 0; func_type = u 0x1007; name = "main" })
+  in
+  (* IPI 0x1001: LF_MFUNC_ID 'FooMethod' on TPI 0x1003 -> TPI 0x1006 *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.MFuncId
+         { parent_type = u 0x1003; func_type = u 0x1006; name = "FooMethod" })
+  in
+  (* IPI 0x1002: LF_UDT_MOD_SRC_LINE referencing TPI 0x1003 *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.UdtModSrcLine
+         { udt = u 0x1003; source = u 0; line = u 0; module_ = 0 })
+  in
+  Pdb.Pdb_builder.finalize b
+
+let merge_ids_and_types_scenario =
+  {
+    name = "merge_ids_and_types";
+    yaml = "merge-ids-and-types-1.yaml";
+    dump_args = "--types --ids";
+    build = build_merge_ids_and_types;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -791,5 +916,6 @@ let () =
           test_of_scenario merge_types_2_scenario;
           test_of_scenario merge_ids_scenario;
           test_of_scenario merge_ids_2_scenario;
+          test_of_scenario merge_ids_and_types_scenario;
         ] );
     ]

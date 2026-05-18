@@ -189,6 +189,9 @@ type type_record =
   | Procedure of {
       return_type : u32;
       calling_conv : Codeview_constants.calling_convention;
+      options : int;
+          (** FunctionOptions byte: 0x01=CxxReturnUdt, 0x02=Constructor,
+              0x04=ConstructorWithVirtualBases. *)
       param_count : int;
       arg_list : u32;
     }
@@ -197,6 +200,7 @@ type type_record =
       class_type : u32;
       this_type : u32;
       calling_conv : Codeview_constants.calling_convention;
+      options : int;  (** FunctionOptions byte; same encoding as Procedure. *)
       param_count : int;
       arg_list : u32;
       this_adjust : int32;
@@ -372,17 +376,17 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       let return_type = read_u32 cur in
       let cc = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       let calling_conv = Codeview_constants.calling_convention_of_int cc in
-      let _options = Object.Buffer.Read.u8 cur in
+      let options = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       let param_count = read_u16 cur in
       let arg_list = read_u32 cur in
-      Procedure { return_type; calling_conv; param_count; arg_list }
+      Procedure { return_type; calling_conv; options; param_count; arg_list }
   | 0x1009 (* LF_MFUNCTION *) ->
       let return_type = read_u32 cur in
       let class_type = read_u32 cur in
       let this_type = read_u32 cur in
       let cc = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       let calling_conv = Codeview_constants.calling_convention_of_int cc in
-      let _options = Object.Buffer.Read.u8 cur in
+      let options = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       let param_count = read_u16 cur in
       let arg_list = read_u32 cur in
       let this_adjust =
@@ -394,6 +398,7 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
           class_type;
           this_type;
           calling_conv;
+          options;
           param_count;
           arg_list;
           this_adjust;
@@ -561,13 +566,12 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_u16_le rec_buf 0x1002;
       write_u32_le rec_buf (Unsigned.UInt32.to_int pointee_type);
       write_u32_le rec_buf (Unsigned.UInt32.to_int attrs)
-  | Procedure { return_type; calling_conv; param_count; arg_list } ->
+  | Procedure { return_type; calling_conv; options; param_count; arg_list } ->
       write_u16_le rec_buf 0x1008;
       write_u32_le rec_buf (Unsigned.UInt32.to_int return_type);
       Buffer.add_char rec_buf
         (Char.chr (Codeview_constants.int_of_calling_convention calling_conv));
-      Buffer.add_char rec_buf '\000';
-      (* options *)
+      Buffer.add_char rec_buf (Char.chr (options land 0xFF));
       write_u16_le rec_buf param_count;
       write_u32_le rec_buf (Unsigned.UInt32.to_int arg_list)
   | MFunction
@@ -576,6 +580,7 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
         class_type;
         this_type;
         calling_conv;
+        options;
         param_count;
         arg_list;
         this_adjust;
@@ -586,7 +591,7 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_u32_le rec_buf (Unsigned.UInt32.to_int this_type);
       Buffer.add_char rec_buf
         (Char.chr (Codeview_constants.int_of_calling_convention calling_conv));
-      Buffer.add_char rec_buf '\000';
+      Buffer.add_char rec_buf (Char.chr (options land 0xFF));
       write_u16_le rec_buf param_count;
       write_u32_le rec_buf (Unsigned.UInt32.to_int arg_list);
       write_i32_le rec_buf this_adjust
@@ -598,9 +603,23 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
         args
   | FieldList { members } ->
       write_u16_le rec_buf 0x1203;
-      List.iter
-        (fun entry ->
-          write_padding rec_buf;
+      (* Each field-list entry is aligned to 4 bytes from the absolute
+         start of the record. Since [rec_buf] doesn't include the
+         2-byte length prefix that will be prepended, we pad based on
+         [Buffer.length rec_buf + 2]. Padding goes AFTER each entry so
+         the NEXT entry starts aligned; the first entry (right after
+         the 2-byte kind) is already at absolute offset 4. *)
+      let pad_after_entry () =
+        let absolute_pos = Buffer.length rec_buf + 2 in
+        let align = (4 - (absolute_pos mod 4)) mod 4 in
+        for i = 1 to align do
+          Buffer.add_char rec_buf (Char.chr (0xf0 + i))
+        done
+      in
+      List.iteri
+        (fun i entry ->
+          if i > 0 then pad_after_entry ();
+          ignore pad_after_entry;
           match entry with
           | Member { attrs; field_type; offset; name } ->
               write_u16_le rec_buf 0x150d;

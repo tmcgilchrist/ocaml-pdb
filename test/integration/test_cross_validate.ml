@@ -63,6 +63,7 @@ let build_test_pdb () : string =
         {
           return_type = u32 0x0074;
           calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
           param_count = 0;
           arg_list = u32 0x1000;
         };

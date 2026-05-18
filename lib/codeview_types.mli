@@ -78,6 +78,9 @@ type type_record =
   | Procedure of {
       return_type : u32;
       calling_conv : Codeview_constants.calling_convention;
+      options : int;
+          (** FunctionOptions byte: 0x01=CxxReturnUdt, 0x02=Constructor,
+              0x04=ConstructorWithVirtualBases. *)
       param_count : int;
       arg_list : u32;
     }
@@ -86,6 +89,7 @@ type type_record =
       class_type : u32;
       this_type : u32;
       calling_conv : Codeview_constants.calling_convention;
+      options : int;  (** FunctionOptions byte; same encoding as Procedure. *)
       param_count : int;
       arg_list : u32;
       this_adjust : int32;

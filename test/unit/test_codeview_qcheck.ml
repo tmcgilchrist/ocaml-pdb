@@ -143,6 +143,7 @@ let test_procedure_roundtrip =
              {
                return_type;
                calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
                param_count;
                arg_list;
              })
@@ -261,6 +262,7 @@ let test_mfunction_roundtrip =
         type_record_roundtrip
           (Pdb.Codeview_types.MFunction
              { return_type; class_type; this_type; calling_conv;
+               options = 0;
                param_count; arg_list; this_adjust })
       in
       match r with

@@ -169,6 +169,7 @@ let test_procedure_roundtrip () =
        {
          return_type = u32 0x0074;
          calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
          param_count = 2;
          arg_list = u32 0x1001;
        })
@@ -489,6 +490,7 @@ let test_mfunction_roundtrip () =
          class_type = u32 0x1007;
          this_type = u32 0x1008;
          calling_conv = Pdb.Codeview_constants.ThisCall;
+      options = 0;
          param_count = 2;
          arg_list = u32 0x1003;
          this_adjust = 0l;
@@ -497,7 +499,7 @@ let test_mfunction_roundtrip () =
       match r with
       | Pdb.Codeview_types.MFunction
           { return_type; class_type; this_type; calling_conv; param_count;
-            arg_list; this_adjust } ->
+            arg_list; this_adjust; _ } ->
           Alcotest.(check int) (name ^ " ret") 0x0074
             (Unsigned.UInt32.to_int return_type);
           Alcotest.(check int) (name ^ " class") 0x1007
@@ -710,6 +712,7 @@ let test_tpi_stream_roundtrip () =
         {
           return_type = u32 0x0074;
           calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
           param_count = 0;
           arg_list = u32 0x1001;
         };
@@ -791,6 +794,7 @@ let test_tpi_hash_stream () =
         {
           return_type = u32 0x0074;
           calling_conv = Pdb.Codeview_constants.NearC;
+      options = 0;
           param_count = 0;
           arg_list = u32 0x1000;
         };
