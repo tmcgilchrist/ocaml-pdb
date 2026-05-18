@@ -517,6 +517,78 @@ let unknown_symbol_scenario =
     build = build_unknown_symbol;
   }
 
+(** Equivalent of [longname-truncation.yaml]: two LF_STRUCTURE records with
+    very long names (68k+ chars), exercising LLVM's truncation logic in
+    [TypeRecordMapping::mapNameAndUniqueName]. Two cases:
+
+    - Record 0x1000 has both Name and UniqueName. LLVM caps the on-disk
+      record at ~4156 bytes: Name = take_front(4064) + MD5_hex(Name);
+      UniqueName = "??@" + MD5_hex(UniqueName) + "@".
+    - Record 0x1001 has Name only. The simple truncation
+      [Name.take_front(maxFieldLength() - 1)] runs and the record fills
+      MaxRecordLength = 0xFF00 = 65280 bytes.
+
+    Our writer doesn't implement this truncation, so the scenario passes
+    already-truncated strings — making this a check that our writer
+    correctly emits well-formed records of those exact byte shapes, not
+    that we replicate LLVM's truncation algorithm. *)
+let build_longname_truncation () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  let u = Unsigned.UInt32.of_int in
+  (* MD5_hex of the original (untruncated) inputs, matching what LLVM
+     hashes when truncating. The YAML uses:
+       Record 0x1000: Name = 68229 'a's, UniqueName = 68228 'b's, Size = 1
+       Record 0x1001: Name = 68229 'f's, no UniqueName,           Size = 8 *)
+  let md5_hex s = Digest.to_hex (Digest.string s) in
+  let orig_name_1 = String.make 68229 'a' in
+  let orig_unique_1 = String.make 68228 'b' in
+  let truncated_name_1 = String.make 4064 'a' ^ md5_hex orig_name_1 in
+  let truncated_unique_1 = "??@" ^ md5_hex orig_unique_1 ^ "@" in
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Structure
+         {
+           field_count = 0;
+           properties = Pdb.Codeview_types.parse_type_properties 0x0200;
+           (* HasUniqueName *)
+           field_list = u 0;
+           derived_from = u 0;
+           vtable_shape = u 0;
+           size = 1L;
+           name = truncated_name_1;
+           unique_name = Some truncated_unique_1;
+         })
+  in
+  (* Record 0x1001: Name only. The non-UniqueName branch in LLVM's
+     mapStringZ does the simple [take_front(maxFieldLength() - 1)]
+     truncation, filling the record to MaxRecordLength = 0xFF00 = 65280
+     bytes. After the 22-byte fixed prefix and 1-byte null terminator,
+     65257 chars remain for the truncated name. *)
+  let truncated_name_2 = String.make 65257 'f' in
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Structure
+         {
+           field_count = 0;
+           properties = Pdb.Codeview_types.parse_type_properties 0x0000;
+           field_list = u 0;
+           derived_from = u 0;
+           vtable_shape = u 0;
+           size = 8L;
+           name = truncated_name_2;
+           unique_name = None;
+         })
+  in
+  Pdb.Pdb_builder.finalize b
+
+let longname_truncation_scenario =
+  {
+    name = "longname_truncation";
+    yaml = "longname-truncation.yaml";
+    dump_args = "--types";
+    build = build_longname_truncation;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -534,5 +606,6 @@ let () =
           test_of_scenario source_names_scenario;
           test_of_scenario source_names_2_scenario;
           test_of_scenario unknown_symbol_scenario;
+          test_of_scenario longname_truncation_scenario;
         ] );
     ]
