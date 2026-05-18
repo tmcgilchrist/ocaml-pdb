@@ -82,7 +82,7 @@ let build_test_pdb () : string =
   let _s2 = Pdb.Msf_write.add_stream msf (Buffer.contents tpi_buf) in
   (* Stream 3: DBI Stream *)
   let dbi_buf = Buffer.create 256 in
-  Pdb.Dbi_write.write dbi_buf [] [] ~machine:0x8664;
+  Pdb.Dbi_write.write dbi_buf [] [] ~source_files:[] ~machine:0x8664;
   let _s3 = Pdb.Msf_write.add_stream msf (Buffer.contents dbi_buf) in
   (* Stream 4: IPI Stream (empty) *)
   let ipi_buf = Buffer.create 128 in

@@ -44,7 +44,7 @@ let test_dbi_header_roundtrip () =
   let modules = [ make_module_info ~name:"simple.obj" () ] in
   let sc = [ make_section_contrib () ] in
   let buf = Buffer.create 256 in
-  Pdb.Dbi_write.write buf modules sc ~machine:0x8664;
+  Pdb.Dbi_write.write buf modules sc ~source_files:[] ~machine:0x8664;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -68,7 +68,7 @@ let test_dbi_multiple_modules () =
     ]
   in
   let buf = Buffer.create 512 in
-  Pdb.Dbi_write.write buf modules sc ~machine:0x14C;
+  Pdb.Dbi_write.write buf modules sc ~source_files:[] ~machine:0x14C;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -90,7 +90,7 @@ let test_dbi_section_contributions () =
   in
   let modules = [ make_module_info (); make_module_info ~name:"b.obj" () ] in
   let buf = Buffer.create 512 in
-  Pdb.Dbi_write.write buf modules sc ~machine:0x8664;
+  Pdb.Dbi_write.write buf modules sc ~source_files:[] ~machine:0x8664;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -106,7 +106,7 @@ let test_dbi_section_contributions () =
 
 let test_dbi_empty () =
   let buf = Buffer.create 128 in
-  Pdb.Dbi_write.write buf [] [] ~machine:0;
+  Pdb.Dbi_write.write buf [] [] ~source_files:[] ~machine:0;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -119,7 +119,7 @@ let test_dbi_obj_file_name () =
     make_module_info ~name:"foo.obj" ~obj:"C:\\Users\\dev\\project\\foo.obj" ()
   in
   let buf = Buffer.create 256 in
-  Pdb.Dbi_write.write buf [ m ] [] ~machine:0x8664;
+  Pdb.Dbi_write.write buf [ m ] [] ~source_files:[] ~machine:0x8664;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -136,7 +136,7 @@ let test_dbi_header_fields () =
   in
   let sc = [ make_section_contrib ~section:1 ~offset:0l ~size:200l () ] in
   let buf = Buffer.create 512 in
-  Pdb.Dbi_write.write buf modules sc ~machine:0x8664;
+  Pdb.Dbi_write.write buf modules sc ~source_files:[] ~machine:0x8664;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -168,7 +168,7 @@ let test_dbi_module_c13_fields () =
     }
   in
   let buf = Buffer.create 256 in
-  Pdb.Dbi_write.write buf [ m ] [] ~machine:0x14C;
+  Pdb.Dbi_write.write buf [ m ] [] ~source_files:[] ~machine:0x14C;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -192,7 +192,7 @@ let test_dbi_section_contrib_fields () =
   in
   let modules = [ make_module_info (); make_module_info ~name:"b.obj" () ] in
   let buf = Buffer.create 512 in
-  Pdb.Dbi_write.write buf modules [ sc ] ~machine:0x8664;
+  Pdb.Dbi_write.write buf modules [ sc ] ~source_files:[] ~machine:0x8664;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -213,7 +213,7 @@ let test_dbi_section_contrib_fields () =
 
 let test_dbi_version_signature () =
   let buf = Buffer.create 128 in
-  Pdb.Dbi_write.write buf [] [] ~machine:0;
+  Pdb.Dbi_write.write buf [] [] ~source_files:[] ~machine:0;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in

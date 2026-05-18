@@ -33,6 +33,10 @@ type module_desc = {
   symbols : Codeview_symbols.symbol_record list;
   subsections : Debug_subsections.subsection list;
   section_contrib : Dbi.section_contribution option;
+  source_files : string list;
+      (** Source filenames associated with this compilation unit. Goes into
+          the DBI FileInfo substream and is reported by llvm-pdbutil's
+          [--files] / [--modules] (# files) output. Use [[]] for none. *)
 }
 
 type t = {
@@ -234,14 +238,19 @@ let finalize t =
     || List.length publics > 0
     || List.length globals > 0
   in
+  let source_files_per_module =
+    List.map (fun (m : module_desc) -> m.source_files) modules
+  in
   if has_gsi then
     Dbi_write.write_full dbi_buf module_infos section_contribs
+      ~source_files:source_files_per_module
       ~machine:(machine_to_int t.machine)
       ~global_stream:globals_stream_idx
       ~public_stream:publics_stream_idx
       ~sym_record_stream:sym_record_stream_idx
   else
     Dbi_write.write dbi_buf module_infos section_contribs
+      ~source_files:source_files_per_module
       ~machine:(machine_to_int t.machine);
   let dbi_bytes = Buffer.contents dbi_buf in
   (* Build PDB Info Stream *)

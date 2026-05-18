@@ -141,6 +141,7 @@ let build_objfilename () =
       symbols = [];
       subsections = [];
       section_contrib = None;
+      source_files = [];
     };
   Pdb.Pdb_builder.finalize b
 
@@ -170,6 +171,7 @@ let build_one_symbol () =
         ];
       subsections = [];
       section_contrib = None;
+      source_files = [];
     };
   Pdb.Pdb_builder.finalize b
 
@@ -389,6 +391,7 @@ let build_debug_subsections () =
       symbols = [];
       subsections = [ placeholder_subsection ];
       section_contrib = None;
+      source_files = [];
     };
   (* Module 1: Bar.obj — likewise *)
   Pdb.Pdb_builder.add_module b
@@ -398,6 +401,7 @@ let build_debug_subsections () =
       symbols = [];
       subsections = [ placeholder_subsection ];
       section_contrib = None;
+      source_files = [];
     };
   (* Module 2: empty.obj with the line info *)
   Pdb.Pdb_builder.add_module b
@@ -407,6 +411,7 @@ let build_debug_subsections () =
       symbols = [];
       subsections = [ file_checksums; lines; inlinee_lines ];
       section_contrib = None;
+      source_files = [];
     };
   (* Module 3: ObjFileSubsections — likewise empty *)
   Pdb.Pdb_builder.add_module b
@@ -416,6 +421,7 @@ let build_debug_subsections () =
       symbols = [];
       subsections = [ placeholder_subsection ];
       section_contrib = None;
+      source_files = [];
     };
   Pdb.Pdb_builder.finalize b
 
@@ -425,6 +431,32 @@ let debug_subsections_scenario =
     yaml = "debug-subsections.yaml";
     dump_args = "-l --il";
     build = build_debug_subsections;
+  }
+
+(** Equivalent of [source-names-1.yaml]: one DBI module with a single
+    source file recorded in the FileInfo substream (no module debug
+    stream, no FileChecksums subsection). Exercises the DBI FileInfo
+    substream's NumSourceFiles / ModFileCounts / FileNameOffsets /
+    NamesBuffer layout. *)
+let build_source_names () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  Pdb.Pdb_builder.add_module b
+    {
+      name = "C:\\src\\test.obj";
+      obj_file = "C:\\src\\test.obj";
+      symbols = [];
+      subsections = [];
+      section_contrib = None;
+      source_files = [ "C:\\src\\test.c" ];
+    };
+  Pdb.Pdb_builder.finalize b
+
+let source_names_scenario =
+  {
+    name = "source_names";
+    yaml = "source-names-1.yaml";
+    dump_args = "--modules --files";
+    build = build_source_names;
   }
 
 (** {1 Suite} *)
@@ -441,5 +473,6 @@ let () =
           test_of_scenario one_symbol_scenario;
           test_of_scenario merge_types_scenario;
           test_of_scenario debug_subsections_scenario;
+          test_of_scenario source_names_scenario;
         ] );
     ]

@@ -67,8 +67,38 @@ let write_module_info buf (m : Dbi.module_info) =
 let dbi_version_v70 = 19990903
 
 let write_full (buf : Buffer.t) (modules : Dbi.module_info list)
-    (section_contribs : Dbi.section_contribution list) ~machine ~global_stream
+    (section_contribs : Dbi.section_contribution list)
+    ~source_files ~machine ~global_stream
     ~public_stream ~sym_record_stream : unit =
+  let num_modules = List.length modules in
+  (* [source_files = []] means "caller did not supply source filenames";
+     leave each module_info's [source_file_count] alone and emit a minimal
+     FileInfo substream with zero-count entries. When at least one module's
+     list is supplied, normalize to length [num_modules] and override the
+     corresponding [source_file_count]s so the FileInfo substream and the
+     module info stay consistent. *)
+  let supplied_source_files = source_files <> [] in
+  let source_files =
+    if not supplied_source_files then List.init num_modules (fun _ -> [])
+    else
+      let n = List.length source_files in
+      if n >= num_modules then
+        let rec take k = function
+          | _ when k = 0 -> []
+          | [] -> []
+          | x :: rest -> x :: take (k - 1) rest
+        in
+        take num_modules source_files
+      else source_files @ List.init (num_modules - n) (fun _ -> [])
+  in
+  let modules =
+    if not supplied_source_files then modules
+    else
+      List.map2
+        (fun (m : Dbi.module_info) files ->
+          { m with source_file_count = List.length files })
+        modules source_files
+  in
   (* Build substreams *)
   let mod_buf = Buffer.create 256 in
   List.iter (write_module_info mod_buf) modules;
@@ -79,20 +109,59 @@ let write_full (buf : Buffer.t) (modules : Dbi.module_info list)
   (* SC version *)
   List.iter (write_section_contribution sc_buf) section_contribs;
   let sc_size = Buffer.length sc_buf in
-  (* Build FileInfo substream: NumModules(u16), NumSourceFiles(u16),
-     then ModIndices[N] and ModFileCounts[N] arrays (both u16 each) *)
-  let num_modules = List.length modules in
-  let file_info_buf = Buffer.create 32 in
+  (* Build FileInfo substream. Layout per LLVM DbiModuleList::initialize:
+       NumModules        : u16
+       NumSourceFiles    : u16  (deprecated; truncates total to u16 range,
+                                 but llvm-pdbutil uses sum of ModFileCounts)
+       ModIndices        : u16[NumModules]  (per-module file list base)
+       ModFileCounts     : u16[NumModules]
+       FileNameOffsets   : u32[total]       (offsets into NamesBuffer)
+       NamesBuffer       : null-terminated strings, padded to 4 bytes
+     ModIndices[i] gives the offset (in FileNameOffsets entries) where
+     module i's source files begin; ModFileCounts[i] the count. *)
+  let total_files =
+    List.fold_left (fun acc l -> acc + List.length l) 0 source_files
+  in
+  let file_info_buf = Buffer.create 64 in
   write_u16_le file_info_buf num_modules;
-  write_u16_le file_info_buf 0;
-  (* NumSourceFiles *)
-  for _ = 1 to num_modules do
-    write_u16_le file_info_buf 0
-    (* ModIndices *)
-  done;
-  for _ = 1 to num_modules do
-    write_u16_le file_info_buf 0
-    (* ModFileCounts *)
+  write_u16_le file_info_buf (total_files land 0xFFFF);
+  (* ModIndices: per-module starting index into FileNameOffsets *)
+  let running = ref 0 in
+  List.iter
+    (fun files ->
+      write_u16_le file_info_buf (!running land 0xFFFF);
+      running := !running + List.length files)
+    source_files;
+  (* ModFileCounts *)
+  List.iter
+    (fun files ->
+      write_u16_le file_info_buf (List.length files land 0xFFFF))
+    source_files;
+  (* Build NamesBuffer and per-file offsets. The same filename string is
+     deduplicated by offset (LLVM's DbiStreamBuilder does the same). *)
+  let names_buf = Buffer.create 64 in
+  let name_offsets : (string, int) Hashtbl.t = Hashtbl.create 8 in
+  let offset_of name =
+    match Hashtbl.find_opt name_offsets name with
+    | Some off -> off
+    | None ->
+        let off = Buffer.length names_buf in
+        Buffer.add_string names_buf name;
+        Buffer.add_char names_buf '\000';
+        Hashtbl.add name_offsets name off;
+        off
+  in
+  let file_offsets =
+    List.concat_map (fun files -> List.map offset_of files) source_files
+  in
+  List.iter (fun off -> write_u32_le file_info_buf off) file_offsets;
+  Buffer.add_string file_info_buf (Buffer.contents names_buf);
+  (* Pad FileInfo substream to 4-byte alignment so the next substream
+     (TypeServerMap / EC) starts aligned. *)
+  let fi_unaligned = Buffer.length file_info_buf in
+  let fi_pad = (4 - (fi_unaligned mod 4)) mod 4 in
+  for _ = 1 to fi_pad do
+    Buffer.add_char file_info_buf '\000'
   done;
   let file_info_size = Buffer.length file_info_buf in
   (* Build OptionalDbgHeader: 11 x u16 stream indices, all 0xFFFF *)
@@ -170,6 +239,7 @@ let write_full (buf : Buffer.t) (modules : Dbi.module_info list)
   Buffer.add_string buf (Buffer.contents ec_buf);
   Buffer.add_string buf (Buffer.contents opt_dbg_buf)
 
-let write buf modules section_contribs ~machine =
-  write_full buf modules section_contribs ~machine ~global_stream:0xFFFF
-    ~public_stream:0xFFFF ~sym_record_stream:0xFFFF
+let write buf modules section_contribs ~source_files ~machine =
+  write_full buf modules section_contribs ~source_files ~machine
+    ~global_stream:0xFFFF ~public_stream:0xFFFF
+    ~sym_record_stream:0xFFFF

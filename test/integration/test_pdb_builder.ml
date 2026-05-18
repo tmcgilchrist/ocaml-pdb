@@ -113,6 +113,7 @@ let test_pdb_with_module () =
         ];
       subsections = [];
       section_contrib = Option.None;
+      source_files = [];
     };
   let pdb_bytes = Pdb.Pdb_builder.finalize b in
   let buf = buffer_of_string pdb_bytes in
@@ -200,6 +201,7 @@ let test_llvm_pdbutil_validates () =
           ];
         subsections = [];
         section_contrib = Option.None;
+        source_files = [];
       };
     Pdb.Pdb_builder.add_public b
       (Pdb.Codeview_symbols.Pub32
@@ -331,6 +333,7 @@ let test_full_pdb_for_ocaml () =
               data_crc = u32 0;
               reloc_crc = u32 0;
             };
+        source_files = [];
       };
 
     (* Publics: main and a helper *)

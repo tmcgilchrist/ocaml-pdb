@@ -176,7 +176,7 @@ let test_build_gsi_streams_empty () =
 
 let test_dbi_write_full_roundtrip () =
   let buf = Buffer.create 256 in
-  Pdb.Dbi_write.write_full buf [] []
+  Pdb.Dbi_write.write_full buf [] [] ~source_files:[]
     ~machine:0x8664 ~global_stream:7 ~public_stream:8 ~sym_record_stream:9;
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in

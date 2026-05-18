@@ -19,6 +19,10 @@ type module_desc = {
   symbols : Codeview_symbols.symbol_record list;
   subsections : Debug_subsections.subsection list;
   section_contrib : Dbi.section_contribution option;
+  source_files : string list;
+      (** Source filenames for this compilation unit. Goes into the DBI
+          FileInfo substream and is reported by llvm-pdbutil's [--files] /
+          [--modules] (# files) output. Use [[]] when none. *)
 }
 (** Description of a compilation module. *)
 
