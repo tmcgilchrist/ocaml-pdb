@@ -363,6 +363,17 @@ let write_cstring buf s =
   Buffer.add_string buf s;
   Buffer.add_char buf '\000'
 
+(** Write a null-terminated string, truncating it (LLVM's [mapStringZ]
+    take_front rule) if it would push the in-progress record past
+    {!Codeview_types.max_record_length}. *)
+let write_truncated_cstring buf s =
+  let bytes_left = Codeview_types.bytes_remaining buf in
+  let max_chars = max 0 (bytes_left - 1) in
+  let s =
+    if String.length s > max_chars then String.sub s 0 max_chars else s
+  in
+  write_cstring buf s
+
 let write_proc_record buf kind (p : proc_record) =
   write_u16_le buf kind;
   write_u32_le buf (Unsigned.UInt32.to_int p.parent);
@@ -375,14 +386,14 @@ let write_proc_record buf kind (p : proc_record) =
   write_u32_le buf (Unsigned.UInt32.to_int p.offset);
   write_u16_le buf p.segment;
   Buffer.add_char buf (Char.chr (p.flags land 0xFF));
-  write_cstring buf p.name
+  write_truncated_cstring buf p.name
 
 let write_data_record buf kind (d : data_record) =
   write_u16_le buf kind;
   write_type_index buf d.type_index;
   write_u32_le buf (Unsigned.UInt32.to_int d.offset);
   write_u16_le buf d.segment;
-  write_cstring buf d.name
+  write_truncated_cstring buf d.name
 
 let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
   let rec_buf = Buffer.create 64 in
@@ -406,11 +417,11 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
       write_u16_le rec_buf be_min;
       write_u16_le rec_buf be_bld;
       write_u16_le rec_buf be_qfe;
-      write_cstring rec_buf version_string
+      write_truncated_cstring rec_buf version_string
   | ObjName { signature; name } ->
       write_u16_le rec_buf 0x1101;
       write_u32_le rec_buf (Unsigned.UInt32.to_int signature);
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | BuildInfo { id } ->
       write_u16_le rec_buf 0x114c;
       write_type_index rec_buf id
@@ -429,7 +440,7 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
       write_u16_le rec_buf 0x113e;
       write_type_index rec_buf type_index;
       write_u16_le rec_buf flags;
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | DefRangeFramePointerRel
       { offset; range_offset; range_section; range_length } ->
       write_u16_le rec_buf 0x1142;
@@ -466,7 +477,7 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
       write_u32_le rec_buf (Unsigned.UInt32.to_int length);
       write_u32_le rec_buf (Unsigned.UInt32.to_int offset);
       write_u16_le rec_buf segment;
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | InlineSite { parent; end_; inlinee; annotations } ->
       write_u16_le rec_buf 0x114d;
       write_u32_le rec_buf (Unsigned.UInt32.to_int parent);
@@ -476,18 +487,18 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
   | Udt { type_index; name } ->
       write_u16_le rec_buf 0x1108;
       write_type_index rec_buf type_index;
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | Constant { type_index; value; name } ->
       write_u16_le rec_buf 0x1107;
       write_type_index rec_buf type_index;
       Codeview_types.write_numeric_leaf rec_buf value;
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | Pub32 { flags; offset; segment; name } ->
       write_u16_le rec_buf 0x110e;
       write_u32_le rec_buf (Unsigned.UInt32.to_int flags);
       write_u32_le rec_buf (Unsigned.UInt32.to_int offset);
       write_u16_le rec_buf segment;
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | FrameProc
       {
         total_frame_bytes;
@@ -511,26 +522,26 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
       write_i32_le rec_buf offset;
       write_type_index rec_buf type_index;
       write_u16_le rec_buf register;
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | BPRel32 { offset; type_index; name } ->
       write_u16_le rec_buf 0x110b;
       write_i32_le rec_buf offset;
       write_type_index rec_buf type_index;
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | Register { type_index; register; name } ->
       write_u16_le rec_buf 0x1106;
       write_type_index rec_buf type_index;
       write_u16_le rec_buf register;
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | Label32 { offset; segment; flags; name } ->
       write_u16_le rec_buf 0x1105;
       write_u32_le rec_buf (Unsigned.UInt32.to_int offset);
       write_u16_le rec_buf segment;
       Buffer.add_char rec_buf (Char.chr (flags land 0xFF));
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | UNamespace { name } ->
       write_u16_le rec_buf 0x1124;
-      write_cstring rec_buf name
+      write_truncated_cstring rec_buf name
   | EnvBlock { fields } ->
       write_u16_le rec_buf 0x113d;
       Buffer.add_char rec_buf '\000'; (* reserved byte *)

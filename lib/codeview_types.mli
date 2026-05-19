@@ -14,6 +14,26 @@ open Pdb_types
 val parse_numeric_leaf : Object.Buffer.cursor -> int64
 val write_numeric_leaf : Stdlib.Buffer.t -> int64 -> unit
 
+(** {2 Record-size limits}
+
+    CodeView caps every type or symbol record at [max_record_length]
+    bytes including the 2-byte length prefix and 2-byte leaf/symbol kind.
+    Writers that emit a trailing variable-length field (typically a
+    name) should consult {!bytes_remaining} before writing it and
+    truncate as needed. *)
+
+val max_record_length : int
+(** 0xFF00 = 65280. Per LLVM's
+    [llvm/include/llvm/DebugInfo/CodeView/RecordSerialization.h]. *)
+
+val bytes_remaining : Stdlib.Buffer.t -> int
+(** [bytes_remaining rec_buf] returns the number of payload bytes still
+    available before the in-progress record would exceed
+    {!max_record_length}. [rec_buf] holds the 2-byte leaf/symbol kind
+    followed by the fields written so far; the 2-byte length prefix is
+    added when the record is flushed. Equivalent to LLVM's
+    [CodeViewRecordIO::maxFieldLength()]. *)
+
 (** {2 Type Properties}
 
     Bit flags describing properties of a class, structure, or union. *)

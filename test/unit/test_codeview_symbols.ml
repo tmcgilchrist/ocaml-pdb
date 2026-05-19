@@ -573,6 +573,68 @@ let test_unknown_symbol_empty_payload () =
           Alcotest.(check int) (name ^ " data len") 0 (String.length data)
       | _ -> Alcotest.fail (name ^ ": expected Unknown"))
 
+(** {2 Long-name truncation in symbol records}
+
+    Mirrors LLVM's [mapStringZ] [take_front(maxFieldLength() - 1)] rule.
+    S_PUB32's fixed prefix is 2-byte kind + 4 (flags) + 4 (offset) + 2
+    (segment) = 12 bytes; with max_record_length = 0xFF00 = 65280 and the
+    2-byte length prefix, [BytesLeft = 65280 - 2 - 12 = 65266] so the
+    longest name we can emit is 65265 chars. *)
+let test_pub32_truncates_long_name () =
+  let orig = String.make 70000 'X' in
+  roundtrip_symbol "pub32_long"
+    (Pdb.Codeview_symbols.Pub32
+       { flags = u32 0; offset = u32 0; segment = 1; name = orig })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_symbols.Pub32 { name = parsed; _ } ->
+          Alcotest.(check int) (name ^ " length") 65265
+            (String.length parsed);
+          Alcotest.(check string) (name ^ " content")
+            (String.make 65265 'X') parsed
+      | _ -> Alcotest.fail (name ^ ": expected Pub32"))
+
+(** S_GPROC32 prefix is 2 (kind) + 4 * 8 (parent, end_, next, code_size,
+    debug_start, debug_end, type_index, offset) + 2 (segment) + 1 (flags)
+    = 37 bytes. [BytesLeft = 65280 - 2 - 37 = 65241], so the longest name
+    is 65240 chars. *)
+let test_gproc32_truncates_long_name () =
+  let orig = String.make 70000 'Z' in
+  roundtrip_symbol "gproc32_long"
+    (Pdb.Codeview_symbols.GProc32
+       {
+         parent = u32 0;
+         end_ = u32 0;
+         next = u32 0;
+         code_size = u32 100;
+         debug_start = u32 0;
+         debug_end = u32 100;
+         type_index = ti 0x1000;
+         offset = u32 0;
+         segment = 1;
+         flags = 0;
+         name = orig;
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_symbols.GProc32 p ->
+          Alcotest.(check int) (name ^ " length") 65240
+            (String.length p.name);
+          Alcotest.(check string) (name ^ " content")
+            (String.make 65240 'Z') p.name
+      | _ -> Alcotest.fail (name ^ ": expected GProc32"))
+
+(** Names that fit pass through unchanged. *)
+let test_short_name_passthrough () =
+  roundtrip_symbol "pub32_short"
+    (Pdb.Codeview_symbols.Pub32
+       { flags = u32 0; offset = u32 0; segment = 1; name = "main" })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_symbols.Pub32 { name = parsed; _ } ->
+          Alcotest.(check string) (name ^ " unchanged") "main" parsed
+      | _ -> Alcotest.fail (name ^ ": expected Pub32"))
+
 let () =
   Alcotest.run "CodeView Symbols"
     [
@@ -633,5 +695,14 @@ let () =
             test_unknown_symbol_roundtrip;
           Alcotest.test_case "unknown symbol empty payload" `Quick
             test_unknown_symbol_empty_payload;
+        ] );
+      ( "long_name_truncation",
+        [
+          Alcotest.test_case "pub32 truncates long name" `Quick
+            test_pub32_truncates_long_name;
+          Alcotest.test_case "gproc32 truncates long name" `Quick
+            test_gproc32_truncates_long_name;
+          Alcotest.test_case "short name passthrough" `Quick
+            test_short_name_passthrough;
         ] );
     ]
