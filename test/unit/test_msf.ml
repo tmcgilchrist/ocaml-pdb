@@ -284,6 +284,101 @@ let test_fpm_blocks_1_and_2_identical () =
   let fpm1 = String.sub msf_bytes 1024 512 in
   Alcotest.(check string) "FPM0 == FPM1" fpm0 fpm1
 
+(** Derive the set of allocated blocks by walking the superblock, block map,
+    and stream directory. Any block reachable from one of those structures
+    must be marked allocated in the FPM; everything else must be free. *)
+let test_fpm_full_bitmap () =
+  let builder = Pdb.Msf_write.create ~block_size:512 in
+  let _ = Pdb.Msf_write.add_stream builder (String.make 600 'A') in
+  let _ = Pdb.Msf_write.add_empty_stream builder in
+  let _ = Pdb.Msf_write.add_stream builder (String.make 1500 'B') in
+  let _ = Pdb.Msf_write.add_stream builder "small" in
+  let msf_bytes = Pdb.Msf_write.finalize builder in
+  let buf = buffer_of_string msf_bytes in
+  let msf = Pdb.Msf.read buf in
+  let sb = Pdb.Msf.superblock msf in
+  let block_size = Unsigned.UInt32.to_int sb.block_size in
+  let num_blocks = Unsigned.UInt32.to_int sb.num_blocks in
+  let block_map_addr = Unsigned.UInt32.to_int sb.block_map_addr in
+  let num_dir_bytes = Unsigned.UInt32.to_int sb.num_directory_bytes in
+  let div_ceil a b = (a + b - 1) / b in
+  let num_dir_blocks = div_ceil num_dir_bytes block_size in
+  let read_u32_at off =
+    Char.code msf_bytes.[off]
+    lor (Char.code msf_bytes.[off + 1] lsl 8)
+    lor (Char.code msf_bytes.[off + 2] lsl 16)
+    lor (Char.code msf_bytes.[off + 3] lsl 24)
+  in
+  let allocated = Array.make num_blocks false in
+  let mark b =
+    if b < 0 || b >= num_blocks then
+      Alcotest.failf "block %d out of range (num_blocks=%d)" b num_blocks;
+    allocated.(b) <- true
+  in
+  mark 0;
+  (* superblock *)
+  mark 1;
+  (* FPM0 *)
+  mark 2;
+  (* FPM1 *)
+  mark block_map_addr;
+  (* Directory blocks listed in the block map *)
+  let dir_blocks =
+    Array.init num_dir_blocks (fun i ->
+        read_u32_at ((block_map_addr * block_size) + (i * 4)))
+  in
+  Array.iter mark dir_blocks;
+  (* Stream blocks listed in the directory *)
+  (* Reassemble directory bytes (could span multiple blocks). *)
+  let dir_bytes = Bytes.create num_dir_bytes in
+  let remaining = ref num_dir_bytes in
+  Array.iteri
+    (fun i b ->
+      let src = b * block_size in
+      let dst = i * block_size in
+      let n = min !remaining block_size in
+      Bytes.blit_string msf_bytes src dir_bytes dst n;
+      remaining := !remaining - n)
+    dir_blocks;
+  let dir = Bytes.unsafe_to_string dir_bytes in
+  let read_dir_u32 off =
+    Char.code dir.[off]
+    lor (Char.code dir.[off + 1] lsl 8)
+    lor (Char.code dir.[off + 2] lsl 16)
+    lor (Char.code dir.[off + 3] lsl 24)
+  in
+  let num_streams = read_dir_u32 0 in
+  let stream_sizes =
+    Array.init num_streams (fun i -> read_dir_u32 (4 + (i * 4)))
+  in
+  let pos = ref (4 + (num_streams * 4)) in
+  Array.iter
+    (fun size ->
+      if size > 0 && size <> 0xFFFFFFFF then
+        let nb = div_ceil size block_size in
+        for _ = 1 to nb do
+          mark (read_dir_u32 !pos);
+          pos := !pos + 4
+        done)
+    stream_sizes;
+  (* Now compare against the FPM written at block 1. *)
+  let fpm_off = 1 * block_size in
+  for b = 0 to num_blocks - 1 do
+    let byte = Char.code msf_bytes.[fpm_off + (b / 8)] in
+    let bit = (byte lsr (b mod 8)) land 1 in
+    let expected_free = if allocated.(b) then 0 else 1 in
+    if bit <> expected_free then
+      Alcotest.failf "block %d: FPM bit=%d, expected %d (allocated=%b)" b bit
+        expected_free allocated.(b)
+  done;
+  (* Bits past num_blocks must be 1 (free) all the way to the end of the FPM block. *)
+  for b = num_blocks to (block_size * 8) - 1 do
+    let byte = Char.code msf_bytes.[fpm_off + (b / 8)] in
+    let bit = (byte lsr (b mod 8)) land 1 in
+    if bit <> 1 then
+      Alcotest.failf "bit %d past num_blocks should be free, got %d" b bit
+  done
+
 let () =
   Alcotest.run "MSF"
     [
@@ -319,5 +414,7 @@ let () =
           Alcotest.test_case "correctness" `Quick test_fpm_correctness;
           Alcotest.test_case "blocks 1 and 2 identical" `Quick
             test_fpm_blocks_1_and_2_identical;
+          Alcotest.test_case "full bitmap matches reachable blocks" `Quick
+            test_fpm_full_bitmap;
         ] );
     ]

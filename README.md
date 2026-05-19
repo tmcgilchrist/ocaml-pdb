@@ -37,9 +37,10 @@ What works today:
 
 Known gaps:
 
-- The Free Page Map is written as all zeros rather than a correct bitmap.
-  This is tolerated by every consumer we've tried but isn't strictly
-  conformant.
+- The Free Page Map is written correctly for files small enough to fit in
+  a single FPM block (one FPM block covers `block_size * 8` blocks, i.e.
+  128 MB at 4 KB block size). Larger PDBs would need multiple FPM blocks
+  at `block_size` intervals; this writer does not yet produce them.
 - Type merging is local-only; cross-compilation-unit content-hash merging
   (LLVM's BLAKE3-based scheme) is not implemented.
 - Long name truncation in TPI records (LLVM's MD5-hash truncation for
