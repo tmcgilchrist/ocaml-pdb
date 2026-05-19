@@ -824,6 +824,96 @@ let test_tpi_hash_stream () =
       Alcotest.(check int) "arglist" 0 (Array.length args)
   | _ -> Alcotest.fail "expected ArgList"
 
+(** {2 Long-name truncation} *)
+
+(** Round-trip a Structure with a huge name + huge unique_name and assert
+    the parsed-back record matches LLVM's truncated form:
+    Name = take_front(4064) + MD5_hex(orig_name);
+    UniqueName = "??@" + MD5_hex(orig_unique) + "@" (36 chars). *)
+let test_truncate_with_unique_name () =
+  let orig_name = String.make 68229 'a' in
+  let orig_unique = String.make 68228 'b' in
+  let md5_hex s = Digest.to_hex (Digest.string s) in
+  roundtrip_record "longname+unique"
+    (Pdb.Codeview_types.Structure
+       {
+         field_count = 0;
+         properties = Pdb.Codeview_types.parse_type_properties 0x0200;
+         (* HasUniqueName *)
+         field_list = ti 0;
+         derived_from = ti 0;
+         vtable_shape = ti 0;
+         size = 1L;
+         name = orig_name;
+         unique_name = Some orig_unique;
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.Structure
+          { name = parsed_name; unique_name = parsed_unique; _ } ->
+          let expected_name = String.make 4064 'a' ^ md5_hex orig_name in
+          let expected_unique = "??@" ^ md5_hex orig_unique ^ "@" in
+          Alcotest.(check int)
+            (name ^ " name length") 4096
+            (String.length parsed_name);
+          Alcotest.(check string)
+            (name ^ " name") expected_name parsed_name;
+          Alcotest.(check (option string))
+            (name ^ " unique") (Some expected_unique) parsed_unique
+      | _ -> Alcotest.fail "expected Structure")
+
+(** Round-trip a Structure with a huge name and no unique_name. The
+    record should fill MaxRecordLength = 0xFF00; the name is plain
+    take_front(BytesLeft - 1) = take_front(65257). *)
+let test_truncate_without_unique_name () =
+  let orig_name = String.make 68229 'f' in
+  roundtrip_record "longname"
+    (Pdb.Codeview_types.Structure
+       {
+         field_count = 0;
+         properties = Pdb.Codeview_types.parse_type_properties 0;
+         field_list = ti 0;
+         derived_from = ti 0;
+         vtable_shape = ti 0;
+         size = 8L;
+         name = orig_name;
+         unique_name = None;
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.Structure
+          { name = parsed_name; unique_name = parsed_unique; _ } ->
+          Alcotest.(check int)
+            (name ^ " name length") 65257
+            (String.length parsed_name);
+          Alcotest.(check string)
+            (name ^ " name") (String.make 65257 'f') parsed_name;
+          Alcotest.(check (option string)) (name ^ " unique") None parsed_unique
+      | _ -> Alcotest.fail "expected Structure")
+
+(** A short name must pass through unchanged. *)
+let test_truncate_short_name_passthrough () =
+  roundtrip_record "short name"
+    (Pdb.Codeview_types.Structure
+       {
+         field_count = 0;
+         properties = Pdb.Codeview_types.parse_type_properties 0x0200;
+         field_list = ti 0;
+         derived_from = ti 0;
+         vtable_shape = ti 0;
+         size = 4L;
+         name = "Foo";
+         unique_name = Some ".?AUFoo@@";
+       })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.Structure
+          { name = parsed_name; unique_name = parsed_unique; _ } ->
+          Alcotest.(check string) (name ^ " name") "Foo" parsed_name;
+          Alcotest.(check (option string))
+            (name ^ " unique") (Some ".?AUFoo@@") parsed_unique
+      | _ -> Alcotest.fail "expected Structure")
+
 let () =
   Alcotest.run "CodeView Types"
     [
@@ -888,6 +978,15 @@ let () =
         [
           Alcotest.test_case "roundtrip" `Quick test_tpi_stream_roundtrip;
           Alcotest.test_case "hash stream" `Quick test_tpi_hash_stream;
+        ] );
+      ( "long_name_truncation",
+        [
+          Alcotest.test_case "with unique_name" `Quick
+            test_truncate_with_unique_name;
+          Alcotest.test_case "without unique_name" `Quick
+            test_truncate_without_unique_name;
+          Alcotest.test_case "short name passthrough" `Quick
+            test_truncate_short_name_passthrough;
         ] );
       ( "unknown_records",
         [

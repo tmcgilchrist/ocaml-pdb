@@ -533,23 +533,14 @@ let unknown_symbol_scenario =
       [Name.take_front(maxFieldLength() - 1)] runs and the record fills
       MaxRecordLength = 0xFF00 = 65280 bytes.
 
-    Our writer doesn't implement this truncation, so the scenario passes
-    already-truncated strings — making this a check that our writer
-    correctly emits well-formed records of those exact byte shapes, not
-    that we replicate LLVM's truncation algorithm. *)
+    The original 68k-char strings are passed in; the writer truncates
+    them on the way out, matching LLVM byte-for-byte. *)
 let build_longname_truncation () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
-  let u = Unsigned.UInt32.of_int in
   let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
-  (* MD5_hex of the original (untruncated) inputs, matching what LLVM
-     hashes when truncating. The YAML uses:
+  (* YAML inputs:
        Record 0x1000: Name = 68229 'a's, UniqueName = 68228 'b's, Size = 1
        Record 0x1001: Name = 68229 'f's, no UniqueName,           Size = 8 *)
-  let md5_hex s = Digest.to_hex (Digest.string s) in
-  let orig_name_1 = String.make 68229 'a' in
-  let orig_unique_1 = String.make 68228 'b' in
-  let truncated_name_1 = String.make 4064 'a' ^ md5_hex orig_name_1 in
-  let truncated_unique_1 = "??@" ^ md5_hex orig_unique_1 ^ "@" in
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Structure
@@ -561,16 +552,10 @@ let build_longname_truncation () =
            derived_from = t 0;
            vtable_shape = t 0;
            size = 1L;
-           name = truncated_name_1;
-           unique_name = Some truncated_unique_1;
+           name = String.make 68229 'a';
+           unique_name = Some (String.make 68228 'b');
          })
   in
-  (* Record 0x1001: Name only. The non-UniqueName branch in LLVM's
-     mapStringZ does the simple [take_front(maxFieldLength() - 1)]
-     truncation, filling the record to MaxRecordLength = 0xFF00 = 65280
-     bytes. After the 22-byte fixed prefix and 1-byte null terminator,
-     65257 chars remain for the truncated name. *)
-  let truncated_name_2 = String.make 65257 'f' in
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Structure
@@ -581,7 +566,7 @@ let build_longname_truncation () =
            derived_from = t 0;
            vtable_shape = t 0;
            size = 8L;
-           name = truncated_name_2;
+           name = String.make 68229 'f';
            unique_name = None;
          })
   in

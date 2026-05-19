@@ -587,6 +587,48 @@ let write_padding buf =
     Buffer.add_char buf (Char.chr (0xf0 + i))
   done
 
+(** Hard limit on a type record's on-disk size including the 2-byte length
+    prefix. Records that would exceed this have their name (and optional
+    unique-name) truncated and hashed -- see {!truncate_long_name}. *)
+let max_record_length = 0xFF00
+
+(** Truncate [name] (and optional [unique_name]) so the record fits within
+    {!max_record_length} bytes, mirroring LLVM's [mapNameAndUniqueName]
+    (llvm/lib/DebugInfo/CodeView/TypeRecordMapping.cpp).
+
+    [bytes_left] is the number of payload bytes still available for the
+    name(s) and their null terminators. With a unique name, the unique
+    name is replaced by ["??@" + MD5_hex(unique) + "@"] (36 chars) and the
+    name is truncated to leave room for an appended 32-char MD5 hex of
+    the original. Without a unique name, the name is simply
+    [take_front(bytes_left - 1)]. *)
+let truncate_long_name ~bytes_left ~name ~unique_name =
+  let md5_hex s = Digest.to_hex (Digest.string s) in
+  match unique_name with
+  | Some un ->
+      let needed = String.length name + String.length un + 2 in
+      if needed <= bytes_left then (name, Some un)
+      else
+        let unique_b = "??@" ^ md5_hex un ^ "@" in
+        let take_n =
+          min 4096 (bytes_left - String.length unique_b - 2) - 32
+        in
+        let take_n = max 0 (min (String.length name) take_n) in
+        let name_b = String.sub name 0 take_n ^ md5_hex name in
+        (name_b, Some unique_b)
+  | None ->
+      if String.length name + 1 <= bytes_left then (name, None)
+      else
+        let take_n = max 0 (bytes_left - 1) in
+        (String.sub name 0 take_n, None)
+
+(** Payload bytes still available in the in-progress record [rec_buf].
+    [rec_buf] holds the 2-byte leaf kind followed by fields written so
+    far; the 2-byte length prefix is added when the record is flushed.
+    Equivalent to LLVM's [CodeViewRecordIO::maxFieldLength()]. *)
+let bytes_remaining rec_buf =
+  max_record_length - 2 - Buffer.length rec_buf
+
 let write_type_record (buf : Buffer.t) (record : type_record) : unit =
   (* Write into a temporary buffer to compute the length *)
   let rec_buf = Buffer.create 64 in
@@ -723,8 +765,12 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_type_index rec_buf cr.derived_from;
       write_type_index rec_buf cr.vtable_shape;
       write_numeric_leaf rec_buf cr.size;
-      write_cstring rec_buf cr.name;
-      match cr.unique_name with
+      let name, unique_name =
+        truncate_long_name ~bytes_left:(bytes_remaining rec_buf)
+          ~name:cr.name ~unique_name:cr.unique_name
+      in
+      write_cstring rec_buf name;
+      match unique_name with
       | Some un -> write_cstring rec_buf un
       | Option.None -> ())
   | Structure cr -> (
@@ -735,8 +781,12 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_type_index rec_buf cr.derived_from;
       write_type_index rec_buf cr.vtable_shape;
       write_numeric_leaf rec_buf cr.size;
-      write_cstring rec_buf cr.name;
-      match cr.unique_name with
+      let name, unique_name =
+        truncate_long_name ~bytes_left:(bytes_remaining rec_buf)
+          ~name:cr.name ~unique_name:cr.unique_name
+      in
+      write_cstring rec_buf name;
+      match unique_name with
       | Some un -> write_cstring rec_buf un
       | Option.None -> ())
   | Interface cr -> (
@@ -747,8 +797,12 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_type_index rec_buf cr.derived_from;
       write_type_index rec_buf cr.vtable_shape;
       write_numeric_leaf rec_buf cr.size;
-      write_cstring rec_buf cr.name;
-      match cr.unique_name with
+      let name, unique_name =
+        truncate_long_name ~bytes_left:(bytes_remaining rec_buf)
+          ~name:cr.name ~unique_name:cr.unique_name
+      in
+      write_cstring rec_buf name;
+      match unique_name with
       | Some un -> write_cstring rec_buf un
       | Option.None -> ())
   | Union { field_count; properties; field_list; size; name; unique_name } -> (
@@ -757,6 +811,10 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_u16_le rec_buf (int_of_type_properties properties);
       write_type_index rec_buf field_list;
       write_numeric_leaf rec_buf size;
+      let name, unique_name =
+        truncate_long_name ~bytes_left:(bytes_remaining rec_buf) ~name
+          ~unique_name
+      in
       write_cstring rec_buf name;
       match unique_name with
       | Some un -> write_cstring rec_buf un
@@ -775,6 +833,10 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_u16_le rec_buf (int_of_type_properties properties);
       write_type_index rec_buf underlying_type;
       write_type_index rec_buf field_list;
+      let name, unique_name =
+        truncate_long_name ~bytes_left:(bytes_remaining rec_buf) ~name
+          ~unique_name
+      in
       write_cstring rec_buf name;
       match unique_name with
       | Some un -> write_cstring rec_buf un

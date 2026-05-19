@@ -43,10 +43,6 @@ Known gaps:
   at `block_size` intervals; this writer does not yet produce them.
 - Type merging is local-only; cross-compilation-unit content-hash merging
   (LLVM's BLAKE3-based scheme) is not implemented.
-- Long name truncation in TPI records (LLVM's MD5-hash truncation for
-  names that would overflow `MaxRecordLength`) is not done in our writer.
-  Callers must supply already-fitting names; an LLVM-equivalence scenario
-  exercises the wire format with precomputed truncated names.
 - Many symbol and type variants exist primarily as a parser fallback
   (`Unknown`); only the kinds we've needed have hand-written fields.
 - The OMAP address-translation tables, type-server records, and the FPO
