@@ -13,7 +13,7 @@ type proc_record = {
   code_size : u32;
   debug_start : u32;
   debug_end : u32;
-  type_index : u32;
+  type_index : Type_index.t;
   offset : u32;
   segment : int;
   flags : int;
@@ -21,7 +21,7 @@ type proc_record = {
 }
 
 type data_record = {
-  type_index : u32;
+  type_index : Type_index.t;
   offset : u32;
   segment : int;
   name : string;
@@ -36,7 +36,7 @@ type symbol_record =
       version_string : string;
     }
   | ObjName of { signature : u32; name : string }
-  | BuildInfo of { id : u32 }
+  | BuildInfo of { id : Type_index.t }
   | GProc32 of proc_record
   | LProc32 of proc_record
   | GProc32Id of proc_record
@@ -46,7 +46,7 @@ type symbol_record =
   | LData32 of data_record
   | GThread32 of data_record
   | LThread32 of data_record
-  | Local of { type_index : u32; flags : int; name : string }
+  | Local of { type_index : Type_index.t; flags : int; name : string }
   | DefRangeFramePointerRel of {
       offset : int32;
       range_offset : u32;
@@ -79,13 +79,13 @@ type symbol_record =
   | InlineSite of {
       parent : u32;
       end_ : u32;
-      inlinee : u32;
+      inlinee : Type_index.t;
       annotations : string;
     }
   | InlineSiteEnd
   | ProcIdEnd
-  | Udt of { type_index : u32; name : string }
-  | Constant of { type_index : u32; value : int64; name : string }
+  | Udt of { type_index : Type_index.t; name : string }
+  | Constant of { type_index : Type_index.t; value : int64; name : string }
   | Pub32 of { flags : u32; offset : u32; segment : int; name : string }
   | FrameProc of {
       total_frame_bytes : u32;
@@ -98,12 +98,12 @@ type symbol_record =
     }
   | RegRel32 of {
       offset : int32;
-      type_index : u32;
+      type_index : Type_index.t;
       register : int;
       name : string;
     }
-  | BPRel32 of { offset : int32; type_index : u32; name : string }
-  | Register of { type_index : u32; register : int; name : string }
+  | BPRel32 of { offset : int32; type_index : Type_index.t; name : string }
+  | Register of { type_index : Type_index.t; register : int; name : string }
   | Label32 of { offset : u32; segment : int; flags : int; name : string }
   | UNamespace of { name : string }
   | EnvBlock of { fields : string list }

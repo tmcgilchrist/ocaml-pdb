@@ -6,6 +6,7 @@ module Named_stream_map = Named_stream_map
 module Pdb_stream = Pdb_stream
 module Pdb_stream_write = Pdb_stream_write
 module Codeview_constants = Codeview_constants
+module Type_index = Type_index
 module Codeview_types = Codeview_types
 module Tpi = Tpi
 module Tpi_write = Tpi_write

@@ -9,15 +9,13 @@
     references differ but types are structurally identical) requires
     global hashing, which is not yet implemented. *)
 
-open Pdb_types
-
 type t
 (** A deduplicating type table. *)
 
 val create : unit -> t
 (** Create an empty type table. *)
 
-val insert : t -> Codeview_types.type_record -> u32
+val insert : t -> Codeview_types.type_record -> Type_index.t
 (** [insert t record] inserts a type record into the table. If an
     identical record was already inserted, returns the existing
     TypeIndex. Otherwise assigns a new index (starting from 0x1000). *)
@@ -28,6 +26,6 @@ val records : t -> Codeview_types.type_record list
 val count : t -> int
 (** [count t] returns the number of unique records. *)
 
-val find_index : t -> Codeview_types.type_record -> u32 option
+val find_index : t -> Codeview_types.type_record -> Type_index.t option
 (** [find_index t record] looks up the TypeIndex for an identical record,
     or returns [None] if not found. *)

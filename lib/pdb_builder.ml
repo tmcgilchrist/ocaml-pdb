@@ -80,13 +80,13 @@ let add_type t record =
   let idx = t.tpi_next_index in
   t.tpi_records <- record :: t.tpi_records;
   t.tpi_next_index <- idx + 1;
-  Unsigned.UInt32.of_int idx
+  Type_index.user (Unsigned.UInt32.of_int idx)
 
 let add_id t record =
   let idx = t.ipi_next_index in
   t.ipi_records <- record :: t.ipi_records;
   t.ipi_next_index <- idx + 1;
-  Unsigned.UInt32.of_int idx
+  Type_index.user (Unsigned.UInt32.of_int idx)
 
 let add_module t desc = t.modules <- desc :: t.modules
 

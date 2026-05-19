@@ -20,6 +20,10 @@ let u32 n = Unsigned.UInt32.of_int n
 let gen_u32 =
   QCheck.Gen.(map (fun n -> u32 (abs n mod 0xFFFFFF)) int)
 
+(** Generate a Type_index.t value *)
+let gen_type_index =
+  QCheck.Gen.(map Pdb.Type_index.of_u32 gen_u32)
+
 (** Generate a simple printable name (no nulls) *)
 let gen_name =
   QCheck.Gen.(
@@ -84,7 +88,7 @@ let test_modifier_roundtrip =
   QCheck.Test.make ~name:"Modifier roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ modified_type = gen_u32 and+ modifiers = int_range 0 7 in
+         let+ modified_type = gen_type_index and+ modifiers = int_range 0 7 in
          (modified_type, modifiers)))
     (fun (modified_type, modifiers) ->
       let r =
@@ -93,14 +97,14 @@ let test_modifier_roundtrip =
       in
       match r with
       | Pdb.Codeview_types.Modifier { modified_type = mt; modifiers = m } ->
-          Unsigned.UInt32.equal mt modified_type && m = modifiers
+          mt = modified_type && m = modifiers
       | _ -> false)
 
 let test_pointer_roundtrip =
   QCheck.Test.make ~name:"Pointer roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ pointee_type = gen_u32 and+ attrs = gen_u32 in
+         let+ pointee_type = gen_type_index and+ attrs = gen_u32 in
          (pointee_type, attrs)))
     (fun (pointee_type, attrs) ->
       let r =
@@ -109,7 +113,7 @@ let test_pointer_roundtrip =
       in
       match r with
       | Pdb.Codeview_types.Pointer { pointee_type = pt; attrs = a } ->
-          Unsigned.UInt32.equal pt pointee_type && Unsigned.UInt32.equal a attrs
+          pt = pointee_type && Unsigned.UInt32.equal a attrs
       | _ -> false)
 
 let test_arglist_roundtrip =
@@ -117,7 +121,7 @@ let test_arglist_roundtrip =
     (QCheck.make
        QCheck.Gen.(
          let+ count = int_range 0 10 in
-         Array.init count (fun i -> u32 (0x1000 + i))))
+         Array.init count (fun i -> Pdb.Type_index.of_u32 (u32 (0x1000 + i)))))
     (fun args ->
       let r =
         type_record_roundtrip (Pdb.Codeview_types.ArgList { args })
@@ -125,16 +129,16 @@ let test_arglist_roundtrip =
       match r with
       | Pdb.Codeview_types.ArgList { args = args' } ->
           Array.length args = Array.length args'
-          && Array.for_all2 Unsigned.UInt32.equal args args'
+          && Array.for_all2 (=) args args'
       | _ -> false)
 
 let test_procedure_roundtrip =
   QCheck.Test.make ~name:"Procedure roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ return_type = gen_u32
+         let+ return_type = gen_type_index
          and+ param_count = int_range 0 20
-         and+ arg_list = gen_u32 in
+         and+ arg_list = gen_type_index in
          (return_type, param_count, arg_list)))
     (fun (return_type, param_count, arg_list) ->
       let r =
@@ -151,16 +155,16 @@ let test_procedure_roundtrip =
       match r with
       | Pdb.Codeview_types.Procedure { return_type = rt; param_count = pc; arg_list = al; _ }
         ->
-          Unsigned.UInt32.equal rt return_type
+          rt = return_type
           && pc = param_count
-          && Unsigned.UInt32.equal al arg_list
+          && al = arg_list
       | _ -> false)
 
 let test_bitfield_roundtrip =
   QCheck.Test.make ~name:"Bitfield roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ underlying_type = gen_u32
+         let+ underlying_type = gen_type_index
          and+ length = int_range 0 31
          and+ position = int_range 0 31 in
          (underlying_type, length, position)))
@@ -172,14 +176,14 @@ let test_bitfield_roundtrip =
       match r with
       | Pdb.Codeview_types.Bitfield
           { underlying_type = ut; length = l; position = p } ->
-          Unsigned.UInt32.equal ut underlying_type && l = length && p = position
+          ut = underlying_type && l = length && p = position
       | _ -> false)
 
 let test_func_id_roundtrip =
   QCheck.Test.make ~name:"FuncId roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ scope_id = gen_u32 and+ func_type = gen_u32 and+ name = gen_name in
+         let+ scope_id = gen_type_index and+ func_type = gen_type_index and+ name = gen_name in
          (scope_id, func_type, name)))
     (fun (scope_id, func_type, name) ->
       let r =
@@ -189,8 +193,8 @@ let test_func_id_roundtrip =
       match r with
       | Pdb.Codeview_types.FuncId { scope_id = si; func_type = ft; name = n }
         ->
-          Unsigned.UInt32.equal si scope_id
-          && Unsigned.UInt32.equal ft func_type
+          si = scope_id
+          && ft = func_type
           && n = name
       | _ -> false)
 
@@ -198,7 +202,7 @@ let test_string_id_roundtrip =
   QCheck.Test.make ~name:"StringId roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ id = gen_u32 and+ str = gen_name in
+         let+ id = gen_type_index and+ str = gen_name in
          (id, str)))
     (fun (id, str) ->
       let r =
@@ -206,7 +210,7 @@ let test_string_id_roundtrip =
       in
       match r with
       | Pdb.Codeview_types.StringId { id = i; str = s } ->
-          Unsigned.UInt32.equal i id && s = str
+          i = id && s = str
       | _ -> false)
 
 let test_enum_roundtrip =
@@ -214,8 +218,8 @@ let test_enum_roundtrip =
     (QCheck.make
        QCheck.Gen.(
          let+ field_count = int_range 0 50
-         and+ underlying_type = gen_u32
-         and+ field_list = gen_u32
+         and+ underlying_type = gen_type_index
+         and+ field_list = gen_type_index
          and+ name = gen_name in
          (field_count, underlying_type, field_list, name)))
     (fun (field_count, underlying_type, field_list, name) ->
@@ -247,12 +251,12 @@ let test_mfunction_roundtrip =
   QCheck.Test.make ~name:"MFunction roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ return_type = gen_u32
-         and+ class_type = gen_u32
-         and+ this_type = gen_u32
+         let+ return_type = gen_type_index
+         and+ class_type = gen_type_index
+         and+ this_type = gen_type_index
          and+ calling_conv = gen_calling_conv
          and+ param_count = int_range 0 20
-         and+ arg_list = gen_u32
+         and+ arg_list = gen_type_index
          and+ this_adjust = map Int32.of_int (int_range (-100) 100) in
          (return_type, class_type, this_type, calling_conv, param_count,
           arg_list, this_adjust)))
@@ -269,11 +273,11 @@ let test_mfunction_roundtrip =
       | Pdb.Codeview_types.MFunction
           { return_type = rt; class_type = ct; this_type = tt;
             param_count = pc; arg_list = al; this_adjust = ta; _ } ->
-          Unsigned.UInt32.equal rt return_type
-          && Unsigned.UInt32.equal ct class_type
-          && Unsigned.UInt32.equal tt this_type
+          rt = return_type
+          && ct = class_type
+          && tt = this_type
           && pc = param_count
-          && Unsigned.UInt32.equal al arg_list
+          && al = arg_list
           && ta = this_adjust
       | _ -> false)
 
@@ -281,8 +285,8 @@ let test_array_roundtrip =
   QCheck.Test.make ~name:"Array roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ element_type = gen_u32
-         and+ index_type = gen_u32
+         let+ element_type = gen_type_index
+         and+ index_type = gen_type_index
          and+ size = gen_numeric_leaf
          and+ name = gen_name in
          (element_type, index_type, size, name)))
@@ -295,8 +299,8 @@ let test_array_roundtrip =
       match r with
       | Pdb.Codeview_types.Array
           { element_type = et; index_type = it; size = s; name = n } ->
-          Unsigned.UInt32.equal et element_type
-          && Unsigned.UInt32.equal it index_type
+          et = element_type
+          && it = index_type
           && s = size && n = name
       | _ -> false)
 
@@ -305,9 +309,9 @@ let test_class_roundtrip =
     (QCheck.make
        QCheck.Gen.(
          let+ field_count = int_range 0 50
-         and+ field_list = gen_u32
-         and+ derived_from = gen_u32
-         and+ vtable_shape = gen_u32
+         and+ field_list = gen_type_index
+         and+ derived_from = gen_type_index
+         and+ vtable_shape = gen_type_index
          and+ size = map (fun n -> Int64.of_int (abs n mod 10000)) int
          and+ name = gen_name in
          (field_count, field_list, derived_from, vtable_shape, size, name)))
@@ -330,7 +334,7 @@ let test_structure_roundtrip =
     (QCheck.make
        QCheck.Gen.(
          let+ field_count = int_range 0 50
-         and+ field_list = gen_u32
+         and+ field_list = gen_type_index
          and+ size = map (fun n -> Int64.of_int (abs n mod 10000)) int
          and+ name = gen_name in
          (field_count, field_list, size, name)))
@@ -340,7 +344,7 @@ let test_structure_roundtrip =
           (Pdb.Codeview_types.Structure
              { field_count;
                properties = Pdb.Codeview_types.parse_type_properties 0;
-               field_list; derived_from = u32 0; vtable_shape = u32 0;
+               field_list; derived_from = Pdb.Type_index.of_u32 (u32 0); vtable_shape = Pdb.Type_index.of_u32 (u32 0);
                size; name; unique_name = Option.None })
       in
       match r with
@@ -353,7 +357,7 @@ let test_union_roundtrip =
     (QCheck.make
        QCheck.Gen.(
          let+ field_count = int_range 0 50
-         and+ field_list = gen_u32
+         and+ field_list = gen_type_index
          and+ size = map (fun n -> Int64.of_int (abs n mod 10000)) int
          and+ name = gen_name in
          (field_count, field_list, size, name)))
@@ -395,7 +399,7 @@ let test_methodlist_roundtrip =
          (* Generate only vanilla methods (no vftable offset) to keep it simple.
             Method kind is in bits 2-4 of attrs. Vanilla = 0, so attrs with
             kind bits = 0 means no vftable offset. *)
-         List.init count (fun i -> (3, u32 (0x1000 + i), (Option.None : int option)))))
+         List.init count (fun i -> (3, Pdb.Type_index.of_u32 (u32 (0x1000 + i)), (Option.None : int option)))))
     (fun entries ->
       let r =
         type_record_roundtrip
@@ -406,7 +410,7 @@ let test_methodlist_roundtrip =
           List.length entries = List.length entries'
           && List.for_all2
                (fun (a1, t1, v1) (a2, t2, v2) ->
-                 a1 = a2 && Unsigned.UInt32.equal t1 t2 && v1 = v2)
+                 a1 = a2 && t1 = t2 && v1 = v2)
                entries entries'
       | _ -> false)
 
@@ -414,8 +418,8 @@ let test_mfunc_id_roundtrip =
   QCheck.Test.make ~name:"MFuncId roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ parent_type = gen_u32
-         and+ func_type = gen_u32
+         let+ parent_type = gen_type_index
+         and+ func_type = gen_type_index
          and+ name = gen_name in
          (parent_type, func_type, name)))
     (fun (parent_type, func_type, name) ->
@@ -426,8 +430,8 @@ let test_mfunc_id_roundtrip =
       match r with
       | Pdb.Codeview_types.MFuncId
           { parent_type = pt; func_type = ft; name = n } ->
-          Unsigned.UInt32.equal pt parent_type
-          && Unsigned.UInt32.equal ft func_type
+          pt = parent_type
+          && ft = func_type
           && n = name
       | _ -> false)
 
@@ -436,7 +440,7 @@ let test_buildinfo_type_roundtrip =
     (QCheck.make
        QCheck.Gen.(
          let+ count = int_range 0 6 in
-         Array.init count (fun i -> u32 (0x1000 + i))))
+         Array.init count (fun i -> Pdb.Type_index.of_u32 (u32 (0x1000 + i)))))
     (fun args ->
       let r =
         type_record_roundtrip
@@ -445,15 +449,15 @@ let test_buildinfo_type_roundtrip =
       match r with
       | Pdb.Codeview_types.BuildInfo { args = args' } ->
           Array.length args = Array.length args'
-          && Array.for_all2 Unsigned.UInt32.equal args args'
+          && Array.for_all2 (=) args args'
       | _ -> false)
 
 let test_udt_mod_src_line_roundtrip =
   QCheck.Test.make ~name:"UdtModSrcLine roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ udt = gen_u32
-         and+ source = gen_u32
+         let+ udt = gen_type_index
+         and+ source = gen_type_index
          and+ line = gen_u32
          and+ module_ = int_range 0 100 in
          (udt, source, line, module_)))
@@ -465,8 +469,8 @@ let test_udt_mod_src_line_roundtrip =
       match r with
       | Pdb.Codeview_types.UdtModSrcLine
           { udt = u; source = s; line = l; module_ = m } ->
-          Unsigned.UInt32.equal u udt
-          && Unsigned.UInt32.equal s source
+          u = udt
+          && s = source
           && Unsigned.UInt32.equal l line
           && m = module_
       | _ -> false)
@@ -476,7 +480,7 @@ let test_substr_list_roundtrip =
     (QCheck.make
        QCheck.Gen.(
          let+ count = int_range 0 8 in
-         Array.init count (fun i -> u32 (0x1000 + i))))
+         Array.init count (fun i -> Pdb.Type_index.of_u32 (u32 (0x1000 + i)))))
     (fun strings ->
       let r =
         type_record_roundtrip
@@ -485,7 +489,7 @@ let test_substr_list_roundtrip =
       match r with
       | Pdb.Codeview_types.SubstrList { strings = s } ->
           Array.length s = Array.length strings
-          && Array.for_all2 Unsigned.UInt32.equal s strings
+          && Array.for_all2 (=) s strings
       | _ -> false)
 
 (** {2 Symbol Record Round-trips} *)
@@ -541,7 +545,7 @@ let test_udt_roundtrip =
   QCheck.Test.make ~name:"Udt roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ type_index = gen_u32 and+ name = gen_name in
+         let+ type_index = gen_type_index and+ name = gen_name in
          (type_index, name)))
     (fun (type_index, name) ->
       let r =
@@ -550,14 +554,14 @@ let test_udt_roundtrip =
       in
       match r with
       | Pdb.Codeview_symbols.Udt { type_index = ti; name = n } ->
-          Unsigned.UInt32.equal ti type_index && n = name
+          ti = type_index && n = name
       | _ -> false)
 
 let test_constant_roundtrip =
   QCheck.Test.make ~name:"Constant roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ type_index = gen_u32
+         let+ type_index = gen_type_index
          and+ value = gen_numeric_leaf
          and+ name = gen_name in
          (type_index, value, name)))
@@ -569,7 +573,7 @@ let test_constant_roundtrip =
       match r with
       | Pdb.Codeview_symbols.Constant { type_index = ti; value = v; name = n }
         ->
-          Unsigned.UInt32.equal ti type_index && v = value && n = name
+          ti = type_index && v = value && n = name
       | _ -> false)
 
 let test_bprel32_roundtrip =
@@ -577,7 +581,7 @@ let test_bprel32_roundtrip =
     (QCheck.make
        QCheck.Gen.(
          let+ offset = map Int32.of_int (int_range (-1000) 1000)
-         and+ type_index = gen_u32
+         and+ type_index = gen_type_index
          and+ name = gen_name in
          (offset, type_index, name)))
     (fun (offset, type_index, name) ->
@@ -588,14 +592,14 @@ let test_bprel32_roundtrip =
       match r with
       | Pdb.Codeview_symbols.BPRel32
           { offset = o; type_index = ti; name = n } ->
-          o = offset && Unsigned.UInt32.equal ti type_index && n = name
+          o = offset && ti = type_index && n = name
       | _ -> false)
 
 let test_local_roundtrip =
   QCheck.Test.make ~name:"Local roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ type_index = gen_u32
+         let+ type_index = gen_type_index
          and+ flags = int_range 0 0xFFFF
          and+ name = gen_name in
          (type_index, flags, name)))
@@ -607,13 +611,13 @@ let test_local_roundtrip =
       match r with
       | Pdb.Codeview_symbols.Local { type_index = ti; flags = f; name = n }
         ->
-          Unsigned.UInt32.equal ti type_index && f = flags && n = name
+          ti = type_index && f = flags && n = name
       | _ -> false)
 
 let gen_proc_record =
   QCheck.Gen.(
     let+ code_size = int_range 1 1000
-    and+ type_index = gen_u32
+    and+ type_index = gen_type_index
     and+ offset = gen_u32
     and+ segment = int_range 1 5
     and+ name = gen_name in
@@ -662,7 +666,7 @@ let test_qc_gthread32 =
   QCheck.Test.make ~name:"GThread32 roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ type_index = gen_u32
+         let+ type_index = gen_type_index
          and+ offset = gen_u32
          and+ segment = int_range 1 5
          and+ name = gen_name in
@@ -674,14 +678,14 @@ let test_qc_gthread32 =
       in
       match r with
       | Pdb.Codeview_symbols.GThread32 d ->
-          Unsigned.UInt32.equal d.type_index type_index && d.name = name
+          d.type_index = type_index && d.name = name
       | _ -> false)
 
 let test_qc_lthread32 =
   QCheck.Test.make ~name:"LThread32 roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ type_index = gen_u32
+         let+ type_index = gen_type_index
          and+ offset = gen_u32
          and+ segment = int_range 1 5
          and+ name = gen_name in
@@ -693,7 +697,7 @@ let test_qc_lthread32 =
       in
       match r with
       | Pdb.Codeview_symbols.LThread32 d ->
-          Unsigned.UInt32.equal d.type_index type_index && d.name = name
+          d.type_index = type_index && d.name = name
       | _ -> false)
 
 let test_qc_regrel32 =
@@ -701,7 +705,7 @@ let test_qc_regrel32 =
     (QCheck.make
        QCheck.Gen.(
          let+ offset = map Int32.of_int (int_range (-1000) 1000)
-         and+ type_index = gen_u32
+         and+ type_index = gen_type_index
          and+ register = int_range 0 400
          and+ name = gen_name in
          (offset, type_index, register, name)))
@@ -714,7 +718,7 @@ let test_qc_regrel32 =
       match r with
       | Pdb.Codeview_symbols.RegRel32
           { offset = o; type_index = ti; register = reg; name = n } ->
-          o = offset && Unsigned.UInt32.equal ti type_index
+          o = offset && ti = type_index
           && reg = register && n = name
       | _ -> false)
 
@@ -722,7 +726,7 @@ let test_qc_register =
   QCheck.Test.make ~name:"Register roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ type_index = gen_u32
+         let+ type_index = gen_type_index
          and+ register = int_range 0 400
          and+ name = gen_name in
          (type_index, register, name)))
@@ -734,7 +738,7 @@ let test_qc_register =
       match r with
       | Pdb.Codeview_symbols.Register
           { type_index = ti; register = reg; name = n } ->
-          Unsigned.UInt32.equal ti type_index && reg = register && n = name
+          ti = type_index && reg = register && n = name
       | _ -> false)
 
 let test_qc_label32 =
@@ -761,7 +765,7 @@ let test_qc_ldata32 =
   QCheck.Test.make ~name:"LData32 roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ type_index = gen_u32
+         let+ type_index = gen_type_index
          and+ offset = gen_u32
          and+ segment = int_range 1 5
          and+ name = gen_name in
@@ -773,14 +777,14 @@ let test_qc_ldata32 =
       in
       match r with
       | Pdb.Codeview_symbols.LData32 d ->
-          Unsigned.UInt32.equal d.type_index type_index && d.name = name
+          d.type_index = type_index && d.name = name
       | _ -> false)
 
 let test_qc_gdata32 =
   QCheck.Test.make ~name:"GData32 roundtrip" ~count:200
     (QCheck.make
        QCheck.Gen.(
-         let+ type_index = gen_u32
+         let+ type_index = gen_type_index
          and+ offset = gen_u32
          and+ segment = int_range 1 5
          and+ name = gen_name in
@@ -792,7 +796,7 @@ let test_qc_gdata32 =
       in
       match r with
       | Pdb.Codeview_symbols.GData32 d ->
-          Unsigned.UInt32.equal d.type_index type_index && d.name = name
+          d.type_index = type_index && d.name = name
       | _ -> false)
 
 let test_qc_block32 =

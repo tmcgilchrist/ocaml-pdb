@@ -42,11 +42,11 @@ val create : ?guid:guid -> ?age:int -> machine -> t
       incremental links bump it. The PE also stores the age so the debugger
       can reject stale PDBs. Defaults to 1. *)
 
-val add_type : t -> Codeview_types.type_record -> u32
+val add_type : t -> Codeview_types.type_record -> Type_index.t
 (** [add_type t record] adds a type record to the TPI stream.
     Returns the assigned TypeIndex (starting from 0x1000). *)
 
-val add_id : t -> Codeview_types.type_record -> u32
+val add_id : t -> Codeview_types.type_record -> Type_index.t
 (** [add_id t record] adds an ID record to the IPI stream.
     Returns the assigned TypeIndex (starting from 0x1000). *)
 

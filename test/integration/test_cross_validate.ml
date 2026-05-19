@@ -7,6 +7,7 @@
 module Buffer = Stdlib.Buffer
 
 let u32 n = Unsigned.UInt32.of_int n
+let ti n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n)
 
 (** Check if llvm-pdbutil is available *)
 let has_llvm_pdbutil () =
@@ -61,20 +62,20 @@ let build_test_pdb () : string =
       (* 0x1001: int main(void) *)
       Pdb.Codeview_types.Procedure
         {
-          return_type = u32 0x0074;
+          return_type = ti 0x0074;
           calling_conv = Pdb.Codeview_constants.NearC;
       options = 0;
           param_count = 0;
-          arg_list = u32 0x1000;
+          arg_list = ti 0x1000;
         };
       (* 0x1002: struct Point fwd ref *)
       Pdb.Codeview_types.Structure
         {
           field_count = 0;
           properties = Pdb.Codeview_types.parse_type_properties 0x0280;
-          field_list = u32 0;
-          derived_from = u32 0;
-          vtable_shape = u32 0;
+          field_list = ti 0;
+          derived_from = ti 0;
+          vtable_shape = ti 0;
           size = 0L;
           name = "Point";
           unique_name = Some ".?AUPoint@@";

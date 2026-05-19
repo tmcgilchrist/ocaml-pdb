@@ -41,64 +41,79 @@ val int_of_type_properties : type_properties -> int
 type class_record = {
   field_count : int;
   properties : type_properties;
-  field_list : u32;
-  derived_from : u32;
-  vtable_shape : u32;
+  field_list : Type_index.t;
+  derived_from : Type_index.t;
+  vtable_shape : Type_index.t;
   size : int64;
   name : string;
   unique_name : string option;
 }
 
 type field_entry =
-  | Member of { attrs : int; field_type : u32; offset : int64; name : string }
+  | Member of {
+      attrs : int;
+      field_type : Type_index.t;
+      offset : int64;
+      name : string;
+    }
   | Enumerate of { attrs : int; value : int64; name : string }
   | OneMethod of {
       attrs : int;
-      method_type : u32;
+      method_type : Type_index.t;
       vftable_offset : int option;
       name : string;
     }
-  | Method of { count : int; method_list : u32; name : string }
-  | BaseClass of { attrs : int; base_type : u32; offset : int64 }
+  | Method of { count : int; method_list : Type_index.t; name : string }
+  | BaseClass of { attrs : int; base_type : Type_index.t; offset : int64 }
   | VBaseClass of {
       attrs : int;
-      base_type : u32;
-      vbptr_type : u32;
+      base_type : Type_index.t;
+      vbptr_type : Type_index.t;
       vbptr_offset : int64;
       vbtable_index : int64;
     }
-  | NestedType of { attrs : int; nested_type : u32; name : string }
-  | VFuncTab of { vftable_type : u32 }
-  | StaticMember of { attrs : int; field_type : u32; name : string }
-  | Index of { continuation : u32 }
+  | NestedType of {
+      attrs : int;
+      nested_type : Type_index.t;
+      name : string;
+    }
+  | VFuncTab of { vftable_type : Type_index.t }
+  | StaticMember of {
+      attrs : int;
+      field_type : Type_index.t;
+      name : string;
+    }
+  | Index of { continuation : Type_index.t }
 
 type type_record =
-  | Modifier of { modified_type : u32; modifiers : int }
-  | Pointer of { pointee_type : u32; attrs : u32 }
+  | Modifier of { modified_type : Type_index.t; modifiers : int }
+  | Pointer of { pointee_type : Type_index.t; attrs : u32 }
+      (** [attrs] is the raw bit-encoded LF_POINTER attribute word; see
+          {!Type_index.near32_pointer_attrs}. *)
   | Procedure of {
-      return_type : u32;
+      return_type : Type_index.t;
       calling_conv : Codeview_constants.calling_convention;
       options : int;
           (** FunctionOptions byte: 0x01=CxxReturnUdt, 0x02=Constructor,
               0x04=ConstructorWithVirtualBases. *)
       param_count : int;
-      arg_list : u32;
+      arg_list : Type_index.t;
     }
   | MFunction of {
-      return_type : u32;
-      class_type : u32;
-      this_type : u32;
+      return_type : Type_index.t;
+      class_type : Type_index.t;
+      this_type : Type_index.t;
       calling_conv : Codeview_constants.calling_convention;
       options : int;  (** FunctionOptions byte; same encoding as Procedure. *)
       param_count : int;
-      arg_list : u32;
+      arg_list : Type_index.t;
       this_adjust : int32;
     }
-  | ArgList of { args : u32 array }
+  | ArgList of { args : Type_index.t array }
   | FieldList of { members : field_entry list }
   | Array of {
-      element_type : u32;
-      index_type : u32;
+      element_type : Type_index.t;
+      index_type : Type_index.t;
       size : int64;
       name : string;
     }
@@ -108,7 +123,7 @@ type type_record =
   | Union of {
       field_count : int;
       properties : type_properties;
-      field_list : u32;
+      field_list : Type_index.t;
       size : int64;
       name : string;
       unique_name : string option;
@@ -116,22 +131,42 @@ type type_record =
   | Enum of {
       field_count : int;
       properties : type_properties;
-      underlying_type : u32;
-      field_list : u32;
+      underlying_type : Type_index.t;
+      field_list : Type_index.t;
       name : string;
       unique_name : string option;
     }
-  | Bitfield of { underlying_type : u32; length : int; position : int }
+  | Bitfield of {
+      underlying_type : Type_index.t;
+      length : int;
+      position : int;
+    }
   | VTShape of { descriptors : int array }
-  | MethodList of { entries : (int * u32 * int option) list }
+  | MethodList of {
+      entries : (int * Type_index.t * int option) list;
+          (** Each entry: [(attrs, method_type, vftable_offset)]. *)
+    }
   (* IPI records *)
-  | FuncId of { scope_id : u32; func_type : u32; name : string }
-  | MFuncId of { parent_type : u32; func_type : u32; name : string }
-  | StringId of { id : u32; str : string }
-  | BuildInfo of { args : u32 array }
-  | UdtSrcLine of { udt : u32; source : u32; line : u32 }
-  | UdtModSrcLine of { udt : u32; source : u32; line : u32; module_ : int }
-  | SubstrList of { strings : u32 array }
+  | FuncId of {
+      scope_id : Type_index.t;
+      func_type : Type_index.t;
+      name : string;
+    }
+  | MFuncId of {
+      parent_type : Type_index.t;
+      func_type : Type_index.t;
+      name : string;
+    }
+  | StringId of { id : Type_index.t; str : string }
+  | BuildInfo of { args : Type_index.t array }
+  | UdtSrcLine of { udt : Type_index.t; source : Type_index.t; line : u32 }
+  | UdtModSrcLine of {
+      udt : Type_index.t;
+      source : Type_index.t;
+      line : u32;
+      module_ : int;
+    }
+  | SubstrList of { strings : Type_index.t array }
   | Unknown of { kind : int; data : string }
 
 val parse_type_record : Object.Buffer.cursor -> int -> type_record

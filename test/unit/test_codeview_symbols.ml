@@ -13,6 +13,8 @@ let buffer_of_string s =
   buf
 
 let u32 n = Unsigned.UInt32.of_int n
+let ti n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n)
+let ti_to_int t = Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 t)
 
 let roundtrip_symbol name record check =
   let buf = Buffer.create 64 in
@@ -65,7 +67,7 @@ let test_gproc32_roundtrip () =
       code_size = u32 50;
       debug_start = u32 5;
       debug_end = u32 45;
-      type_index = u32 0x1000;
+      type_index = ti 0x1000;
       offset = u32 0x2000;
       segment = 1;
       flags = 0;
@@ -81,7 +83,7 @@ let test_gproc32_roundtrip () =
             (Unsigned.UInt32.to_int p.code_size);
           Alcotest.(check int)
             (name ^ " type") 0x1000
-            (Unsigned.UInt32.to_int p.type_index);
+            (ti_to_int p.type_index);
           Alcotest.(check int) (name ^ " segment") 1 p.segment
       | _ -> Alcotest.fail (name ^ ": expected GProc32"))
 
@@ -89,7 +91,7 @@ let test_gdata32_roundtrip () =
   roundtrip_symbol "gdata32"
     (Pdb.Codeview_symbols.GData32
        {
-         type_index = u32 0x0074;
+         type_index = ti 0x0074;
          offset = u32 0x3000;
          segment = 2;
          name = "global_var";
@@ -100,13 +102,13 @@ let test_gdata32_roundtrip () =
           Alcotest.(check string) (name ^ " name") "global_var" d.name;
           Alcotest.(check int)
             (name ^ " type") 0x0074
-            (Unsigned.UInt32.to_int d.type_index)
+            (ti_to_int d.type_index)
       | _ -> Alcotest.fail (name ^ ": expected GData32"))
 
 let test_local_roundtrip () =
   roundtrip_symbol "local"
     (Pdb.Codeview_symbols.Local
-       { type_index = u32 0x0074; flags = 0x01; name = "x" })
+       { type_index = ti 0x0074; flags = 0x01; name = "x" })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Local { type_index; flags; name = n } ->
@@ -114,12 +116,12 @@ let test_local_roundtrip () =
           Alcotest.(check int) (name ^ " flags") 0x01 flags;
           Alcotest.(check int)
             (name ^ " type") 0x0074
-            (Unsigned.UInt32.to_int type_index)
+            (ti_to_int type_index)
       | _ -> Alcotest.fail (name ^ ": expected Local"))
 
 let test_udt_roundtrip () =
   roundtrip_symbol "udt"
-    (Pdb.Codeview_symbols.Udt { type_index = u32 0x1005; name = "Point" })
+    (Pdb.Codeview_symbols.Udt { type_index = ti 0x1005; name = "Point" })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Udt { name = n; _ } ->
@@ -129,7 +131,7 @@ let test_udt_roundtrip () =
 let test_constant_roundtrip () =
   roundtrip_symbol "constant"
     (Pdb.Codeview_symbols.Constant
-       { type_index = u32 0x0074; value = 42L; name = "ANSWER" })
+       { type_index = ti 0x0074; value = 42L; name = "ANSWER" })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Constant { value; name = n; _ } ->
@@ -140,7 +142,7 @@ let test_constant_roundtrip () =
 let test_bprel32_roundtrip () =
   roundtrip_symbol "bprel32"
     (Pdb.Codeview_symbols.BPRel32
-       { offset = -8l; type_index = u32 0x0074; name = "argc" })
+       { offset = -8l; type_index = ti 0x0074; name = "argc" })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.BPRel32 { offset; name = n; _ } ->
@@ -151,7 +153,7 @@ let test_bprel32_roundtrip () =
 let test_regrel32_roundtrip () =
   roundtrip_symbol "regrel32"
     (Pdb.Codeview_symbols.RegRel32
-       { offset = 16l; type_index = u32 0x0074; register = 334; name = "argv" })
+       { offset = 16l; type_index = ti 0x0074; register = 334; name = "argv" })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.RegRel32 { offset; register; name = n; _ } ->
@@ -162,11 +164,11 @@ let test_regrel32_roundtrip () =
 
 let test_buildinfo_roundtrip () =
   roundtrip_symbol "buildinfo"
-    (Pdb.Codeview_symbols.BuildInfo { id = u32 0x1003 })
+    (Pdb.Codeview_symbols.BuildInfo { id = ti 0x1003 })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.BuildInfo { id } ->
-          Alcotest.(check int) (name ^ " id") 0x1003 (Unsigned.UInt32.to_int id)
+          Alcotest.(check int) (name ^ " id") 0x1003 (ti_to_int id)
       | _ -> Alcotest.fail (name ^ ": expected BuildInfo"))
 
 let test_unamespace_roundtrip () =
@@ -245,7 +247,7 @@ let test_lproc32_roundtrip () =
       code_size = u32 30;
       debug_start = u32 3;
       debug_end = u32 27;
-      type_index = u32 0x1001;
+      type_index = ti 0x1001;
       offset = u32 0x5000;
       segment = 1;
       flags = 0;
@@ -270,7 +272,7 @@ let test_gproc32id_roundtrip () =
       code_size = u32 50;
       debug_start = u32 5;
       debug_end = u32 45;
-      type_index = u32 0x1000;
+      type_index = ti 0x1000;
       offset = u32 0x2000;
       segment = 1;
       flags = 0;
@@ -293,7 +295,7 @@ let test_lproc32id_roundtrip () =
       code_size = u32 20;
       debug_start = u32 0;
       debug_end = u32 18;
-      type_index = u32 0x1002;
+      type_index = ti 0x1002;
       offset = u32 0x3000;
       segment = 1;
       flags = 0;
@@ -310,7 +312,7 @@ let test_lproc32id_roundtrip () =
 let test_gthread32_roundtrip () =
   roundtrip_symbol "gthread32"
     (Pdb.Codeview_symbols.GThread32
-       { type_index = u32 0x0074; offset = u32 0x4000; segment = 3;
+       { type_index = ti 0x0074; offset = u32 0x4000; segment = 3;
          name = "tls_var" })
     (fun name r ->
       match r with
@@ -322,7 +324,7 @@ let test_gthread32_roundtrip () =
 let test_lthread32_roundtrip () =
   roundtrip_symbol "lthread32"
     (Pdb.Codeview_symbols.LThread32
-       { type_index = u32 0x0074; offset = u32 0x4010; segment = 3;
+       { type_index = ti 0x0074; offset = u32 0x4010; segment = 3;
          name = "tls_local" })
     (fun name r ->
       match r with
@@ -400,13 +402,13 @@ let test_block32_roundtrip () =
 let test_inlinesite_roundtrip () =
   roundtrip_symbol "inlinesite"
     (Pdb.Codeview_symbols.InlineSite
-       { parent = u32 0; end_ = u32 80; inlinee = u32 0x1000;
+       { parent = u32 0; end_ = u32 80; inlinee = ti 0x1000;
          annotations = "\x0B\x06\x02" })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.InlineSite { inlinee; annotations; _ } ->
           Alcotest.(check int) (name ^ " inlinee") 0x1000
-            (Unsigned.UInt32.to_int inlinee);
+            (ti_to_int inlinee);
           Alcotest.(check int) (name ^ " annotations len") 3
             (String.length annotations)
       | _ -> Alcotest.fail (name ^ ": expected InlineSite"))
@@ -451,12 +453,12 @@ let test_frameproc_roundtrip () =
 let test_register_roundtrip () =
   roundtrip_symbol "register"
     (Pdb.Codeview_symbols.Register
-       { type_index = u32 0x0074; register = 17; name = "eax_var" })
+       { type_index = ti 0x0074; register = 17; name = "eax_var" })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Register { type_index; register; name = n } ->
           Alcotest.(check int) (name ^ " type") 0x0074
-            (Unsigned.UInt32.to_int type_index);
+            (ti_to_int type_index);
           Alcotest.(check int) (name ^ " register") 17 register;
           Alcotest.(check string) (name ^ " name") "eax_var" n
       | _ -> Alcotest.fail (name ^ ": expected Register"))
@@ -477,7 +479,7 @@ let test_label32_roundtrip () =
 let test_ldata32_roundtrip () =
   roundtrip_symbol "ldata32"
     (Pdb.Codeview_symbols.LData32
-       { type_index = u32 0x0074; offset = u32 0x6000; segment = 2;
+       { type_index = ti 0x0074; offset = u32 0x6000; segment = 2;
          name = "static_var" })
     (fun name r ->
       match r with

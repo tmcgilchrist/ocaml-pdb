@@ -152,64 +152,75 @@ let int_of_type_properties p =
 type class_record = {
   field_count : int;
   properties : type_properties;
-  field_list : u32;
-  derived_from : u32;
-  vtable_shape : u32;
+  field_list : Type_index.t;
+  derived_from : Type_index.t;
+  vtable_shape : Type_index.t;
   size : int64;
   name : string;
   unique_name : string option;
 }
 
 type field_entry =
-  | Member of { attrs : int; field_type : u32; offset : int64; name : string }
+  | Member of {
+      attrs : int;
+      field_type : Type_index.t;
+      offset : int64;
+      name : string;
+    }
   | Enumerate of { attrs : int; value : int64; name : string }
   | OneMethod of {
       attrs : int;
-      method_type : u32;
+      method_type : Type_index.t;
       vftable_offset : int option;
       name : string;
     }
-  | Method of { count : int; method_list : u32; name : string }
-  | BaseClass of { attrs : int; base_type : u32; offset : int64 }
+  | Method of { count : int; method_list : Type_index.t; name : string }
+  | BaseClass of { attrs : int; base_type : Type_index.t; offset : int64 }
   | VBaseClass of {
       attrs : int;
-      base_type : u32;
-      vbptr_type : u32;
+      base_type : Type_index.t;
+      vbptr_type : Type_index.t;
       vbptr_offset : int64;
       vbtable_index : int64;
     }
-  | NestedType of { attrs : int; nested_type : u32; name : string }
-  | VFuncTab of { vftable_type : u32 }
-  | StaticMember of { attrs : int; field_type : u32; name : string }
-  | Index of { continuation : u32 }
+  | NestedType of {
+      attrs : int;
+      nested_type : Type_index.t;
+      name : string;
+    }
+  | VFuncTab of { vftable_type : Type_index.t }
+  | StaticMember of {
+      attrs : int;
+      field_type : Type_index.t;
+      name : string;
+    }
+  | Index of { continuation : Type_index.t }
 
 type type_record =
-  | Modifier of { modified_type : u32; modifiers : int }
-  | Pointer of { pointee_type : u32; attrs : u32 }
+  | Modifier of { modified_type : Type_index.t; modifiers : int }
+  | Pointer of { pointee_type : Type_index.t; attrs : u32 }
   | Procedure of {
-      return_type : u32;
+      return_type : Type_index.t;
       calling_conv : Codeview_constants.calling_convention;
       options : int;
-          (** FunctionOptions byte: 0x01=CxxReturnUdt, 0x02=Constructor,
-              0x04=ConstructorWithVirtualBases. *)
       param_count : int;
-      arg_list : u32;
+      arg_list : Type_index.t;
     }
   | MFunction of {
-      return_type : u32;
-      class_type : u32;
-      this_type : u32;
+      return_type : Type_index.t;
+      class_type : Type_index.t;
+      this_type : Type_index.t;
       calling_conv : Codeview_constants.calling_convention;
-      options : int;  (** FunctionOptions byte; same encoding as Procedure. *)
+      options : int;
       param_count : int;
-      arg_list : u32;
+      arg_list : Type_index.t;
       this_adjust : int32;
     }
-  | ArgList of { args : u32 array }
+  | ArgList of { args : Type_index.t array }
   | FieldList of { members : field_entry list }
   | Array of {
-      element_type : u32;
-      index_type : u32;
+      element_type : Type_index.t;
+      index_type : Type_index.t;
       size : int64;
       name : string;
     }
@@ -219,7 +230,7 @@ type type_record =
   | Union of {
       field_count : int;
       properties : type_properties;
-      field_list : u32;
+      field_list : Type_index.t;
       size : int64;
       name : string;
       unique_name : string option;
@@ -227,21 +238,40 @@ type type_record =
   | Enum of {
       field_count : int;
       properties : type_properties;
-      underlying_type : u32;
-      field_list : u32;
+      underlying_type : Type_index.t;
+      field_list : Type_index.t;
       name : string;
       unique_name : string option;
     }
-  | Bitfield of { underlying_type : u32; length : int; position : int }
+  | Bitfield of {
+      underlying_type : Type_index.t;
+      length : int;
+      position : int;
+    }
   | VTShape of { descriptors : int array }
-  | MethodList of { entries : (int * u32 * int option) list }
-  | FuncId of { scope_id : u32; func_type : u32; name : string }
-  | MFuncId of { parent_type : u32; func_type : u32; name : string }
-  | StringId of { id : u32; str : string }
-  | BuildInfo of { args : u32 array }
-  | UdtSrcLine of { udt : u32; source : u32; line : u32 }
-  | UdtModSrcLine of { udt : u32; source : u32; line : u32; module_ : int }
-  | SubstrList of { strings : u32 array }
+  | MethodList of {
+      entries : (int * Type_index.t * int option) list;
+    }
+  | FuncId of {
+      scope_id : Type_index.t;
+      func_type : Type_index.t;
+      name : string;
+    }
+  | MFuncId of {
+      parent_type : Type_index.t;
+      func_type : Type_index.t;
+      name : string;
+    }
+  | StringId of { id : Type_index.t; str : string }
+  | BuildInfo of { args : Type_index.t array }
+  | UdtSrcLine of { udt : Type_index.t; source : Type_index.t; line : u32 }
+  | UdtModSrcLine of {
+      udt : Type_index.t;
+      source : Type_index.t;
+      line : u32;
+      module_ : int;
+    }
+  | SubstrList of { strings : Type_index.t array }
   | Unknown of { kind : int; data : string }
 
 (** Read a null-terminated string from cursor *)
@@ -258,14 +288,17 @@ let skip_padding (cur : Object.Buffer.cursor) (end_pos : int) : unit =
 
 let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
 let read_u32 cur = Object.Buffer.Read.u32 cur
+let read_type_index cur = Type_index.of_u32 (read_u32 cur)
+let write_type_index buf ti =
+  write_u32_le buf (Unsigned.UInt32.to_int (Type_index.to_u32 ti))
 
 let parse_class_record (cur : Object.Buffer.cursor) (end_pos : int) :
     class_record =
   let field_count = read_u16 cur in
   let properties = parse_type_properties (read_u16 cur) in
-  let field_list = read_u32 cur in
-  let derived_from = read_u32 cur in
-  let vtable_shape = read_u32 cur in
+  let field_list = read_type_index cur in
+  let derived_from = read_type_index cur in
+  let vtable_shape = read_type_index cur in
   let size = parse_numeric_leaf cur in
   let name = read_cstring cur in
   let unique_name =
@@ -290,7 +323,7 @@ let parse_field_entry (cur : Object.Buffer.cursor) (end_pos : int) : field_entry
   match kind with
   | 0x150d (* LF_MEMBER *) ->
       let attrs = read_u16 cur in
-      let field_type = read_u32 cur in
+      let field_type = read_type_index cur in
       let offset = parse_numeric_leaf cur in
       let name = read_cstring cur in
       Member { attrs; field_type; offset; name }
@@ -301,7 +334,7 @@ let parse_field_entry (cur : Object.Buffer.cursor) (end_pos : int) : field_entry
       Enumerate { attrs; value; name }
   | 0x1511 (* LF_ONEMETHOD *) ->
       let attrs = read_u16 cur in
-      let method_type = read_u32 cur in
+      let method_type = read_type_index cur in
       let method_kind = (attrs lsr 2) land 0x07 in
       let vftable_offset =
         if method_kind = 0x04 || method_kind = 0x06 then
@@ -312,38 +345,38 @@ let parse_field_entry (cur : Object.Buffer.cursor) (end_pos : int) : field_entry
       OneMethod { attrs; method_type; vftable_offset; name }
   | 0x150f (* LF_METHOD *) ->
       let count = read_u16 cur in
-      let method_list = read_u32 cur in
+      let method_list = read_type_index cur in
       let name = read_cstring cur in
       Method { count; method_list; name }
   | 0x1400 (* LF_BCLASS *) | 0x151a (* LF_BINTERFACE *) ->
       let attrs = read_u16 cur in
-      let base_type = read_u32 cur in
+      let base_type = read_type_index cur in
       let offset = parse_numeric_leaf cur in
       BaseClass { attrs; base_type; offset }
   | 0x1401 (* LF_VBCLASS *) | 0x1402 (* LF_IVBCLASS *) ->
       let attrs = read_u16 cur in
-      let base_type = read_u32 cur in
-      let vbptr_type = read_u32 cur in
+      let base_type = read_type_index cur in
+      let vbptr_type = read_type_index cur in
       let vbptr_offset = parse_numeric_leaf cur in
       let vbtable_index = parse_numeric_leaf cur in
       VBaseClass { attrs; base_type; vbptr_type; vbptr_offset; vbtable_index }
   | 0x1510 (* LF_NESTTYPE *) ->
       let attrs = read_u16 cur in
-      let nested_type = read_u32 cur in
+      let nested_type = read_type_index cur in
       let name = read_cstring cur in
       NestedType { attrs; nested_type; name }
   | 0x1409 (* LF_VFUNCTAB *) ->
       let _padding = read_u16 cur in
-      let vftable_type = read_u32 cur in
+      let vftable_type = read_type_index cur in
       VFuncTab { vftable_type }
   | 0x150e (* LF_STMEMBER *) ->
       let attrs = read_u16 cur in
-      let field_type = read_u32 cur in
+      let field_type = read_type_index cur in
       let name = read_cstring cur in
       StaticMember { attrs; field_type; name }
   | 0x1404 (* LF_INDEX *) ->
       let _padding = read_u16 cur in
-      let continuation = read_u32 cur in
+      let continuation = read_type_index cur in
       Index { continuation }
   | _ ->
       (* Skip to end for unknown field entries *)
@@ -353,7 +386,7 @@ let parse_field_entry (cur : Object.Buffer.cursor) (end_pos : int) : field_entry
       Member
         {
           attrs = 0;
-          field_type = Unsigned.UInt32.zero;
+          field_type = Type_index.of_u32 Unsigned.UInt32.zero;
           offset = 0L;
           name = Printf.sprintf "<unknown field 0x%04x>" kind;
         }
@@ -365,30 +398,30 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
   let kind = read_u16 cur in
   match kind with
   | 0x1001 (* LF_MODIFIER *) ->
-      let modified_type = read_u32 cur in
+      let modified_type = read_type_index cur in
       let modifiers = read_u16 cur in
       Modifier { modified_type; modifiers }
   | 0x1002 (* LF_POINTER *) ->
-      let pointee_type = read_u32 cur in
+      let pointee_type = read_type_index cur in
       let attrs = read_u32 cur in
       Pointer { pointee_type; attrs }
   | 0x1008 (* LF_PROCEDURE *) ->
-      let return_type = read_u32 cur in
+      let return_type = read_type_index cur in
       let cc = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       let calling_conv = Codeview_constants.calling_convention_of_int cc in
       let options = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       let param_count = read_u16 cur in
-      let arg_list = read_u32 cur in
+      let arg_list = read_type_index cur in
       Procedure { return_type; calling_conv; options; param_count; arg_list }
   | 0x1009 (* LF_MFUNCTION *) ->
-      let return_type = read_u32 cur in
-      let class_type = read_u32 cur in
-      let this_type = read_u32 cur in
+      let return_type = read_type_index cur in
+      let class_type = read_type_index cur in
+      let this_type = read_type_index cur in
       let cc = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       let calling_conv = Codeview_constants.calling_convention_of_int cc in
       let options = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       let param_count = read_u16 cur in
-      let arg_list = read_u32 cur in
+      let arg_list = read_type_index cur in
       let this_adjust =
         Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int32
       in
@@ -405,7 +438,7 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
         }
   | 0x1201 (* LF_ARGLIST *) ->
       let count = read_u32 cur |> Unsigned.UInt32.to_int in
-      let args = Array.init count (fun _ -> read_u32 cur) in
+      let args = Array.init count (fun _ -> read_type_index cur) in
       ArgList { args }
   | 0x1203 (* LF_FIELDLIST *) ->
       let members = ref [] in
@@ -418,8 +451,8 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       done;
       FieldList { members = List.rev !members }
   | 0x1503 (* LF_ARRAY *) ->
-      let element_type = read_u32 cur in
-      let index_type = read_u32 cur in
+      let element_type = read_type_index cur in
+      let index_type = read_type_index cur in
       let size = parse_numeric_leaf cur in
       let name = read_cstring cur in
       Array { element_type; index_type; size; name }
@@ -429,7 +462,7 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
   | 0x1506 (* LF_UNION *) ->
       let field_count = read_u16 cur in
       let properties = parse_type_properties (read_u16 cur) in
-      let field_list = read_u32 cur in
+      let field_list = read_type_index cur in
       let size = parse_numeric_leaf cur in
       let name = read_cstring cur in
       let unique_name =
@@ -441,8 +474,8 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
   | 0x1507 (* LF_ENUM *) ->
       let field_count = read_u16 cur in
       let properties = parse_type_properties (read_u16 cur) in
-      let underlying_type = read_u32 cur in
-      let field_list = read_u32 cur in
+      let underlying_type = read_type_index cur in
+      let field_list = read_type_index cur in
       let name = read_cstring cur in
       let unique_name =
         if properties.has_unique_name && cur.position < end_pos then
@@ -459,7 +492,7 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
           unique_name;
         }
   | 0x1205 (* LF_BITFIELD *) ->
-      let underlying_type = read_u32 cur in
+      let underlying_type = read_type_index cur in
       let length = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       let position = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
       Bitfield { underlying_type; length; position }
@@ -479,7 +512,7 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       while cur.position < end_pos do
         let attrs = read_u16 cur in
         let _padding = read_u16 cur in
-        let method_type = read_u32 cur in
+        let method_type = read_type_index cur in
         let method_kind = (attrs lsr 2) land 0x07 in
         let vftable_offset =
           if method_kind = 0x04 || method_kind = 0x06 then
@@ -491,37 +524,37 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       MethodList { entries = List.rev !entries }
   (* IPI records *)
   | 0x1601 (* LF_FUNC_ID *) ->
-      let scope_id = read_u32 cur in
-      let func_type = read_u32 cur in
+      let scope_id = read_type_index cur in
+      let func_type = read_type_index cur in
       let name = read_cstring cur in
       FuncId { scope_id; func_type; name }
   | 0x1602 (* LF_MFUNC_ID *) ->
-      let parent_type = read_u32 cur in
-      let func_type = read_u32 cur in
+      let parent_type = read_type_index cur in
+      let func_type = read_type_index cur in
       let name = read_cstring cur in
       MFuncId { parent_type; func_type; name }
   | 0x1605 (* LF_STRING_ID *) ->
-      let id = read_u32 cur in
+      let id = read_type_index cur in
       let str = read_cstring cur in
       StringId { id; str }
   | 0x1603 (* LF_BUILDINFO *) ->
       let count = read_u16 cur in
-      let args = Array.init count (fun _ -> read_u32 cur) in
+      let args = Array.init count (fun _ -> read_type_index cur) in
       BuildInfo { args }
   | 0x1606 (* LF_UDT_SRC_LINE *) ->
-      let udt = read_u32 cur in
-      let source = read_u32 cur in
+      let udt = read_type_index cur in
+      let source = read_type_index cur in
       let line = read_u32 cur in
       UdtSrcLine { udt; source; line }
   | 0x1607 (* LF_UDT_MOD_SRC_LINE *) ->
-      let udt = read_u32 cur in
-      let source = read_u32 cur in
+      let udt = read_type_index cur in
+      let source = read_type_index cur in
       let line = read_u32 cur in
       let module_ = read_u16 cur in
       UdtModSrcLine { udt; source; line; module_ }
   | 0x1604 (* LF_SUBSTR_LIST *) ->
       let count = read_u32 cur |> Unsigned.UInt32.to_int in
-      let strings = Array.init count (fun _ -> read_u32 cur) in
+      let strings = Array.init count (fun _ -> read_type_index cur) in
       SubstrList { strings }
   | _ ->
       let remaining = end_pos - cur.position in
@@ -560,20 +593,20 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
   (match record with
   | Modifier { modified_type; modifiers } ->
       write_u16_le rec_buf 0x1001;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int modified_type);
+      write_type_index rec_buf modified_type;
       write_u16_le rec_buf modifiers
   | Pointer { pointee_type; attrs } ->
       write_u16_le rec_buf 0x1002;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int pointee_type);
+      write_type_index rec_buf pointee_type;
       write_u32_le rec_buf (Unsigned.UInt32.to_int attrs)
   | Procedure { return_type; calling_conv; options; param_count; arg_list } ->
       write_u16_le rec_buf 0x1008;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int return_type);
+      write_type_index rec_buf return_type;
       Buffer.add_char rec_buf
         (Char.chr (Codeview_constants.int_of_calling_convention calling_conv));
       Buffer.add_char rec_buf (Char.chr (options land 0xFF));
       write_u16_le rec_buf param_count;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int arg_list)
+      write_type_index rec_buf arg_list
   | MFunction
       {
         return_type;
@@ -586,21 +619,19 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
         this_adjust;
       } ->
       write_u16_le rec_buf 0x1009;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int return_type);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int class_type);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int this_type);
+      write_type_index rec_buf return_type;
+      write_type_index rec_buf class_type;
+      write_type_index rec_buf this_type;
       Buffer.add_char rec_buf
         (Char.chr (Codeview_constants.int_of_calling_convention calling_conv));
       Buffer.add_char rec_buf (Char.chr (options land 0xFF));
       write_u16_le rec_buf param_count;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int arg_list);
+      write_type_index rec_buf arg_list;
       write_i32_le rec_buf this_adjust
   | ArgList { args } ->
       write_u16_le rec_buf 0x1201;
       write_u32_le rec_buf (Array.length args);
-      Array.iter
-        (fun ti -> write_u32_le rec_buf (Unsigned.UInt32.to_int ti))
-        args
+      Array.iter (fun ti -> write_type_index rec_buf ti) args
   | FieldList { members } ->
       write_u16_le rec_buf 0x1203;
       (* Each field-list entry is aligned to 4 bytes from the absolute
@@ -624,7 +655,7 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
           | Member { attrs; field_type; offset; name } ->
               write_u16_le rec_buf 0x150d;
               write_u16_le rec_buf attrs;
-              write_u32_le rec_buf (Unsigned.UInt32.to_int field_type);
+              write_type_index rec_buf field_type;
               write_numeric_leaf rec_buf offset;
               write_cstring rec_buf name
           | Enumerate { attrs; value; name } ->
@@ -635,7 +666,7 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
           | OneMethod { attrs; method_type; vftable_offset; name } ->
               write_u16_le rec_buf 0x1511;
               write_u16_le rec_buf attrs;
-              write_u32_le rec_buf (Unsigned.UInt32.to_int method_type);
+              write_type_index rec_buf method_type;
               (match vftable_offset with
               | Some off -> write_u32_le rec_buf off
               | Option.None -> ());
@@ -643,54 +674,54 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
           | Method { count; method_list; name } ->
               write_u16_le rec_buf 0x150f;
               write_u16_le rec_buf count;
-              write_u32_le rec_buf (Unsigned.UInt32.to_int method_list);
+              write_type_index rec_buf method_list;
               write_cstring rec_buf name
           | BaseClass { attrs; base_type; offset } ->
               write_u16_le rec_buf 0x1400;
               write_u16_le rec_buf attrs;
-              write_u32_le rec_buf (Unsigned.UInt32.to_int base_type);
+              write_type_index rec_buf base_type;
               write_numeric_leaf rec_buf offset
           | VBaseClass
               { attrs; base_type; vbptr_type; vbptr_offset; vbtable_index } ->
               write_u16_le rec_buf 0x1401;
               write_u16_le rec_buf attrs;
-              write_u32_le rec_buf (Unsigned.UInt32.to_int base_type);
-              write_u32_le rec_buf (Unsigned.UInt32.to_int vbptr_type);
+              write_type_index rec_buf base_type;
+              write_type_index rec_buf vbptr_type;
               write_numeric_leaf rec_buf vbptr_offset;
               write_numeric_leaf rec_buf vbtable_index
           | NestedType { attrs; nested_type; name } ->
               write_u16_le rec_buf 0x1510;
               write_u16_le rec_buf attrs;
-              write_u32_le rec_buf (Unsigned.UInt32.to_int nested_type);
+              write_type_index rec_buf nested_type;
               write_cstring rec_buf name
           | VFuncTab { vftable_type } ->
               write_u16_le rec_buf 0x1409;
               write_u16_le rec_buf 0;
               (* padding *)
-              write_u32_le rec_buf (Unsigned.UInt32.to_int vftable_type)
+              write_type_index rec_buf vftable_type
           | StaticMember { attrs; field_type; name } ->
               write_u16_le rec_buf 0x150e;
               write_u16_le rec_buf attrs;
-              write_u32_le rec_buf (Unsigned.UInt32.to_int field_type);
+              write_type_index rec_buf field_type;
               write_cstring rec_buf name
           | Index { continuation } ->
               write_u16_le rec_buf 0x1404;
               write_u16_le rec_buf 0;
-              write_u32_le rec_buf (Unsigned.UInt32.to_int continuation))
+              write_type_index rec_buf continuation)
         members
   | Array { element_type; index_type; size; name } ->
       write_u16_le rec_buf 0x1503;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int element_type);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int index_type);
+      write_type_index rec_buf element_type;
+      write_type_index rec_buf index_type;
       write_numeric_leaf rec_buf size;
       write_cstring rec_buf name
   | Class cr -> (
       write_u16_le rec_buf 0x1504;
       write_u16_le rec_buf cr.field_count;
       write_u16_le rec_buf (int_of_type_properties cr.properties);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int cr.field_list);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int cr.derived_from);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int cr.vtable_shape);
+      write_type_index rec_buf cr.field_list;
+      write_type_index rec_buf cr.derived_from;
+      write_type_index rec_buf cr.vtable_shape;
       write_numeric_leaf rec_buf cr.size;
       write_cstring rec_buf cr.name;
       match cr.unique_name with
@@ -700,9 +731,9 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_u16_le rec_buf 0x1505;
       write_u16_le rec_buf cr.field_count;
       write_u16_le rec_buf (int_of_type_properties cr.properties);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int cr.field_list);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int cr.derived_from);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int cr.vtable_shape);
+      write_type_index rec_buf cr.field_list;
+      write_type_index rec_buf cr.derived_from;
+      write_type_index rec_buf cr.vtable_shape;
       write_numeric_leaf rec_buf cr.size;
       write_cstring rec_buf cr.name;
       match cr.unique_name with
@@ -712,9 +743,9 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_u16_le rec_buf 0x1519;
       write_u16_le rec_buf cr.field_count;
       write_u16_le rec_buf (int_of_type_properties cr.properties);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int cr.field_list);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int cr.derived_from);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int cr.vtable_shape);
+      write_type_index rec_buf cr.field_list;
+      write_type_index rec_buf cr.derived_from;
+      write_type_index rec_buf cr.vtable_shape;
       write_numeric_leaf rec_buf cr.size;
       write_cstring rec_buf cr.name;
       match cr.unique_name with
@@ -724,7 +755,7 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_u16_le rec_buf 0x1506;
       write_u16_le rec_buf field_count;
       write_u16_le rec_buf (int_of_type_properties properties);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int field_list);
+      write_type_index rec_buf field_list;
       write_numeric_leaf rec_buf size;
       write_cstring rec_buf name;
       match unique_name with
@@ -742,15 +773,15 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_u16_le rec_buf 0x1507;
       write_u16_le rec_buf field_count;
       write_u16_le rec_buf (int_of_type_properties properties);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int underlying_type);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int field_list);
+      write_type_index rec_buf underlying_type;
+      write_type_index rec_buf field_list;
       write_cstring rec_buf name;
       match unique_name with
       | Some un -> write_cstring rec_buf un
       | Option.None -> ())
   | Bitfield { underlying_type; length; position } ->
       write_u16_le rec_buf 0x1205;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int underlying_type);
+      write_type_index rec_buf underlying_type;
       Buffer.add_char rec_buf (Char.chr length);
       Buffer.add_char rec_buf (Char.chr position)
   | VTShape { descriptors } ->
@@ -774,48 +805,44 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
           write_u16_le rec_buf attrs;
           write_u16_le rec_buf 0;
           (* padding *)
-          write_u32_le rec_buf (Unsigned.UInt32.to_int method_type);
+          write_type_index rec_buf method_type;
           match vftable_offset with
           | Some off -> write_u32_le rec_buf off
           | Option.None -> ())
         entries
   | FuncId { scope_id; func_type; name } ->
       write_u16_le rec_buf 0x1601;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int scope_id);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int func_type);
+      write_type_index rec_buf scope_id;
+      write_type_index rec_buf func_type;
       write_cstring rec_buf name
   | MFuncId { parent_type; func_type; name } ->
       write_u16_le rec_buf 0x1602;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int parent_type);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int func_type);
+      write_type_index rec_buf parent_type;
+      write_type_index rec_buf func_type;
       write_cstring rec_buf name
   | StringId { id; str } ->
       write_u16_le rec_buf 0x1605;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int id);
+      write_type_index rec_buf id;
       write_cstring rec_buf str
   | BuildInfo { args } ->
       write_u16_le rec_buf 0x1603;
       write_u16_le rec_buf (Array.length args);
-      Array.iter
-        (fun ti -> write_u32_le rec_buf (Unsigned.UInt32.to_int ti))
-        args
+      Array.iter (fun ti -> write_type_index rec_buf ti) args
   | UdtSrcLine { udt; source; line } ->
       write_u16_le rec_buf 0x1606;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int udt);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int source);
+      write_type_index rec_buf udt;
+      write_type_index rec_buf source;
       write_u32_le rec_buf (Unsigned.UInt32.to_int line)
   | UdtModSrcLine { udt; source; line; module_ } ->
       write_u16_le rec_buf 0x1607;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int udt);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int source);
+      write_type_index rec_buf udt;
+      write_type_index rec_buf source;
       write_u32_le rec_buf (Unsigned.UInt32.to_int line);
       write_u16_le rec_buf module_
   | SubstrList { strings } ->
       write_u16_le rec_buf 0x1604;
       write_u32_le rec_buf (Array.length strings);
-      Array.iter
-        (fun ti -> write_u32_le rec_buf (Unsigned.UInt32.to_int ti))
-        strings
+      Array.iter (fun ti -> write_type_index rec_buf ti) strings
   | Unknown { kind; data } ->
       write_u16_le rec_buf kind;
       Buffer.add_string rec_buf data);

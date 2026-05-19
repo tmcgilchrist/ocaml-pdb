@@ -13,6 +13,7 @@ let buffer_of_string s =
   buf
 
 let u32 n = Unsigned.UInt32.of_int n
+let ti n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n)
 
 let test_gsi_empty () =
   let buf = Buffer.create 64 in
@@ -130,7 +131,7 @@ let test_build_gsi_streams () =
   let globals =
     [
       Pdb.Codeview_symbols.GData32
-        { type_index = u32 0x0074; offset = u32 0x3000; segment = 2;
+        { type_index = ti 0x0074; offset = u32 0x3000; segment = 2;
           name = "g_count" };
     ]
   in

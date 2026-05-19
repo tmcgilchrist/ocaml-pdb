@@ -13,6 +13,7 @@ let buffer_of_string s =
   buf
 
 let u32 n = Unsigned.UInt32.of_int n
+let ti n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n)
 
 let has_llvm_pdbutil () =
   try
@@ -58,13 +59,13 @@ let test_pdb_with_types () =
     (Pdb.Codeview_types.ArgList { args = [||] }) in
   let _proc = Pdb.Pdb_builder.add_type b
     (Pdb.Codeview_types.Procedure
-       { return_type = u32 0x0074; calling_conv = Pdb.Codeview_constants.NearC;
+       { return_type = ti 0x0074; calling_conv = Pdb.Codeview_constants.NearC;
       options = 0;
-         param_count = 0; arg_list = u32 0x1000 }) in
+         param_count = 0; arg_list = ti 0x1000 }) in
   (* Add an IPI record *)
   let _func_id = Pdb.Pdb_builder.add_id b
     (Pdb.Codeview_types.FuncId
-       { scope_id = u32 0; func_type = u32 0x1001; name = "main" }) in
+       { scope_id = ti 0; func_type = ti 0x1001; name = "main" }) in
   let pdb_bytes = Pdb.Pdb_builder.finalize b in
   let buf = buffer_of_string pdb_bytes in
   let msf = Pdb.Msf.read buf in
@@ -93,9 +94,9 @@ let test_pdb_with_module () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let _proc_ti = Pdb.Pdb_builder.add_type b
     (Pdb.Codeview_types.Procedure
-       { return_type = u32 0x0074; calling_conv = Pdb.Codeview_constants.NearC;
+       { return_type = ti 0x0074; calling_conv = Pdb.Codeview_constants.NearC;
       options = 0;
-         param_count = 0; arg_list = u32 0 }) in
+         param_count = 0; arg_list = ti 0 }) in
   Pdb.Pdb_builder.add_module b
     {
       name = "test.obj";
@@ -146,7 +147,7 @@ let test_pdb_with_publics () =
        { flags = u32 2; offset = u32 0x1000; segment = 1; name = "_main" });
   Pdb.Pdb_builder.add_global b
     (Pdb.Codeview_symbols.GData32
-       { type_index = u32 0x0074; offset = u32 0x2000; segment = 2;
+       { type_index = ti 0x0074; offset = u32 0x2000; segment = 2;
          name = "g_var" });
   let pdb_bytes = Pdb.Pdb_builder.finalize b in
   let buf = buffer_of_string pdb_bytes in
@@ -189,10 +190,10 @@ let test_llvm_pdbutil_validates () =
       (Pdb.Codeview_types.ArgList { args = [||] }) in
     let _ = Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Procedure
-         { return_type = u32 0x0074;
+         { return_type = ti 0x0074;
            calling_conv = Pdb.Codeview_constants.NearC;
       options = 0;
-           param_count = 0; arg_list = u32 0x1000 }) in
+           param_count = 0; arg_list = ti 0x1000 }) in
     Pdb.Pdb_builder.add_module b
       {
         name = "main.obj";
@@ -262,13 +263,13 @@ let test_full_pdb_for_ocaml () =
     (* Types: int32 arglist + `int -> int` procedure type *)
     let arglist_ti =
       Pdb.Pdb_builder.add_type b
-        (Pdb.Codeview_types.ArgList { args = [| u32 0x0074 |] })
+        (Pdb.Codeview_types.ArgList { args = [| ti 0x0074 |] })
     in
     let proc_ti =
       Pdb.Pdb_builder.add_type b
         (Pdb.Codeview_types.Procedure
            {
-             return_type = u32 0x0074;
+             return_type = ti 0x0074;
              calling_conv = Pdb.Codeview_constants.NearC;
       options = 0;
              param_count = 1;
@@ -280,11 +281,11 @@ let test_full_pdb_for_ocaml () =
     let _ =
       Pdb.Pdb_builder.add_id b
         (Pdb.Codeview_types.FuncId
-           { scope_id = u32 0; func_type = proc_ti; name = "main" })
+           { scope_id = ti 0; func_type = proc_ti; name = "main" })
     in
     let _ =
       Pdb.Pdb_builder.add_id b
-        (Pdb.Codeview_types.StringId { id = u32 0; str = "C:\\proj\\main.ml" })
+        (Pdb.Codeview_types.StringId { id = ti 0; str = "C:\\proj\\main.ml" })
     in
 
     (* Module with symbols + C13 debug subsections *)
@@ -362,7 +363,7 @@ let test_full_pdb_for_ocaml () =
     Pdb.Pdb_builder.add_global b
       (Pdb.Codeview_symbols.GData32
          {
-           type_index = u32 0x0074;
+           type_index = ti 0x0074;
            offset = u32 0;
            segment = 2;
            name = "g_counter";

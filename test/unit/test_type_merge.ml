@@ -1,6 +1,8 @@
 (** Tests for type deduplication. *)
 
 let u32 n = Unsigned.UInt32.of_int n
+let ti n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n)
+let ti_to_int ti = Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 ti)
 
 let test_distinct_records () =
   let t = Pdb.Type_merge.create () in
@@ -12,15 +14,15 @@ let test_distinct_records () =
     Pdb.Type_merge.insert t
       (Pdb.Codeview_types.Procedure
          {
-           return_type = u32 0x0074;
+           return_type = ti 0x0074;
            calling_conv = Pdb.Codeview_constants.NearC;
       options = 0;
            param_count = 0;
-           arg_list = u32 0x1000;
+           arg_list = ti 0x1000;
          })
   in
-  Alcotest.(check int) "first index" 0x1000 (Unsigned.UInt32.to_int idx0);
-  Alcotest.(check int) "second index" 0x1001 (Unsigned.UInt32.to_int idx1);
+  Alcotest.(check int) "first index" 0x1000 (ti_to_int idx0);
+  Alcotest.(check int) "second index" 0x1001 (ti_to_int idx1);
   Alcotest.(check int) "count" 2 (Pdb.Type_merge.count t);
   let records = Pdb.Type_merge.records t in
   Alcotest.(check int) "records length" 2 (List.length records)
@@ -30,19 +32,17 @@ let test_duplicate_records () =
   let record = Pdb.Codeview_types.ArgList { args = [||] } in
   let idx0 = Pdb.Type_merge.insert t record in
   let idx1 = Pdb.Type_merge.insert t record in
-  Alcotest.(check int) "same index" (Unsigned.UInt32.to_int idx0)
-    (Unsigned.UInt32.to_int idx1);
+  Alcotest.(check int) "same index" (ti_to_int idx0) (ti_to_int idx1);
   Alcotest.(check int) "count still 1" 1 (Pdb.Type_merge.count t)
 
 let test_duplicate_pointer () =
   let t = Pdb.Type_merge.create () in
   let record =
-    Pdb.Codeview_types.Pointer { pointee_type = u32 0x0074; attrs = u32 0x1000C }
+    Pdb.Codeview_types.Pointer { pointee_type = ti 0x0074; attrs = u32 0x1000C }
   in
   let idx0 = Pdb.Type_merge.insert t record in
   let idx1 = Pdb.Type_merge.insert t record in
-  Alcotest.(check int) "same index" (Unsigned.UInt32.to_int idx0)
-    (Unsigned.UInt32.to_int idx1);
+  Alcotest.(check int) "same index" (ti_to_int idx0) (ti_to_int idx1);
   Alcotest.(check int) "count 1" 1 (Pdb.Type_merge.count t)
 
 let test_similar_but_different () =
@@ -54,9 +54,9 @@ let test_similar_but_different () =
          {
            field_count = 1;
            properties = Pdb.Codeview_types.parse_type_properties 0;
-           field_list = u32 0x1000;
-           derived_from = u32 0;
-           vtable_shape = u32 0;
+           field_list = ti 0x1000;
+           derived_from = ti 0;
+           vtable_shape = ti 0;
            size = 4L;
            name = "Point";
            unique_name = Option.None;
@@ -68,22 +68,21 @@ let test_similar_but_different () =
          {
            field_count = 2;
            properties = Pdb.Codeview_types.parse_type_properties 0;
-           field_list = u32 0x1001;
-           derived_from = u32 0;
-           vtable_shape = u32 0;
+           field_list = ti 0x1001;
+           derived_from = ti 0;
+           vtable_shape = ti 0;
            size = 8L;
            name = "Point";
            unique_name = Option.None;
          })
   in
-  Alcotest.(check bool) "different indices" true
-    (not (Unsigned.UInt32.equal idx0 idx1));
+  Alcotest.(check bool) "different indices" true (ti_to_int idx0 <> ti_to_int idx1);
   Alcotest.(check int) "count 2" 2 (Pdb.Type_merge.count t)
 
 let test_find_index () =
   let t = Pdb.Type_merge.create () in
   let record = Pdb.Codeview_types.Bitfield
-    { underlying_type = u32 0x0074; length = 5; position = 3 }
+    { underlying_type = ti 0x0074; length = 5; position = 3 }
   in
   Alcotest.(check bool) "not found before insert" true
     (Pdb.Type_merge.find_index t record = Option.None);
@@ -94,8 +93,8 @@ let test_find_index () =
 let test_records_in_order () =
   let t = Pdb.Type_merge.create () in
   let r0 = Pdb.Codeview_types.ArgList { args = [||] } in
-  let r1 = Pdb.Codeview_types.ArgList { args = [| u32 0x0074 |] } in
-  let r2 = Pdb.Codeview_types.ArgList { args = [| u32 0x0074; u32 0x0041 |] } in
+  let r1 = Pdb.Codeview_types.ArgList { args = [| ti 0x0074 |] } in
+  let r2 = Pdb.Codeview_types.ArgList { args = [| ti 0x0074; ti 0x0041 |] } in
   let _ = Pdb.Type_merge.insert t r0 in
   let _ = Pdb.Type_merge.insert t r1 in
   let _ = Pdb.Type_merge.insert t r2 in
@@ -121,7 +120,7 @@ let test_records_in_order () =
 let test_many_duplicates () =
   let t = Pdb.Type_merge.create () in
   let record =
-    Pdb.Codeview_types.Modifier { modified_type = u32 0x0074; modifiers = 1 }
+    Pdb.Codeview_types.Modifier { modified_type = ti 0x0074; modifiers = 1 }
   in
   for _ = 1 to 100 do
     ignore (Pdb.Type_merge.insert t record)

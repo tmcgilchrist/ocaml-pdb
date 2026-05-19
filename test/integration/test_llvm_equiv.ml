@@ -1,3 +1,5 @@
+[@@@warning "-26"]
+
 (** LLVM-equivalence tests.
 
     For each scenario, this driver:
@@ -190,19 +192,19 @@ let one_symbol_scenario =
 let build_merge_types () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
-  (* Attrs 32778 = 0x800A: pointer size=4, kind=Near32 *)
-  let ptr_attrs = u 32778 in
-  (* 0x1000: uint32_t* (referent = 0x75 = T_UINT4) *)
+  let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
+  let ptr_attrs = Pdb.Type_index.near32_pointer_attrs in
+  (* 0x1000: uint32_t* *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 117; attrs = ptr_attrs })
+         { pointee_type = Pdb.Type_index.uint32; attrs = ptr_attrs })
   in
-  (* 0x1001: int64_t* (referent = 0x76 = T_INT8) *)
+  (* 0x1001: int64_t* *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 118; attrs = ptr_attrs })
+         { pointee_type = Pdb.Type_index.int64; attrs = ptr_attrs })
   in
   (* 0x1002: struct OnlyInMerge1 (forward ref + has-unique-name) *)
   let _ =
@@ -211,9 +213,9 @@ let build_merge_types () =
          {
            field_count = 0;
            properties = Pdb.Codeview_types.parse_type_properties 0x0280;
-           field_list = u 0;
-           derived_from = u 0;
-           vtable_shape = u 0;
+           field_list = t 0;
+           derived_from = t 0;
+           vtable_shape = t 0;
            size = 0L;
            name = "OnlyInMerge1";
            unique_name = Some "OnlyInMerge1";
@@ -223,36 +225,37 @@ let build_merge_types () =
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 0x1000; attrs = ptr_attrs })
+         { pointee_type = t 0x1000; attrs = ptr_attrs })
   in
   (* 0x1004: uint32_t triple-ptr *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 0x1003; attrs = ptr_attrs })
+         { pointee_type = t 0x1003; attrs = ptr_attrs })
   in
   (* 0x1005: int64_t* (second copy) *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 0x1001; attrs = ptr_attrs })
+         { pointee_type = t 0x1001; attrs = ptr_attrs })
   in
   (* 0x1006: (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.ArgList
-         { args = [| u 117; u 0x1000; u 0x1003 |] })
+         { args =
+             [| Pdb.Type_index.uint32; t 0x1000; t 0x1003 |] })
   in
   (* 0x1007: uint32_t (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Procedure
          {
-           return_type = u 117;
+           return_type = Pdb.Type_index.uint32;
            calling_conv = Pdb.Codeview_constants.NearC;
-      options = 0;
+           options = 0;
            param_count = 0;
-           arg_list = u 0x1006;
+           arg_list = t 0x1006;
          })
   in
   Pdb.Pdb_builder.finalize b
@@ -293,6 +296,7 @@ let hex_decode (s : string) : string =
 let build_debug_subsections () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
+  let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
   let empty_cpp =
     "d:\\src\\llvm\\test\\debuginfo\\pdb\\inputs\\empty.cpp"
   in
@@ -536,6 +540,7 @@ let unknown_symbol_scenario =
 let build_longname_truncation () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
+  let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
   (* MD5_hex of the original (untruncated) inputs, matching what LLVM
      hashes when truncating. The YAML uses:
        Record 0x1000: Name = 68229 'a's, UniqueName = 68228 'b's, Size = 1
@@ -552,9 +557,9 @@ let build_longname_truncation () =
            field_count = 0;
            properties = Pdb.Codeview_types.parse_type_properties 0x0200;
            (* HasUniqueName *)
-           field_list = u 0;
-           derived_from = u 0;
-           vtable_shape = u 0;
+           field_list = t 0;
+           derived_from = t 0;
+           vtable_shape = t 0;
            size = 1L;
            name = truncated_name_1;
            unique_name = Some truncated_unique_1;
@@ -572,9 +577,9 @@ let build_longname_truncation () =
          {
            field_count = 0;
            properties = Pdb.Codeview_types.parse_type_properties 0x0000;
-           field_list = u 0;
-           derived_from = u 0;
-           vtable_shape = u 0;
+           field_list = t 0;
+           derived_from = t 0;
+           vtable_shape = t 0;
            size = 8L;
            name = truncated_name_2;
            unique_name = None;
@@ -598,54 +603,56 @@ let longname_truncation_scenario =
 let build_merge_types_2 () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
-  let ptr_attrs = u 32778 in
+  let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
+  let ptr_attrs = Pdb.Type_index.near32_pointer_attrs in
   (* 0x1000: uint32_t* *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 117; attrs = ptr_attrs })
+         { pointee_type = Pdb.Type_index.uint32; attrs = ptr_attrs })
   in
   (* 0x1001: uint32_t ptr-ptr *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 0x1000; attrs = ptr_attrs })
+         { pointee_type = t 0x1000; attrs = ptr_attrs })
   in
   (* 0x1002: uint32_t triple-ptr *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 0x1001; attrs = ptr_attrs })
+         { pointee_type = t 0x1001; attrs = ptr_attrs })
   in
   (* 0x1003: (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.ArgList
-         { args = [| u 117; u 0x1000; u 0x1001 |] })
+         { args =
+             [| Pdb.Type_index.uint32; t 0x1000; t 0x1001 |] })
   in
   (* 0x1004: uint32_t (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Procedure
          {
-           return_type = u 117;
+           return_type = Pdb.Type_index.uint32;
            calling_conv = Pdb.Codeview_constants.NearC;
-      options = 0;
+           options = 0;
            param_count = 0;
-           arg_list = u 0x1003;
+           arg_list = t 0x1003;
          })
   in
   (* 0x1005: int64_t* *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 118; attrs = ptr_attrs })
+         { pointee_type = Pdb.Type_index.int64; attrs = ptr_attrs })
   in
   (* 0x1006: int64_t ptr-ptr *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 0x1005; attrs = ptr_attrs })
+         { pointee_type = t 0x1005; attrs = ptr_attrs })
   in
   (* 0x1007: struct OnlyInMerge2 (forward ref + has-unique-name) *)
   let _ =
@@ -654,9 +661,9 @@ let build_merge_types_2 () =
          {
            field_count = 0;
            properties = Pdb.Codeview_types.parse_type_properties 0x0280;
-           field_list = u 0;
-           derived_from = u 0;
-           vtable_shape = u 0;
+           field_list = t 0;
+           derived_from = t 0;
+           vtable_shape = t 0;
            size = 0L;
            name = "OnlyInMerge2";
            unique_name = Some "OnlyInMerge2";
@@ -679,41 +686,42 @@ let merge_types_2_scenario =
 let build_merge_ids () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
+  let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
   (* 0x1000: 'One' *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0; str = "One" })
+      (Pdb.Codeview_types.StringId { id = t 0; str = "One" })
   in
   (* 0x1001: 'Two' *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0; str = "Two" })
+      (Pdb.Codeview_types.StringId { id = t 0; str = "Two" })
   in
   (* 0x1002: 'OnlyInFirst' *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0; str = "OnlyInFirst" })
+      (Pdb.Codeview_types.StringId { id = t 0; str = "OnlyInFirst" })
   in
   (* 0x1003: 'SubOne' *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0; str = "SubOne" })
+      (Pdb.Codeview_types.StringId { id = t 0; str = "SubOne" })
   in
   (* 0x1004: 'SubTwo' *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0; str = "SubTwo" })
+      (Pdb.Codeview_types.StringId { id = t 0; str = "SubTwo" })
   in
   (* 0x1005: LF_SUBSTR_LIST [0x1003, 0x1004] *)
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.SubstrList
-         { strings = [| u 0x1003; u 0x1004 |] })
+         { strings = [| t 0x1003; t 0x1004 |] })
   in
   (* 0x1006: 'Main' with parent id = 0x1005 *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0x1005; str = "Main" })
+      (Pdb.Codeview_types.StringId { id = t 0x1005; str = "Main" })
   in
   Pdb.Pdb_builder.finalize b
 
@@ -731,36 +739,37 @@ let merge_ids_scenario =
 let build_merge_ids_2 () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
+  let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
   (* 0x1000: 'SubTwo' *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0; str = "SubTwo" })
+      (Pdb.Codeview_types.StringId { id = t 0; str = "SubTwo" })
   in
   (* 0x1001: 'OnlyInSecond' *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0; str = "OnlyInSecond" })
+      (Pdb.Codeview_types.StringId { id = t 0; str = "OnlyInSecond" })
   in
   (* 0x1002: 'SubOne' *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0; str = "SubOne" })
+      (Pdb.Codeview_types.StringId { id = t 0; str = "SubOne" })
   in
   (* 0x1003: LF_SUBSTR_LIST [0x1002, 0x1000] (SubOne, SubTwo) *)
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.SubstrList
-         { strings = [| u 0x1002; u 0x1000 |] })
+         { strings = [| t 0x1002; t 0x1000 |] })
   in
   (* 0x1004: 'One' *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0; str = "One" })
+      (Pdb.Codeview_types.StringId { id = t 0; str = "One" })
   in
   (* 0x1005: 'Main' with parent id = 0x1003 *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.StringId { id = u 0x1003; str = "Main" })
+      (Pdb.Codeview_types.StringId { id = t 0x1003; str = "Main" })
   in
   Pdb.Pdb_builder.finalize b
 
@@ -781,12 +790,13 @@ let merge_ids_2_scenario =
 let build_merge_ids_and_types () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
-  let ptr_attrs = u 32778 in
+  let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
+  let ptr_attrs = Pdb.Type_index.near32_pointer_attrs in
   (* TPI 0x1000: char** *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 1136; (* char* *) attrs = ptr_attrs })
+         { pointee_type = Pdb.Type_index.char_ptr32; attrs = ptr_attrs })
   in
   (* TPI 0x1001: field list with one LF_MEMBER (public void *FooMember) *)
   let _ =
@@ -799,8 +809,7 @@ let build_merge_ids_and_types () =
                  {
                    attrs = 3;
                    (* public *)
-                   field_type = u 1027;
-                   (* void* *)
+                   field_type = Pdb.Type_index.void_ptr32;
                    offset = 0L;
                    name = "FooMember";
                  };
@@ -810,7 +819,8 @@ let build_merge_ids_and_types () =
   (* TPI 0x1002: (int, char ptr-ptr) *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.ArgList { args = [| u 116; u 0x1000 |] })
+      (Pdb.Codeview_types.ArgList
+         { args = [| Pdb.Type_index.int32; t 0x1000 |] })
   in
   (* TPI 0x1003: struct FooBar (HasUniqueName) *)
   let _ =
@@ -819,9 +829,9 @@ let build_merge_ids_and_types () =
          {
            field_count = 1;
            properties = Pdb.Codeview_types.parse_type_properties 0x0200;
-           field_list = u 0x1001;
-           derived_from = u 0;
-           vtable_shape = u 0;
+           field_list = t 0x1001;
+           derived_from = t 0;
+           vtable_shape = t 0;
            size = 4L;
            name = "FooBar";
            unique_name = Some "FooBar";
@@ -831,27 +841,26 @@ let build_merge_ids_and_types () =
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 0x1003; attrs = ptr_attrs })
+         { pointee_type = t 0x1003; attrs = ptr_attrs })
   in
   (* TPI 0x1005: (int) *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.ArgList { args = [| u 116 |] })
+      (Pdb.Codeview_types.ArgList { args = [| Pdb.Type_index.int32 |] })
   in
   (* TPI 0x1006: LF_MFUNCTION void(int) on FooBar, ThisCall + Constructor *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.MFunction
          {
-           return_type = u 3;
-           (* void *)
-           class_type = u 0x1003;
-           this_type = u 0x1004;
+           return_type = Pdb.Type_index.void;
+           class_type = t 0x1003;
+           this_type = t 0x1004;
            calling_conv = Pdb.Codeview_constants.ThisCall;
            options = 0x02;
            (* Constructor *)
            param_count = 1;
-           arg_list = u 0x1005;
+           arg_list = t 0x1005;
            this_adjust = 0l;
          })
   in
@@ -860,30 +869,30 @@ let build_merge_ids_and_types () =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Procedure
          {
-           return_type = u 116;
+           return_type = Pdb.Type_index.int32;
            calling_conv = Pdb.Codeview_constants.NearC;
            options = 0;
            param_count = 2;
-           arg_list = u 0x1002;
+           arg_list = t 0x1002;
          })
   in
   (* IPI 0x1000: LF_FUNC_ID 'main' referencing TPI 0x1007 *)
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.FuncId
-         { scope_id = u 0; func_type = u 0x1007; name = "main" })
+         { scope_id = t 0; func_type = t 0x1007; name = "main" })
   in
   (* IPI 0x1001: LF_MFUNC_ID 'FooMethod' on TPI 0x1003 -> TPI 0x1006 *)
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.MFuncId
-         { parent_type = u 0x1003; func_type = u 0x1006; name = "FooMethod" })
+         { parent_type = t 0x1003; func_type = t 0x1006; name = "FooMethod" })
   in
   (* IPI 0x1002: LF_UDT_MOD_SRC_LINE referencing TPI 0x1003 *)
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.UdtModSrcLine
-         { udt = u 0x1003; source = u 0; line = u 0; module_ = 0 })
+         { udt = t 0x1003; source = t 0; line = u 0; module_ = 0 })
   in
   Pdb.Pdb_builder.finalize b
 
@@ -903,11 +912,12 @@ let merge_ids_and_types_scenario =
 let build_merge_ids_and_types_2 () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
-  let ptr_attrs = u 32778 in
+  let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
+  let ptr_attrs = Pdb.Type_index.near32_pointer_attrs in
   (* TPI 0x1000: (int) *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.ArgList { args = [| u 116 |] })
+      (Pdb.Codeview_types.ArgList { args = [| Pdb.Type_index.int32 |] })
   in
   (* TPI 0x1001: field list with public void *FooMember *)
   let _ =
@@ -919,7 +929,7 @@ let build_merge_ids_and_types_2 () =
                Pdb.Codeview_types.Member
                  {
                    attrs = 3;
-                   field_type = u 1027;
+                   field_type = Pdb.Type_index.void_ptr32;
                    offset = 0L;
                    name = "FooMember";
                  };
@@ -930,12 +940,13 @@ let build_merge_ids_and_types_2 () =
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 1136; attrs = ptr_attrs })
+         { pointee_type = Pdb.Type_index.char_ptr32; attrs = ptr_attrs })
   in
   (* TPI 0x1003: (int, char ptr-ptr) *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.ArgList { args = [| u 116; u 0x1002 |] })
+      (Pdb.Codeview_types.ArgList
+         { args = [| Pdb.Type_index.int32; t 0x1002 |] })
   in
   (* TPI 0x1004: struct FooBar (HasUniqueName) *)
   let _ =
@@ -944,9 +955,9 @@ let build_merge_ids_and_types_2 () =
          {
            field_count = 1;
            properties = Pdb.Codeview_types.parse_type_properties 0x0200;
-           field_list = u 0x1001;
-           derived_from = u 0;
-           vtable_shape = u 0;
+           field_list = t 0x1001;
+           derived_from = t 0;
+           vtable_shape = t 0;
            size = 4L;
            name = "FooBar";
            unique_name = Some "FooBar";
@@ -957,29 +968,29 @@ let build_merge_ids_and_types_2 () =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Procedure
          {
-           return_type = u 3;
+           return_type = Pdb.Type_index.void;
            calling_conv = Pdb.Codeview_constants.NearC;
            options = 0;
            param_count = 2;
-           arg_list = u 0x1003;
+           arg_list = t 0x1003;
          })
   in
   (* TPI 0x1006: FooBar* *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Pointer
-         { pointee_type = u 0x1004; attrs = ptr_attrs })
+         { pointee_type = t 0x1004; attrs = ptr_attrs })
   in
   (* TPI 0x1007: int (int, char ptr-ptr) *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.Procedure
          {
-           return_type = u 116;
+           return_type = Pdb.Type_index.int32;
            calling_conv = Pdb.Codeview_constants.NearC;
            options = 0;
            param_count = 2;
-           arg_list = u 0x1003;
+           arg_list = t 0x1003;
          })
   in
   (* TPI 0x1008: LF_MFUNCTION void(int) on FooBar, ThisCall + Constructor *)
@@ -987,13 +998,13 @@ let build_merge_ids_and_types_2 () =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.MFunction
          {
-           return_type = u 3;
-           class_type = u 0x1004;
-           this_type = u 0x1006;
+           return_type = Pdb.Type_index.void;
+           class_type = t 0x1004;
+           this_type = t 0x1006;
            calling_conv = Pdb.Codeview_constants.ThisCall;
            options = 0x02;
            param_count = 1;
-           arg_list = u 0x1000;
+           arg_list = t 0x1000;
            this_adjust = 0l;
          })
   in
@@ -1001,31 +1012,31 @@ let build_merge_ids_and_types_2 () =
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.UdtModSrcLine
-         { udt = u 0x1004; source = u 0; line = u 0; module_ = 0 })
+         { udt = t 0x1004; source = t 0; line = u 0; module_ = 0 })
   in
   (* IPI 0x1001: LF_FUNC_ID 'main2' -> TPI 0x1007 *)
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.FuncId
-         { scope_id = u 0; func_type = u 0x1007; name = "main2" })
+         { scope_id = t 0; func_type = t 0x1007; name = "main2" })
   in
   (* IPI 0x1002: LF_FUNC_ID 'foo' -> TPI 0x1005 *)
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.FuncId
-         { scope_id = u 0; func_type = u 0x1005; name = "foo" })
+         { scope_id = t 0; func_type = t 0x1005; name = "foo" })
   in
   (* IPI 0x1003: LF_MFUNC_ID 'FooMethod2' on TPI 0x1004 -> TPI 0x1008 *)
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.MFuncId
-         { parent_type = u 0x1004; func_type = u 0x1008; name = "FooMethod2" })
+         { parent_type = t 0x1004; func_type = t 0x1008; name = "FooMethod2" })
   in
   (* IPI 0x1004: LF_FUNC_ID 'main' -> TPI 0x1007 *)
   let _ =
     Pdb.Pdb_builder.add_id b
       (Pdb.Codeview_types.FuncId
-         { scope_id = u 0; func_type = u 0x1007; name = "main" })
+         { scope_id = t 0; func_type = t 0x1007; name = "main" })
   in
   Pdb.Pdb_builder.finalize b
 

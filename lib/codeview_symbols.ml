@@ -14,7 +14,7 @@ type proc_record = {
   code_size : u32;
   debug_start : u32;
   debug_end : u32;
-  type_index : u32;
+  type_index : Type_index.t;
   offset : u32;
   segment : int;
   flags : int;
@@ -22,7 +22,7 @@ type proc_record = {
 }
 
 type data_record = {
-  type_index : u32;
+  type_index : Type_index.t;
   offset : u32;
   segment : int;
   name : string;
@@ -37,7 +37,7 @@ type symbol_record =
       version_string : string;
     }
   | ObjName of { signature : u32; name : string }
-  | BuildInfo of { id : u32 }
+  | BuildInfo of { id : Type_index.t }
   | GProc32 of proc_record
   | LProc32 of proc_record
   | GProc32Id of proc_record
@@ -47,7 +47,7 @@ type symbol_record =
   | LData32 of data_record
   | GThread32 of data_record
   | LThread32 of data_record
-  | Local of { type_index : u32; flags : int; name : string }
+  | Local of { type_index : Type_index.t; flags : int; name : string }
   | DefRangeFramePointerRel of {
       offset : int32;
       range_offset : u32;
@@ -80,13 +80,13 @@ type symbol_record =
   | InlineSite of {
       parent : u32;
       end_ : u32;
-      inlinee : u32;
+      inlinee : Type_index.t;
       annotations : string;
     }
   | InlineSiteEnd
   | ProcIdEnd
-  | Udt of { type_index : u32; name : string }
-  | Constant of { type_index : u32; value : int64; name : string }
+  | Udt of { type_index : Type_index.t; name : string }
+  | Constant of { type_index : Type_index.t; value : int64; name : string }
   | Pub32 of { flags : u32; offset : u32; segment : int; name : string }
   | FrameProc of {
       total_frame_bytes : u32;
@@ -99,12 +99,12 @@ type symbol_record =
     }
   | RegRel32 of {
       offset : int32;
-      type_index : u32;
+      type_index : Type_index.t;
       register : int;
       name : string;
     }
-  | BPRel32 of { offset : int32; type_index : u32; name : string }
-  | Register of { type_index : u32; register : int; name : string }
+  | BPRel32 of { offset : int32; type_index : Type_index.t; name : string }
+  | Register of { type_index : Type_index.t; register : int; name : string }
   | Label32 of { offset : u32; segment : int; flags : int; name : string }
   | UNamespace of { name : string }
   | EnvBlock of { fields : string list }
@@ -112,6 +112,7 @@ type symbol_record =
 
 let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
 let read_u32 cur = Object.Buffer.Read.u32 cur
+let read_type_index cur = Type_index.of_u32 (read_u32 cur)
 
 let read_cstring (cur : Object.Buffer.cursor) : string =
   match Object.Buffer.Read.zero_string cur () with
@@ -125,7 +126,7 @@ let parse_proc_record (cur : Object.Buffer.cursor) : proc_record =
   let code_size = read_u32 cur in
   let debug_start = read_u32 cur in
   let debug_end = read_u32 cur in
-  let type_index = read_u32 cur in
+  let type_index = read_type_index cur in
   let offset = read_u32 cur in
   let segment = read_u16 cur in
   let flags = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
@@ -145,7 +146,7 @@ let parse_proc_record (cur : Object.Buffer.cursor) : proc_record =
   }
 
 let parse_data_record (cur : Object.Buffer.cursor) : data_record =
-  let type_index = read_u32 cur in
+  let type_index = read_type_index cur in
   let offset = read_u32 cur in
   let segment = read_u16 cur in
   let name = read_cstring cur in
@@ -188,7 +189,7 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       let name = read_cstring cur in
       ObjName { signature; name }
   | 0x114c (* S_BUILDINFO *) ->
-      let id = read_u32 cur in
+      let id = read_type_index cur in
       BuildInfo { id }
   | 0x1110 (* S_GPROC32 *) -> GProc32 (parse_proc_record cur)
   | 0x110f (* S_LPROC32 *) -> LProc32 (parse_proc_record cur)
@@ -202,7 +203,7 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
   | 0x1113 (* S_GTHREAD32 *) -> GThread32 (parse_data_record cur)
   | 0x1112 (* S_LTHREAD32 *) -> LThread32 (parse_data_record cur)
   | 0x113e (* S_LOCAL *) ->
-      let type_index = read_u32 cur in
+      let type_index = read_type_index cur in
       let flags = read_u16 cur in
       let name = read_cstring cur in
       Local { type_index; flags; name }
@@ -248,7 +249,7 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
   | 0x114d (* S_INLINESITE *) ->
       let parent = read_u32 cur in
       let end_ = read_u32 cur in
-      let inlinee = read_u32 cur in
+      let inlinee = read_type_index cur in
       let remaining = end_pos - cur.position in
       let raw =
         if remaining > 0 then Object.Buffer.Read.fixed_string cur remaining
@@ -266,11 +267,11 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       let annotations = trim_trailing_nulls raw in
       InlineSite { parent; end_; inlinee; annotations }
   | 0x1108 (* S_UDT *) ->
-      let type_index = read_u32 cur in
+      let type_index = read_type_index cur in
       let name = read_cstring cur in
       Udt { type_index; name }
   | 0x1107 (* S_CONSTANT *) ->
-      let type_index = read_u32 cur in
+      let type_index = read_type_index cur in
       let value = Codeview_types.parse_numeric_leaf cur in
       let name = read_cstring cur in
       Constant { type_index; value; name }
@@ -300,17 +301,17 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
         }
   | 0x1111 (* S_REGREL32 *) ->
       let offset = Unsigned.UInt32.to_int32 (read_u32 cur) in
-      let type_index = read_u32 cur in
+      let type_index = read_type_index cur in
       let register = read_u16 cur in
       let name = read_cstring cur in
       RegRel32 { offset; type_index; register; name }
   | 0x110b (* S_BPREL32 *) ->
       let offset = Unsigned.UInt32.to_int32 (read_u32 cur) in
-      let type_index = read_u32 cur in
+      let type_index = read_type_index cur in
       let name = read_cstring cur in
       BPRel32 { offset; type_index; name }
   | 0x1106 (* S_REGISTER *) ->
-      let type_index = read_u32 cur in
+      let type_index = read_type_index cur in
       let register = read_u16 cur in
       let name = read_cstring cur in
       Register { type_index; register; name }
@@ -355,6 +356,9 @@ let write_u32_le buf v =
 
 let write_i32_le buf (v : int32) = write_u32_le buf (Int32.to_int v)
 
+let write_type_index buf ti =
+  write_u32_le buf (Unsigned.UInt32.to_int (Type_index.to_u32 ti))
+
 let write_cstring buf s =
   Buffer.add_string buf s;
   Buffer.add_char buf '\000'
@@ -367,7 +371,7 @@ let write_proc_record buf kind (p : proc_record) =
   write_u32_le buf (Unsigned.UInt32.to_int p.code_size);
   write_u32_le buf (Unsigned.UInt32.to_int p.debug_start);
   write_u32_le buf (Unsigned.UInt32.to_int p.debug_end);
-  write_u32_le buf (Unsigned.UInt32.to_int p.type_index);
+  write_type_index buf p.type_index;
   write_u32_le buf (Unsigned.UInt32.to_int p.offset);
   write_u16_le buf p.segment;
   Buffer.add_char buf (Char.chr (p.flags land 0xFF));
@@ -375,7 +379,7 @@ let write_proc_record buf kind (p : proc_record) =
 
 let write_data_record buf kind (d : data_record) =
   write_u16_le buf kind;
-  write_u32_le buf (Unsigned.UInt32.to_int d.type_index);
+  write_type_index buf d.type_index;
   write_u32_le buf (Unsigned.UInt32.to_int d.offset);
   write_u16_le buf d.segment;
   write_cstring buf d.name
@@ -409,7 +413,7 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
       write_cstring rec_buf name
   | BuildInfo { id } ->
       write_u16_le rec_buf 0x114c;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int id)
+      write_type_index rec_buf id
   | GProc32 p -> write_proc_record rec_buf 0x1110 p
   | LProc32 p -> write_proc_record rec_buf 0x110f p
   | GProc32Id p -> write_proc_record rec_buf 0x1147 p
@@ -423,7 +427,7 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
   | LThread32 d -> write_data_record rec_buf 0x1112 d
   | Local { type_index; flags; name } ->
       write_u16_le rec_buf 0x113e;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int type_index);
+      write_type_index rec_buf type_index;
       write_u16_le rec_buf flags;
       write_cstring rec_buf name
   | DefRangeFramePointerRel
@@ -467,15 +471,15 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
       write_u16_le rec_buf 0x114d;
       write_u32_le rec_buf (Unsigned.UInt32.to_int parent);
       write_u32_le rec_buf (Unsigned.UInt32.to_int end_);
-      write_u32_le rec_buf (Unsigned.UInt32.to_int inlinee);
+      write_type_index rec_buf inlinee;
       Buffer.add_string rec_buf annotations
   | Udt { type_index; name } ->
       write_u16_le rec_buf 0x1108;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int type_index);
+      write_type_index rec_buf type_index;
       write_cstring rec_buf name
   | Constant { type_index; value; name } ->
       write_u16_le rec_buf 0x1107;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int type_index);
+      write_type_index rec_buf type_index;
       Codeview_types.write_numeric_leaf rec_buf value;
       write_cstring rec_buf name
   | Pub32 { flags; offset; segment; name } ->
@@ -505,17 +509,17 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
   | RegRel32 { offset; type_index; register; name } ->
       write_u16_le rec_buf 0x1111;
       write_i32_le rec_buf offset;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int type_index);
+      write_type_index rec_buf type_index;
       write_u16_le rec_buf register;
       write_cstring rec_buf name
   | BPRel32 { offset; type_index; name } ->
       write_u16_le rec_buf 0x110b;
       write_i32_le rec_buf offset;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int type_index);
+      write_type_index rec_buf type_index;
       write_cstring rec_buf name
   | Register { type_index; register; name } ->
       write_u16_le rec_buf 0x1106;
-      write_u32_le rec_buf (Unsigned.UInt32.to_int type_index);
+      write_type_index rec_buf type_index;
       write_u16_le rec_buf register;
       write_cstring rec_buf name
   | Label32 { offset; segment; flags; name } ->

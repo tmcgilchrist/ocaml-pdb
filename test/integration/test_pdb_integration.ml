@@ -83,7 +83,7 @@ let test_tpi_stream () =
   | Pdb.Codeview_types.Procedure { return_type; param_count; _ } ->
       Alcotest.(check int)
         "procedure return type" 0x0074
-        (Unsigned.UInt32.to_int return_type);
+        (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 return_type));
       Alcotest.(check int) "procedure params" 0 param_count
   | _ -> Alcotest.fail "0x1001: expected Procedure");
   (* 0x1002: LF_STRUCTURE "Point" (forward ref) *)
@@ -154,7 +154,7 @@ let test_ipi_stream () =
       Alcotest.(check string) "func_id name" "main" name;
       Alcotest.(check int)
         "func_id type" 0x1001
-        (Unsigned.UInt32.to_int func_type)
+        (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 func_type))
   | _ -> Alcotest.fail "0x1000: expected FuncId");
   (* 0x1001: LF_STRING_ID "simple.c" *)
   match List.nth record_list 1 with
@@ -204,9 +204,9 @@ let test_complex_tpi () =
   (match List.nth records 6 with
   | Pdb.Codeview_types.MFunction { return_type; class_type; param_count; _ } ->
       Alcotest.(check int) "mfunc ret" 3
-        (Unsigned.UInt32.to_int return_type);
+        (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 return_type));
       Alcotest.(check int) "mfunc class" 0x1002
-        (Unsigned.UInt32.to_int class_type);
+        (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 class_type));
       Alcotest.(check int) "mfunc params" 0 param_count
   | _ -> Alcotest.fail "0x1006: expected MFunction");
   (* 0x1008: Base field list with VFuncTab, Member, 2x OneMethod *)
@@ -232,7 +232,7 @@ let test_complex_tpi () =
       Alcotest.(check string) "Base complete" "Base" name;
       Alcotest.(check int64) "Base size" 16L size;
       Alcotest.(check int) "Base vtshape" 0x1003
-        (Unsigned.UInt32.to_int vtable_shape)
+        (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 vtable_shape))
   | _ -> Alcotest.fail "0x1009: expected Structure");
   (* 0x100B: Derived field list with BaseClass, Member, OneMethod *)
   (match List.nth records 11 with
@@ -241,7 +241,7 @@ let test_complex_tpi () =
       (match List.nth members 0 with
       | Pdb.Codeview_types.BaseClass { base_type; offset; _ } ->
           Alcotest.(check int) "bclass type" 0x1002
-            (Unsigned.UInt32.to_int base_type);
+            (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 base_type));
           Alcotest.(check int64) "bclass offset" 0L offset
       | _ -> Alcotest.fail "derived[0]: expected BaseClass");
       (match List.nth members 1 with

@@ -157,7 +157,7 @@ let dump_symbols msf =
                       Printf.sprintf "S_OBJNAME \"%s\"" name
                   | BuildInfo { id } ->
                       Printf.sprintf "S_BUILDINFO id=0x%X"
-                        (Unsigned.UInt32.to_int id)
+                        (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 id))
                   | GProc32 p | GProc32Id p ->
                       Printf.sprintf "S_GPROC32 \"%s\" size=%d" p.name
                         (Unsigned.UInt32.to_int p.code_size)
@@ -188,7 +188,7 @@ let dump_symbols msf =
                       Printf.sprintf "S_BLOCK32 \"%s\"" name
                   | InlineSite { inlinee; _ } ->
                       Printf.sprintf "S_INLINESITE inlinee=0x%X"
-                        (Unsigned.UInt32.to_int inlinee)
+                        (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 inlinee))
                   | Udt { name; _ } -> Printf.sprintf "S_UDT \"%s\"" name
                   | Constant { name; value; _ } ->
                       Printf.sprintf "S_CONSTANT \"%s\" = %Ld" name value

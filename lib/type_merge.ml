@@ -6,14 +6,12 @@
     References:
     - LLVM: llvm/lib/DebugInfo/CodeView/MergingTypeTableBuilder.cpp *)
 
-open Pdb_types
-
 module Buffer = Stdlib.Buffer
 
 type t = {
   mutable records : Codeview_types.type_record list; (** reverse order *)
   mutable next_index : int;
-  seen : (string, u32) Hashtbl.t; (** serialized bytes -> TypeIndex *)
+  seen : (string, Type_index.t) Hashtbl.t; (** serialized bytes -> TypeIndex *)
 }
 
 let create () =
@@ -31,7 +29,7 @@ let insert t record =
   match Hashtbl.find_opt t.seen key with
   | Some existing_idx -> existing_idx
   | None ->
-      let idx = Unsigned.UInt32.of_int t.next_index in
+      let idx = Type_index.user (Unsigned.UInt32.of_int t.next_index) in
       Hashtbl.replace t.seen key idx;
       t.records <- record :: t.records;
       t.next_index <- t.next_index + 1;
