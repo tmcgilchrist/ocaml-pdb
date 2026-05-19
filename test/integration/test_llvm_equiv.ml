@@ -895,6 +895,148 @@ let merge_ids_and_types_scenario =
     build = build_merge_ids_and_types;
   }
 
+(** Equivalent of [merge-ids-and-types-2.yaml]: the companion file to
+    merge-ids-and-types-1, designed by LLVM to exercise PDB type merging.
+    It shares some records with file 1 (so they'd merge) and introduces
+    new variants (main2, foo, FooMethod2). For us each is an independent
+    end-to-end validation of TPI + IPI writes. *)
+let build_merge_ids_and_types_2 () =
+  let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
+  let u = Unsigned.UInt32.of_int in
+  let ptr_attrs = u 32778 in
+  (* TPI 0x1000: (int) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.ArgList { args = [| u 116 |] })
+  in
+  (* TPI 0x1001: field list with public void *FooMember *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.FieldList
+         {
+           members =
+             [
+               Pdb.Codeview_types.Member
+                 {
+                   attrs = 3;
+                   field_type = u 1027;
+                   offset = 0L;
+                   name = "FooMember";
+                 };
+             ];
+         })
+  in
+  (* TPI 0x1002: char ptr-ptr *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 1136; attrs = ptr_attrs })
+  in
+  (* TPI 0x1003: (int, char ptr-ptr) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.ArgList { args = [| u 116; u 0x1002 |] })
+  in
+  (* TPI 0x1004: struct FooBar (HasUniqueName) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Structure
+         {
+           field_count = 1;
+           properties = Pdb.Codeview_types.parse_type_properties 0x0200;
+           field_list = u 0x1001;
+           derived_from = u 0;
+           vtable_shape = u 0;
+           size = 4L;
+           name = "FooBar";
+           unique_name = Some "FooBar";
+         })
+  in
+  (* TPI 0x1005: void (int, char ptr-ptr) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Procedure
+         {
+           return_type = u 3;
+           calling_conv = Pdb.Codeview_constants.NearC;
+           options = 0;
+           param_count = 2;
+           arg_list = u 0x1003;
+         })
+  in
+  (* TPI 0x1006: FooBar* *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Pointer
+         { pointee_type = u 0x1004; attrs = ptr_attrs })
+  in
+  (* TPI 0x1007: int (int, char ptr-ptr) *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Procedure
+         {
+           return_type = u 116;
+           calling_conv = Pdb.Codeview_constants.NearC;
+           options = 0;
+           param_count = 2;
+           arg_list = u 0x1003;
+         })
+  in
+  (* TPI 0x1008: LF_MFUNCTION void(int) on FooBar, ThisCall + Constructor *)
+  let _ =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.MFunction
+         {
+           return_type = u 3;
+           class_type = u 0x1004;
+           this_type = u 0x1006;
+           calling_conv = Pdb.Codeview_constants.ThisCall;
+           options = 0x02;
+           param_count = 1;
+           arg_list = u 0x1000;
+           this_adjust = 0l;
+         })
+  in
+  (* IPI 0x1000: LF_UDT_MOD_SRC_LINE for FooBar *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.UdtModSrcLine
+         { udt = u 0x1004; source = u 0; line = u 0; module_ = 0 })
+  in
+  (* IPI 0x1001: LF_FUNC_ID 'main2' -> TPI 0x1007 *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.FuncId
+         { scope_id = u 0; func_type = u 0x1007; name = "main2" })
+  in
+  (* IPI 0x1002: LF_FUNC_ID 'foo' -> TPI 0x1005 *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.FuncId
+         { scope_id = u 0; func_type = u 0x1005; name = "foo" })
+  in
+  (* IPI 0x1003: LF_MFUNC_ID 'FooMethod2' on TPI 0x1004 -> TPI 0x1008 *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.MFuncId
+         { parent_type = u 0x1004; func_type = u 0x1008; name = "FooMethod2" })
+  in
+  (* IPI 0x1004: LF_FUNC_ID 'main' -> TPI 0x1007 *)
+  let _ =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.FuncId
+         { scope_id = u 0; func_type = u 0x1007; name = "main" })
+  in
+  Pdb.Pdb_builder.finalize b
+
+let merge_ids_and_types_2_scenario =
+  {
+    name = "merge_ids_and_types_2";
+    yaml = "merge-ids-and-types-2.yaml";
+    dump_args = "--types --ids";
+    build = build_merge_ids_and_types_2;
+  }
+
 (** {1 Suite} *)
 
 let test_of_scenario s =
@@ -917,5 +1059,6 @@ let () =
           test_of_scenario merge_ids_scenario;
           test_of_scenario merge_ids_2_scenario;
           test_of_scenario merge_ids_and_types_scenario;
+          test_of_scenario merge_ids_and_types_2_scenario;
         ] );
     ]
