@@ -274,6 +274,144 @@ type type_record =
   | SubstrList of { strings : Type_index.t array }
   | Unknown of { kind : int; data : string }
 
+(** Remap every TypeIndex reference in a record. [type_ref] is applied to
+    references into the TPI stream, [id_ref] to references into the IPI
+    stream. The classification follows LLVM's [discoverTypeIndices]
+    (llvm/lib/DebugInfo/CodeView/TypeIndexDiscovery.cpp): IPI records use
+    [id_ref] for [FuncId.scope_id], [StringId.id], [BuildInfo.args],
+    [SubstrList.strings], and [UdtSrcLine.source]; all other references --
+    including [MFuncId]'s two fields and [UdtSrcLine.udt] -- are type
+    references. [UdtModSrcLine.source] is intentionally left untouched
+    because LLVM does not treat it as a reference. *)
+let map_type_indices ~type_ref ~id_ref record =
+  let t = type_ref and i = id_ref in
+  let map_class (cr : class_record) =
+    {
+      cr with
+      field_list = t cr.field_list;
+      derived_from = t cr.derived_from;
+      vtable_shape = t cr.vtable_shape;
+    }
+  in
+  let map_field = function
+    | Member { attrs; field_type; offset; name } ->
+        Member { attrs; field_type = t field_type; offset; name }
+    | Enumerate e -> Enumerate e
+    | OneMethod { attrs; method_type; vftable_offset; name } ->
+        OneMethod { attrs; method_type = t method_type; vftable_offset; name }
+    | Method { count; method_list; name } ->
+        Method { count; method_list = t method_list; name }
+    | BaseClass { attrs; base_type; offset } ->
+        BaseClass { attrs; base_type = t base_type; offset }
+    | VBaseClass { attrs; base_type; vbptr_type; vbptr_offset; vbtable_index }
+      ->
+        VBaseClass
+          {
+            attrs;
+            base_type = t base_type;
+            vbptr_type = t vbptr_type;
+            vbptr_offset;
+            vbtable_index;
+          }
+    | NestedType { attrs; nested_type; name } ->
+        NestedType { attrs; nested_type = t nested_type; name }
+    | VFuncTab { vftable_type } -> VFuncTab { vftable_type = t vftable_type }
+    | StaticMember { attrs; field_type; name } ->
+        StaticMember { attrs; field_type = t field_type; name }
+    | Index { continuation } -> Index { continuation = t continuation }
+  in
+  match record with
+  | Modifier { modified_type; modifiers } ->
+      Modifier { modified_type = t modified_type; modifiers }
+  | Pointer { pointee_type; attrs } ->
+      Pointer { pointee_type = t pointee_type; attrs }
+  | Procedure { return_type; calling_conv; options; param_count; arg_list } ->
+      Procedure
+        {
+          return_type = t return_type;
+          calling_conv;
+          options;
+          param_count;
+          arg_list = t arg_list;
+        }
+  | MFunction
+      {
+        return_type;
+        class_type;
+        this_type;
+        calling_conv;
+        options;
+        param_count;
+        arg_list;
+        this_adjust;
+      } ->
+      MFunction
+        {
+          return_type = t return_type;
+          class_type = t class_type;
+          this_type = t this_type;
+          calling_conv;
+          options;
+          param_count;
+          arg_list = t arg_list;
+          this_adjust;
+        }
+  | ArgList { args } -> ArgList { args = Array.map t args }
+  | FieldList { members } -> FieldList { members = List.map map_field members }
+  | Array { element_type; index_type; size; name } ->
+      Array
+        {
+          element_type = t element_type;
+          index_type = t index_type;
+          size;
+          name;
+        }
+  | Class cr -> Class (map_class cr)
+  | Structure cr -> Structure (map_class cr)
+  | Interface cr -> Interface (map_class cr)
+  | Union { field_count; properties; field_list; size; name; unique_name } ->
+      Union
+        {
+          field_count;
+          properties;
+          field_list = t field_list;
+          size;
+          name;
+          unique_name;
+        }
+  | Enum
+      { field_count; properties; underlying_type; field_list; name; unique_name }
+    ->
+      Enum
+        {
+          field_count;
+          properties;
+          underlying_type = t underlying_type;
+          field_list = t field_list;
+          name;
+          unique_name;
+        }
+  | Bitfield { underlying_type; length; position } ->
+      Bitfield { underlying_type = t underlying_type; length; position }
+  | VTShape v -> VTShape v
+  | MethodList { entries } ->
+      MethodList
+        {
+          entries = List.map (fun (a, mt, v) -> (a, t mt, v)) entries;
+        }
+  | FuncId { scope_id; func_type; name } ->
+      FuncId { scope_id = i scope_id; func_type = t func_type; name }
+  | MFuncId { parent_type; func_type; name } ->
+      MFuncId { parent_type = t parent_type; func_type = t func_type; name }
+  | StringId { id; str } -> StringId { id = i id; str }
+  | BuildInfo { args } -> BuildInfo { args = Array.map i args }
+  | UdtSrcLine { udt; source; line } ->
+      UdtSrcLine { udt = t udt; source = i source; line }
+  | UdtModSrcLine { udt; source; line; module_ } ->
+      UdtModSrcLine { udt = t udt; source; line; module_ }
+  | SubstrList { strings } -> SubstrList { strings = Array.map i strings }
+  | Unknown u -> Unknown u
+
 (** Read a null-terminated string from cursor *)
 let read_cstring (cur : Object.Buffer.cursor) : string =
   match Object.Buffer.Read.zero_string cur () with

@@ -41,8 +41,11 @@ Known gaps:
   a single FPM block (one FPM block covers `block_size * 8` blocks, i.e.
   128 MB at 4 KB block size). Larger PDBs would need multiple FPM blocks
   at `block_size` intervals; this writer does not yet produce them.
-- Type merging is local-only; cross-compilation-unit content-hash merging
-  (LLVM's BLAKE3-based scheme) is not implemented.
+- Cross-compilation-unit type merging is implemented by re-serialisation
+  (LLVM's `MergingTypeTableBuilder` approach): references are remapped onto
+  a shared numbering and identical records deduplicated. The alternative
+  content-hash scheme (LLVM's truncated-BLAKE3 `GlobalTypeTableBuilder`,
+  needed to emit COFF `.debug$H` sections) is not implemented.
 - Many symbol and type variants exist primarily as a parser fallback
   (`Unknown`); only the kinds we've needed have hand-written fields.
 - The OMAP address-translation tables, type-server records, and the FPO

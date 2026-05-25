@@ -41,3 +41,53 @@ let count t = List.length t.records
 let find_index t record =
   let key = record_key record in
   Hashtbl.find_opt t.seen key
+
+(** {2 Cross-compilation-unit merging} *)
+
+type cross = { types : t; ids : t }
+
+let create_cross () = { types = create (); ids = create () }
+let cross_types c = records c.types
+let cross_ids c = records c.ids
+
+(** Build a remap closure over an array of already-merged indices for the
+    current compilation unit. Index [j] (TypeIndex [0x1000 + j]) maps to
+    [remap.(j)]. Simple/None indices and any out-of-range user index (a
+    forward reference, which does not occur in a well-formed stream) pass
+    through unchanged. *)
+let remap_of (remap : Type_index.t array) (ti : Type_index.t) : Type_index.t =
+  match ti with
+  | Type_index.Simple _ -> ti
+  | Type_index.User u ->
+      let j = Unsigned.UInt32.to_int u - 0x1000 in
+      if j >= 0 && j < Array.length remap then remap.(j) else ti
+
+let merge_types c records =
+  let n = List.length records in
+  let remap = Array.make n (Type_index.user Unsigned.UInt32.zero) in
+  List.iteri
+    (fun j record ->
+      let f = remap_of remap in
+      (* Type records contain only TPI references; [id_ref] is never
+         invoked, but pass [f] too so the function total. *)
+      let remapped =
+        Codeview_types.map_type_indices ~type_ref:f ~id_ref:f record
+      in
+      remap.(j) <- insert c.types remapped)
+    records;
+  remap
+
+let merge_ids c ~type_remap records =
+  let n = List.length records in
+  let id_remap = Array.make n (Type_index.user Unsigned.UInt32.zero) in
+  List.iteri
+    (fun j record ->
+      let remapped =
+        Codeview_types.map_type_indices
+          ~type_ref:(remap_of type_remap)
+          ~id_ref:(remap_of id_remap)
+          record
+      in
+      id_remap.(j) <- insert c.ids remapped)
+    records;
+  id_remap

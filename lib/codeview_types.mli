@@ -197,3 +197,16 @@ val parse_type_record : Object.Buffer.cursor -> int -> type_record
 val write_type_record : Stdlib.Buffer.t -> type_record -> unit
 (** [write_type_record buf record] serializes a type record including the length
     prefix and leaf kind. *)
+
+val map_type_indices :
+  type_ref:(Type_index.t -> Type_index.t) ->
+  id_ref:(Type_index.t -> Type_index.t) ->
+  type_record ->
+  type_record
+(** [map_type_indices ~type_ref ~id_ref record] returns [record] with every
+    TypeIndex reference remapped: [type_ref] is applied to references into
+    the TPI stream and [id_ref] to references into the IPI stream. The
+    TPI/IPI classification matches LLVM's [discoverTypeIndices]. Used by
+    cross-compilation-unit type merging to rewrite references onto a shared
+    numbering. Non-reference fields (names, sizes, attribute words) are left
+    unchanged. *)
