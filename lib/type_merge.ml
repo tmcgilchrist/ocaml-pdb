@@ -65,11 +65,11 @@ let remap_of (remap : Type_index.t array) (ti : Type_index.t) : Type_index.t =
 let merge_types c records =
   let n = List.length records in
   let remap = Array.make n (Type_index.user Unsigned.UInt32.zero) in
+  let f = remap_of remap in
+  (* Type records carry only TPI references, so [id_ref] is never invoked;
+     passing [f] for it as well just keeps [map_type_indices] total. *)
   List.iteri
     (fun j record ->
-      let f = remap_of remap in
-      (* Type records contain only TPI references; [id_ref] is never
-         invoked, but pass [f] too so the function total. *)
       let remapped =
         Codeview_types.map_type_indices ~type_ref:f ~id_ref:f record
       in
@@ -80,14 +80,10 @@ let merge_types c records =
 let merge_ids c ~type_remap records =
   let n = List.length records in
   let id_remap = Array.make n (Type_index.user Unsigned.UInt32.zero) in
+  let type_ref = remap_of type_remap and id_ref = remap_of id_remap in
   List.iteri
     (fun j record ->
-      let remapped =
-        Codeview_types.map_type_indices
-          ~type_ref:(remap_of type_remap)
-          ~id_ref:(remap_of id_remap)
-          record
-      in
+      let remapped = Codeview_types.map_type_indices ~type_ref ~id_ref record in
       id_remap.(j) <- insert c.ids remapped)
     records;
   id_remap

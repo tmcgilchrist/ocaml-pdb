@@ -740,8 +740,13 @@ let max_record_length = 0xFF00
     name is truncated to leave room for an appended 32-char MD5 hex of
     the original. Without a unique name, the name is simply
     [take_front(bytes_left - 1)]. *)
+(* LLVM's cap on a hashed name including the appended hash, and the length
+   of a 16-byte MD5 rendered as lowercase hex. *)
+let max_hashed_name_len = 4096
+let md5_hex_len = 32
+let md5_hex s = Digest.to_hex (Digest.string s)
+
 let truncate_long_name ~bytes_left ~name ~unique_name =
-  let md5_hex s = Digest.to_hex (Digest.string s) in
   match unique_name with
   | Some un ->
       let needed = String.length name + String.length un + 2 in
@@ -749,7 +754,8 @@ let truncate_long_name ~bytes_left ~name ~unique_name =
       else
         let unique_b = "??@" ^ md5_hex un ^ "@" in
         let take_n =
-          min 4096 (bytes_left - String.length unique_b - 2) - 32
+          min max_hashed_name_len (bytes_left - String.length unique_b - 2)
+          - md5_hex_len
         in
         let take_n = max 0 (min (String.length name) take_n) in
         let name_b = String.sub name 0 take_n ^ md5_hex name in
@@ -766,6 +772,18 @@ let truncate_long_name ~bytes_left ~name ~unique_name =
     Equivalent to LLVM's [CodeViewRecordIO::maxFieldLength()]. *)
 let bytes_remaining rec_buf =
   max_record_length - 2 - Buffer.length rec_buf
+
+(** Write a record's trailing name and optional unique-name into [rec_buf],
+    truncating both with {!truncate_long_name} if they would overflow the
+    record. Shared by the LF_CLASS/STRUCTURE/INTERFACE/UNION/ENUM writers. *)
+let write_name_and_unique rec_buf ~name ~unique_name =
+  let name, unique_name =
+    truncate_long_name ~bytes_left:(bytes_remaining rec_buf) ~name ~unique_name
+  in
+  write_cstring rec_buf name;
+  match unique_name with
+  | Some un -> write_cstring rec_buf un
+  | Option.None -> ()
 
 let write_type_record (buf : Buffer.t) (record : type_record) : unit =
   (* Write into a temporary buffer to compute the length *)
@@ -895,7 +913,7 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_type_index rec_buf index_type;
       write_numeric_leaf rec_buf size;
       write_cstring rec_buf name
-  | Class cr -> (
+  | Class cr ->
       write_u16_le rec_buf 0x1504;
       write_u16_le rec_buf cr.field_count;
       write_u16_le rec_buf (int_of_type_properties cr.properties);
@@ -903,15 +921,8 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_type_index rec_buf cr.derived_from;
       write_type_index rec_buf cr.vtable_shape;
       write_numeric_leaf rec_buf cr.size;
-      let name, unique_name =
-        truncate_long_name ~bytes_left:(bytes_remaining rec_buf)
-          ~name:cr.name ~unique_name:cr.unique_name
-      in
-      write_cstring rec_buf name;
-      match unique_name with
-      | Some un -> write_cstring rec_buf un
-      | Option.None -> ())
-  | Structure cr -> (
+      write_name_and_unique rec_buf ~name:cr.name ~unique_name:cr.unique_name
+  | Structure cr ->
       write_u16_le rec_buf 0x1505;
       write_u16_le rec_buf cr.field_count;
       write_u16_le rec_buf (int_of_type_properties cr.properties);
@@ -919,15 +930,8 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_type_index rec_buf cr.derived_from;
       write_type_index rec_buf cr.vtable_shape;
       write_numeric_leaf rec_buf cr.size;
-      let name, unique_name =
-        truncate_long_name ~bytes_left:(bytes_remaining rec_buf)
-          ~name:cr.name ~unique_name:cr.unique_name
-      in
-      write_cstring rec_buf name;
-      match unique_name with
-      | Some un -> write_cstring rec_buf un
-      | Option.None -> ())
-  | Interface cr -> (
+      write_name_and_unique rec_buf ~name:cr.name ~unique_name:cr.unique_name
+  | Interface cr ->
       write_u16_le rec_buf 0x1519;
       write_u16_le rec_buf cr.field_count;
       write_u16_le rec_buf (int_of_type_properties cr.properties);
@@ -935,28 +939,14 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_type_index rec_buf cr.derived_from;
       write_type_index rec_buf cr.vtable_shape;
       write_numeric_leaf rec_buf cr.size;
-      let name, unique_name =
-        truncate_long_name ~bytes_left:(bytes_remaining rec_buf)
-          ~name:cr.name ~unique_name:cr.unique_name
-      in
-      write_cstring rec_buf name;
-      match unique_name with
-      | Some un -> write_cstring rec_buf un
-      | Option.None -> ())
-  | Union { field_count; properties; field_list; size; name; unique_name } -> (
+      write_name_and_unique rec_buf ~name:cr.name ~unique_name:cr.unique_name
+  | Union { field_count; properties; field_list; size; name; unique_name } ->
       write_u16_le rec_buf 0x1506;
       write_u16_le rec_buf field_count;
       write_u16_le rec_buf (int_of_type_properties properties);
       write_type_index rec_buf field_list;
       write_numeric_leaf rec_buf size;
-      let name, unique_name =
-        truncate_long_name ~bytes_left:(bytes_remaining rec_buf) ~name
-          ~unique_name
-      in
-      write_cstring rec_buf name;
-      match unique_name with
-      | Some un -> write_cstring rec_buf un
-      | Option.None -> ())
+      write_name_and_unique rec_buf ~name ~unique_name
   | Enum
       {
         field_count;
@@ -965,20 +955,13 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
         field_list;
         name;
         unique_name;
-      } -> (
+      } ->
       write_u16_le rec_buf 0x1507;
       write_u16_le rec_buf field_count;
       write_u16_le rec_buf (int_of_type_properties properties);
       write_type_index rec_buf underlying_type;
       write_type_index rec_buf field_list;
-      let name, unique_name =
-        truncate_long_name ~bytes_left:(bytes_remaining rec_buf) ~name
-          ~unique_name
-      in
-      write_cstring rec_buf name;
-      match unique_name with
-      | Some un -> write_cstring rec_buf un
-      | Option.None -> ())
+      write_name_and_unique rec_buf ~name ~unique_name
   | Bitfield { underlying_type; length; position } ->
       write_u16_le rec_buf 0x1205;
       write_type_index rec_buf underlying_type;
