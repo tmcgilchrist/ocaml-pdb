@@ -128,6 +128,8 @@ let parse_module_info (cur : Object.Buffer.cursor) : module_info =
   }
 
 let parse_header (cur : Object.Buffer.cursor) : header =
+  (* DbiStreamHeader is 64 bytes. *)
+  Object.Buffer.ensure cur 64 "DBI stream: truncated header";
   let version_signature = read_i32 cur in
   let version_header = read_u32 cur in
   let age = read_u32 cur in

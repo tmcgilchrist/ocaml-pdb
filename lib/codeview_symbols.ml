@@ -158,8 +158,8 @@ let parse_local_range (cur : Object.Buffer.cursor) =
   let range_length = read_u16 cur in
   (range_offset, range_section, range_length)
 
-let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
-    symbol_record =
+let parse_symbol_record_unchecked (cur : Object.Buffer.cursor)
+    (record_data_len : int) : symbol_record =
   let start_pos = cur.position in
   let end_pos = start_pos + record_data_len in
   let kind = read_u16 cur in
@@ -341,6 +341,17 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
         else ""
       in
       Unknown { kind; data }
+
+let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
+    symbol_record =
+  Object.Buffer.ensure cur record_data_len
+    (Printf.sprintf "symbol record truncated (need %d bytes)" record_data_len);
+  try parse_symbol_record_unchecked cur record_data_len
+  with Invalid_argument _ ->
+    Object.Buffer.invalid_format
+      (Printf.sprintf
+         "symbol record malformed: length %d too small for declared kind"
+         record_data_len)
 
 (** {2 Writing} *)
 

@@ -19,6 +19,8 @@ type header = {
 }
 
 let parse_header (cur : Object.Buffer.cursor) : header =
+  (* TpiStreamHeader is 56 bytes: 5 u32 + 2 u16 + 2 u32 + 6 u32 = 56. *)
+  Object.Buffer.ensure cur 56 "TPI stream: truncated header";
   let version = Object.Buffer.Read.u32 cur in
   let header_size = Object.Buffer.Read.u32 cur in
   let type_index_begin = Object.Buffer.Read.u32 cur in
@@ -61,16 +63,23 @@ let parse_type_records (cur : Object.Buffer.cursor) (h : header) :
   let end_pos = cur.position + total_bytes in
   let rec next () =
     if cur.position >= end_pos then Seq.Nil
-    else
+    else begin
       (* Each record: u16 length (not including the length field itself),
-         then length bytes of payload starting with the leaf kind u16 *)
+         then length bytes of payload starting with the leaf kind u16. *)
+      Object.Buffer.ensure cur 2 "TPI: truncated record length prefix";
       let rec_len = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
+      if cur.position + rec_len > end_pos then
+        Object.Buffer.invalid_format
+          (Printf.sprintf
+             "TPI: record length %d at offset %d overruns stream end" rec_len
+             (cur.position - 2));
       let record = Codeview_types.parse_type_record cur rec_len in
-      (* Advance to the next 4-byte aligned position *)
+      (* Advance to the next 4-byte aligned position. *)
       let record_end_unaligned = cur.position in
       let aligned = (record_end_unaligned + 3) land lnot 3 in
       if aligned > record_end_unaligned && aligned <= end_pos then
         Object.Buffer.seek cur aligned;
       Seq.Cons (record, next)
+    end
   in
   next

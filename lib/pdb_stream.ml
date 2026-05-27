@@ -54,7 +54,9 @@ let read_guid (cur : Object.Buffer.cursor) : guid =
   { data1; data2; data3; data4 }
 
 let read (cur : Object.Buffer.cursor) : t =
-  (* InfoStreamHeader: Version, Signature, Age, GUID *)
+  (* InfoStreamHeader fixed prefix is 28 bytes: Version + Signature + Age
+     (3 u32) + GUID (u32 + 2 u16 + 8 bytes). *)
+  Object.Buffer.ensure cur 28 "PDB info stream: truncated header";
   let version_raw = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
   let version = int_to_pdb_version version_raw in
   let signature = Object.Buffer.Read.u32 cur in

@@ -27,6 +27,14 @@ let write_u32_le buf v =
 
 (** {2 Truncated type records} *)
 
+(** [bad_format] matches any [Object.Buffer.Invalid_format _] exception
+    regardless of its message string — the exact wording is not part of
+    the public contract. *)
+let bad_format f =
+  match f () with
+  | _ -> Alcotest.fail "expected Invalid_format, function returned"
+  | exception Object.Buffer.Invalid_format _ -> ()
+
 let test_truncated_modifier () =
   (* LF_MODIFIER needs at least 6 bytes (2 kind + 4 type), give it only 4 *)
   let buf = Buffer.create 8 in
@@ -37,9 +45,7 @@ let test_truncated_modifier () =
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
   let len = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
-  Alcotest.check_raises "truncated modifier"
-    (Invalid_argument "index out of bounds")
-    (fun () -> ignore (Pdb.Codeview_types.parse_type_record cur len))
+  bad_format (fun () -> Pdb.Codeview_types.parse_type_record cur len)
 
 let test_truncated_procedure () =
   (* LF_PROCEDURE needs 12 bytes payload, give it only 6 *)
@@ -51,9 +57,7 @@ let test_truncated_procedure () =
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
   let len = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
-  Alcotest.check_raises "truncated procedure"
-    (Invalid_argument "index out of bounds")
-    (fun () -> ignore (Pdb.Codeview_types.parse_type_record cur len))
+  bad_format (fun () -> Pdb.Codeview_types.parse_type_record cur len)
 
 (** {2 Truncated symbol records} *)
 
@@ -68,9 +72,7 @@ let test_truncated_gproc32 () =
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
   let len = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
-  Alcotest.check_raises "truncated gproc32"
-    (Invalid_argument "index out of bounds")
-    (fun () -> ignore (Pdb.Codeview_symbols.parse_symbol_record cur len))
+  bad_format (fun () -> Pdb.Codeview_symbols.parse_symbol_record cur len)
 
 let test_truncated_pub32 () =
   (* S_PUB32 needs at least 10 bytes, give it only 4 *)
@@ -82,9 +84,7 @@ let test_truncated_pub32 () =
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
   let len = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
-  Alcotest.check_raises "truncated pub32"
-    (Invalid_argument "index out of bounds")
-    (fun () -> ignore (Pdb.Codeview_symbols.parse_symbol_record cur len))
+  bad_format (fun () -> Pdb.Codeview_symbols.parse_symbol_record cur len)
 
 (** {2 Truncated numeric leaf} *)
 
@@ -95,9 +95,7 @@ let test_truncated_numeric_leaf () =
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
-  Alcotest.check_raises "truncated numeric leaf"
-    (Invalid_argument "index out of bounds")
-    (fun () -> ignore (Pdb.Codeview_types.parse_numeric_leaf cur))
+  bad_format (fun () -> Pdb.Codeview_types.parse_numeric_leaf cur)
 
 (** {2 Zero-length and edge-case records} *)
 
@@ -163,6 +161,65 @@ let test_tpi_empty_stream () =
   let records = List.of_seq (Pdb.Tpi.parse_type_records cur header) in
   Alcotest.(check int) "parsed 0" 0 (List.length records)
 
+(** {2 Truncated headers} *)
+
+(* Any reader pointed at an empty cursor should raise Invalid_format
+   rather than letting Bigarray's Invalid_argument leak through. *)
+let empty_cursor () =
+  Object.Buffer.cursor
+    (Bigarray.Array1.create Bigarray.int8_unsigned Bigarray.c_layout 0)
+
+let test_truncated_tpi_header () =
+  bad_format (fun () -> Pdb.Tpi.parse_header (empty_cursor ()))
+
+let test_truncated_dbi_header () =
+  bad_format (fun () -> Pdb.Dbi.parse (empty_cursor ()))
+
+let test_truncated_pdb_info_header () =
+  bad_format (fun () -> Pdb.Pdb_stream.read (empty_cursor ()))
+
+let test_truncated_gsi_header () =
+  bad_format (fun () -> ignore (Pdb.Gsi.parse_gsi (empty_cursor ()) 0))
+
+let test_truncated_publics_header () =
+  bad_format (fun () ->
+      ignore (Pdb.Gsi.parse_publics_header (empty_cursor ())))
+
+let test_truncated_string_table_header () =
+  bad_format (fun () -> ignore (Pdb.Pdb_string_table.parse (empty_cursor ())))
+
+(** /names string table with the wrong signature must be rejected. *)
+let test_string_table_bad_signature () =
+  let buf = Buffer.create 12 in
+  write_u32_le buf 0xDEADBEEF;
+  (* not 0xEFFEEFFE *)
+  write_u32_le buf 1;
+  (* hash_version *)
+  write_u32_le buf 0;
+  (* byte_size *)
+  let obj_buf = buffer_of_string (Buffer.contents buf) in
+  bad_format (fun () ->
+      ignore (Pdb.Pdb_string_table.parse (Object.Buffer.cursor obj_buf)))
+
+(** A TPI header that claims more record bytes than the stream actually
+    contains must fail in the per-record loop, not as a Bigarray error. *)
+let test_tpi_overruns_stream () =
+  let buf = Buffer.create 128 in
+  Pdb.Tpi_write.write buf [];
+  let bytes = Buffer.contents buf in
+  (* Patch type_record_bytes (header offset 16, u32) to claim 100 extra
+     bytes of records that aren't actually present. *)
+  let bytes = Bytes.of_string bytes in
+  Bytes.set bytes 16 (Char.chr 100);
+  Bytes.set bytes 17 '\000';
+  Bytes.set bytes 18 '\000';
+  Bytes.set bytes 19 '\000';
+  let obj_buf = buffer_of_string (Bytes.unsafe_to_string bytes) in
+  let cur = Object.Buffer.cursor obj_buf in
+  let header = Pdb.Tpi.parse_header cur in
+  bad_format (fun () ->
+      ignore (List.of_seq (Pdb.Tpi.parse_type_records cur header)))
+
 let () =
   Alcotest.run "Malformed Input"
     [
@@ -196,5 +253,24 @@ let () =
       ( "tpi_edge",
         [
           Alcotest.test_case "empty TPI" `Quick test_tpi_empty_stream;
+          Alcotest.test_case "TPI overruns stream" `Quick
+            test_tpi_overruns_stream;
+        ] );
+      ( "truncated_headers",
+        [
+          Alcotest.test_case "TPI header" `Quick test_truncated_tpi_header;
+          Alcotest.test_case "DBI header" `Quick test_truncated_dbi_header;
+          Alcotest.test_case "PDB info header" `Quick
+            test_truncated_pdb_info_header;
+          Alcotest.test_case "GSI header" `Quick test_truncated_gsi_header;
+          Alcotest.test_case "publics header" `Quick
+            test_truncated_publics_header;
+          Alcotest.test_case "string table header" `Quick
+            test_truncated_string_table_header;
+        ] );
+      ( "format_validation",
+        [
+          Alcotest.test_case "/names bad signature" `Quick
+            test_string_table_bad_signature;
         ] );
     ]

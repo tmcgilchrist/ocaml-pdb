@@ -80,21 +80,34 @@ let write (buf : Buffer.t) (t : t) : unit =
   write_u32_le buf t.count
 
 let parse (cur : Object.Buffer.cursor) : t =
-  let _signature =
-    Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
-  in
+  (* PDBStringTableHeader: u32 signature, u32 hash_version, u32 byte_size. *)
+  Object.Buffer.ensure cur 12 "/names string table: truncated header";
+  let signature = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
+  if signature <> pdb_string_table_signature then
+    Object.Buffer.invalid_format
+      (Printf.sprintf
+         "/names string table: bad signature 0x%08x (expected 0x%08x)" signature
+         pdb_string_table_signature);
   let _hash_version =
     Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
   in
   let byte_size =
     Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
   in
-  (* Read names buffer *)
+  Object.Buffer.ensure cur byte_size
+    (Printf.sprintf "/names string table: names buffer (%d bytes) overruns"
+       byte_size);
   let names_bytes = Object.Buffer.Read.fixed_string cur byte_size in
   (* Read hash table *)
+  Object.Buffer.ensure cur 4 "/names string table: missing bucket_count";
   let bucket_count =
     Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
   in
+  Object.Buffer.ensure cur
+    ((bucket_count * 4) + 4)
+    (Printf.sprintf
+       "/names string table: %d buckets + epilogue exceed stream end"
+       bucket_count);
   let _buckets =
     Array.init bucket_count (fun _ ->
         Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int)

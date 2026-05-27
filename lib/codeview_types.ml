@@ -21,30 +21,43 @@ let lf_quadword = 0x8009
 let lf_uquadword = 0x800a
 
 let parse_numeric_leaf (cur : Object.Buffer.cursor) : int64 =
+  Object.Buffer.ensure cur 2 "numeric leaf: truncated tag";
   let tag = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
   if tag < lf_numeric then Int64.of_int tag
   else
+    let ensure_payload n =
+      Object.Buffer.ensure cur n
+        (Printf.sprintf "numeric leaf 0x%04x: truncated payload (need %d bytes)"
+           tag n)
+    in
     match tag with
     | t when t = lf_char ->
+        ensure_payload 1;
         let v = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
         (* Sign-extend from 8 bits *)
         if v > 0x7F then Int64.of_int (v - 0x100) else Int64.of_int v
     | t when t = lf_short ->
+        ensure_payload 2;
         let v = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
         if v > 0x7FFF then Int64.of_int (v - 0x10000) else Int64.of_int v
     | t when t = lf_ushort ->
+        ensure_payload 2;
         let v = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
         Int64.of_int v
     | t when t = lf_long ->
+        ensure_payload 4;
         let v = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int32 in
         Int64.of_int32 v
     | t when t = lf_ulong ->
+        ensure_payload 4;
         let v = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
         Int64.of_int v
     | t when t = lf_quadword ->
+        ensure_payload 8;
         let v = Object.Buffer.Read.u64 cur in
         Unsigned.UInt64.to_int64 v
     | t when t = lf_uquadword ->
+        ensure_payload 8;
         let v = Object.Buffer.Read.u64 cur in
         Unsigned.UInt64.to_int64 v
     | _ ->
@@ -529,8 +542,8 @@ let parse_field_entry (cur : Object.Buffer.cursor) (end_pos : int) : field_entry
           name = Printf.sprintf "<unknown field 0x%04x>" kind;
         }
 
-let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
-    type_record =
+let parse_type_record_unchecked (cur : Object.Buffer.cursor)
+    (record_data_len : int) : type_record =
   let start_pos = cur.position in
   let end_pos = start_pos + record_data_len in
   let kind = read_u16 cur in
@@ -710,6 +723,17 @@ let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
       in
       let data = strip_trailing_padding raw in
       Unknown { kind; data }
+
+let parse_type_record (cur : Object.Buffer.cursor) (record_data_len : int) :
+    type_record =
+  Object.Buffer.ensure cur record_data_len
+    (Printf.sprintf "type record truncated (need %d bytes)" record_data_len);
+  try parse_type_record_unchecked cur record_data_len
+  with Invalid_argument _ ->
+    Object.Buffer.invalid_format
+      (Printf.sprintf
+         "type record malformed: length %d too small for declared kind"
+         record_data_len)
 
 (** {2 Writing} *)
 
