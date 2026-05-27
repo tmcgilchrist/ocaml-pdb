@@ -704,6 +704,37 @@ let test_substr_list_roundtrip () =
             (ti_to_int strings.(0))
       | _ -> Alcotest.fail "expected SubstrList")
 
+let test_typeserver2_roundtrip () =
+  let guid =
+    {
+      Pdb.Pdb_types.data1 = u32 0xDEADBEEF;
+      data2 = Unsigned.UInt16.of_int 0x1234;
+      data3 = Unsigned.UInt16.of_int 0x5678;
+      data4 = "\x01\x02\x03\x04\x05\x06\x07\x08";
+    }
+  in
+  roundtrip_record "typeserver2"
+    (Pdb.Codeview_types.TypeServer2
+       { guid; age = u32 7; name = "C:\\proj\\vc140.pdb" })
+    (fun name r ->
+      match r with
+      | Pdb.Codeview_types.TypeServer2 { guid = g; age; name = n } ->
+          Alcotest.(check int)
+            (name ^ " guid.data1") 0xDEADBEEF
+            (Unsigned.UInt32.to_int g.data1);
+          Alcotest.(check int)
+            (name ^ " guid.data2") 0x1234
+            (Unsigned.UInt16.to_int g.data2);
+          Alcotest.(check int)
+            (name ^ " guid.data3") 0x5678
+            (Unsigned.UInt16.to_int g.data3);
+          Alcotest.(check string)
+            (name ^ " guid.data4")
+            "\x01\x02\x03\x04\x05\x06\x07\x08" g.data4;
+          Alcotest.(check int) (name ^ " age") 7 (Unsigned.UInt32.to_int age);
+          Alcotest.(check string) (name ^ " name") "C:\\proj\\vc140.pdb" n
+      | _ -> Alcotest.fail "expected TypeServer2")
+
 (** {2 TPI stream round-trip} *)
 
 let test_tpi_stream_roundtrip () =
@@ -973,6 +1004,7 @@ let () =
           Alcotest.test_case "udt_mod_src_line" `Quick
             test_udt_mod_src_line_roundtrip;
           Alcotest.test_case "substr_list" `Quick test_substr_list_roundtrip;
+          Alcotest.test_case "typeserver2" `Quick test_typeserver2_roundtrip;
         ] );
       ( "tpi_stream",
         [

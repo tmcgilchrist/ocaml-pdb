@@ -285,6 +285,11 @@ type type_record =
       module_ : int;
     }
   | SubstrList of { strings : Type_index.t array }
+  | TypeServer2 of { guid : guid; age : u32; name : string }
+      (** LF_TYPESERVER2 (0x1515): a reference to an external PDB file
+          managed by a Microsoft type server, used by MSVC's [/Zi]
+          option. The record itself carries no TypeIndex references --
+          the type information lives in the named PDB. *)
   | Unknown of { kind : int; data : string }
 
 (** Remap every TypeIndex reference in a record. [type_ref] is applied to
@@ -423,6 +428,7 @@ let map_type_indices ~type_ref ~id_ref record =
   | UdtModSrcLine { udt; source; line; module_ } ->
       UdtModSrcLine { udt = t udt; source; line; module_ }
   | SubstrList { strings } -> SubstrList { strings = Array.map i strings }
+  | TypeServer2 r -> TypeServer2 r
   | Unknown u -> Unknown u
 
 (** Read a null-terminated string from cursor *)
@@ -707,6 +713,15 @@ let parse_type_record_unchecked (cur : Object.Buffer.cursor)
       let count = read_u32 cur |> Unsigned.UInt32.to_int in
       let strings = Array.init count (fun _ -> read_type_index cur) in
       SubstrList { strings }
+  | 0x1515 (* LF_TYPESERVER2 *) ->
+      let data1 = read_u32 cur in
+      let data2 = Object.Buffer.Read.u16 cur in
+      let data3 = Object.Buffer.Read.u16 cur in
+      let data4 = Object.Buffer.Read.fixed_string cur 8 in
+      let guid = { data1; data2; data3; data4 } in
+      let age = read_u32 cur in
+      let name = read_cstring cur in
+      TypeServer2 { guid; age; name }
   | _ ->
       let remaining = end_pos - cur.position in
       let raw =
@@ -1050,6 +1065,14 @@ let write_type_record (buf : Buffer.t) (record : type_record) : unit =
       write_u16_le rec_buf 0x1604;
       write_u32_le rec_buf (Array.length strings);
       Array.iter (fun ti -> write_type_index rec_buf ti) strings
+  | TypeServer2 { guid; age; name } ->
+      write_u16_le rec_buf 0x1515;
+      write_u32_le rec_buf (Unsigned.UInt32.to_int guid.data1);
+      write_u16_le rec_buf (Unsigned.UInt16.to_int guid.data2);
+      write_u16_le rec_buf (Unsigned.UInt16.to_int guid.data3);
+      Buffer.add_string rec_buf guid.data4;
+      write_u32_le rec_buf (Unsigned.UInt32.to_int age);
+      write_cstring rec_buf name
   | Unknown { kind; data } ->
       write_u16_le rec_buf kind;
       Buffer.add_string rec_buf data);

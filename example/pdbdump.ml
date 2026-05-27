@@ -104,6 +104,8 @@ let dump_types msf stream_idx label =
                 Printf.sprintf "LF_UDT_MOD_SRC_LINE (line %d)"
                   (Unsigned.UInt32.to_int line)
             | SubstrList _ -> "LF_SUBSTR_LIST"
+            | TypeServer2 { name; _ } ->
+                Printf.sprintf "LF_TYPESERVER2 \"%s\"" name
             | Unknown { kind; _ } -> Printf.sprintf "Unknown(0x%04X)" kind);
           incr idx)
         records;

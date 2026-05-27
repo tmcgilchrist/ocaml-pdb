@@ -51,8 +51,9 @@ Known gaps:
   needed to emit COFF `.debug$H` sections) is not implemented.
 - Many symbol and type variants exist primarily as a parser fallback
   (`Unknown`); only the kinds we've needed have hand-written fields.
-- Type-server records (`LF_TYPESERVER2`) and the FPO data subsection are
-  not implemented.
+- The FPO data subsection (older `FPO_DATA` referenced from the DBI
+  optional debug header, not the C13 `FrameData` subsection) is not
+  implemented.
 
 ## Design
 

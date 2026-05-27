@@ -187,6 +187,11 @@ type type_record =
       module_ : int;
     }
   | SubstrList of { strings : Type_index.t array }
+  | TypeServer2 of { guid : guid; age : u32; name : string }
+      (** LF_TYPESERVER2 (0x1515): reference to an external PDB file
+          containing this module's type information, used by MSVC's
+          [/Zi] compile-with-shared-type-server flag. Carries no
+          TypeIndex references. *)
   | Unknown of { kind : int; data : string }
 
 val parse_type_record : Object.Buffer.cursor -> int -> type_record
