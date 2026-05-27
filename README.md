@@ -27,7 +27,7 @@ What works today:
   Optional Debug Header, EC substream, machine type.
 - CodeView symbol records -- ~30 symbol kinds plus an `Unknown` fallback.
 - C13 debug subsections -- Lines, FileChecksums, InlineeLines, StringTable,
-  FrameData, Unknown.
+  FrameData, CrossModuleExports, CrossModuleImports, Unknown.
 - GSI/PSI hash tables -- public and global symbol indices.
 - A `Pdb_builder` high-level API that assembles a complete PDB file from
   structured inputs (types, symbols, modules, source files).

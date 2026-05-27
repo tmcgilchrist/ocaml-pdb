@@ -50,12 +50,25 @@ type frame_data_entry = {
   flags : u32;
 }
 
+type cross_module_export = { local : u32; global : u32 }
+(** Maps a TypeIndex local to one module onto a global TypeIndex shared
+    across modules in the same PDB. *)
+
+type cross_module_import = {
+  module_name_offset : u32;
+      (** Offset into the /names string table of the source module. *)
+  references : u32 array;
+      (** TypeIndexes in the source module that this module references. *)
+}
+
 type subsection =
   | Lines of lines_subsection
   | FileChecksums of file_checksum_entry array
   | StringTable of string array
   | InlineeLines of inlinee_line array
   | FrameData of frame_data_entry array
+  | CrossModuleExports of cross_module_export array
+  | CrossModuleImports of cross_module_import array
   | Unknown of { kind : int; data : string }
 
 val parse_subsections : Object.Buffer.cursor -> int -> subsection Seq.t

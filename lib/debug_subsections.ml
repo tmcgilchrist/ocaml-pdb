@@ -53,12 +53,21 @@ type frame_data_entry = {
   flags : u32;
 }
 
+type cross_module_export = { local : u32; global : u32 }
+
+type cross_module_import = {
+  module_name_offset : u32;
+  references : u32 array;
+}
+
 type subsection =
   | Lines of lines_subsection
   | FileChecksums of file_checksum_entry array
   | StringTable of string array
   | InlineeLines of inlinee_line array
   | FrameData of frame_data_entry array
+  | CrossModuleExports of cross_module_export array
+  | CrossModuleImports of cross_module_import array
   | Unknown of { kind : int; data : string }
 
 let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
@@ -189,6 +198,35 @@ let parse_frame_data (cur : Object.Buffer.cursor) (sub_end : int) :
   if cur.position < sub_end then Object.Buffer.seek cur sub_end;
   Array.of_list (List.rev !entries)
 
+(* CrossModuleExports: array of { u32 Local; u32 Global }, fills the subsection. *)
+let parse_cross_module_exports (cur : Object.Buffer.cursor) (sub_end : int) :
+    cross_module_export array =
+  let entries = ref [] in
+  while cur.position + 8 <= sub_end do
+    let local = read_u32 cur in
+    let global = read_u32 cur in
+    entries := { local; global } :: !entries
+  done;
+  if cur.position < sub_end then Object.Buffer.seek cur sub_end;
+  Array.of_list (List.rev !entries)
+
+(* CrossModuleImports: sequence of { u32 ModuleNameOffset; u32 Count; u32[Count] ids }. *)
+let parse_cross_module_imports (cur : Object.Buffer.cursor) (sub_end : int) :
+    cross_module_import array =
+  let entries = ref [] in
+  while cur.position + 8 <= sub_end do
+    let module_name_offset = read_u32 cur in
+    let count = Unsigned.UInt32.to_int (read_u32 cur) in
+    Object.Buffer.ensure cur (count * 4)
+      (Printf.sprintf
+         "CrossModuleImports: %d references at offset %d overrun subsection"
+         count (cur.position - 8));
+    let references = Array.init count (fun _ -> read_u32 cur) in
+    entries := { module_name_offset; references } :: !entries
+  done;
+  if cur.position < sub_end then Object.Buffer.seek cur sub_end;
+  Array.of_list (List.rev !entries)
+
 let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
     subsection Seq.t =
   let end_pos = cur.position + total_bytes in
@@ -205,6 +243,8 @@ let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
         | 0xf3 -> StringTable (parse_string_table cur sub_end)
         | 0xf6 -> InlineeLines (parse_inlinee_lines cur sub_end)
         | 0xf5 -> FrameData (parse_frame_data cur sub_end)
+        | 0xf7 -> CrossModuleImports (parse_cross_module_imports cur sub_end)
+        | 0xf8 -> CrossModuleExports (parse_cross_module_exports cur sub_end)
         | _ ->
             let data =
               if size > 0 then Object.Buffer.Read.fixed_string cur size else ""
@@ -339,6 +379,24 @@ let write_subsection (buf : Buffer.t) (sub : subsection) : unit =
             write_u32_le content_buf (Unsigned.UInt32.to_int e.flags))
           entries;
         0xf5
+    | CrossModuleExports entries ->
+        Array.iter
+          (fun (e : cross_module_export) ->
+            write_u32_le content_buf (Unsigned.UInt32.to_int e.local);
+            write_u32_le content_buf (Unsigned.UInt32.to_int e.global))
+          entries;
+        0xf8
+    | CrossModuleImports entries ->
+        Array.iter
+          (fun (e : cross_module_import) ->
+            write_u32_le content_buf
+              (Unsigned.UInt32.to_int e.module_name_offset);
+            write_u32_le content_buf (Array.length e.references);
+            Array.iter
+              (fun r -> write_u32_le content_buf (Unsigned.UInt32.to_int r))
+              e.references)
+          entries;
+        0xf7
     | Unknown { kind; data } ->
         Buffer.add_string content_buf data;
         kind

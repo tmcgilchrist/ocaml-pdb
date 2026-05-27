@@ -377,6 +377,74 @@ let test_frame_data_empty () =
       Alcotest.(check int) "empty" 0 (Array.length frames)
   | _ -> Alcotest.fail "expected FrameData subsection"
 
+(** {2 CrossModule subsections} *)
+
+let roundtrip_subsection sub =
+  let buf = Buffer.create 64 in
+  Pdb.Debug_subsections.write_subsection buf sub;
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let subs =
+    List.of_seq
+      (Pdb.Debug_subsections.parse_subsections cur (String.length bytes))
+  in
+  Alcotest.(check int) "one subsection" 1 (List.length subs);
+  List.hd subs
+
+let test_cross_module_exports_roundtrip () =
+  let entries =
+    [|
+      ({ local = u32 0x1000; global = u32 0x2000 }
+        : Pdb.Debug_subsections.cross_module_export);
+      { local = u32 0x1001; global = u32 0x2005 };
+      { local = u32 0x1003; global = u32 0x2042 };
+    |]
+  in
+  match roundtrip_subsection (Pdb.Debug_subsections.CrossModuleExports entries) with
+  | Pdb.Debug_subsections.CrossModuleExports out ->
+      Alcotest.(check int) "count" 3 (Array.length out);
+      Alcotest.(check int) "local 0" 0x1000
+        (Unsigned.UInt32.to_int out.(0).local);
+      Alcotest.(check int) "global 0" 0x2000
+        (Unsigned.UInt32.to_int out.(0).global);
+      Alcotest.(check int) "global 2" 0x2042
+        (Unsigned.UInt32.to_int out.(2).global)
+  | _ -> Alcotest.fail "expected CrossModuleExports"
+
+let test_cross_module_imports_roundtrip () =
+  let entries =
+    [|
+      ({
+         module_name_offset = u32 0;
+         references = [| u32 0x1000; u32 0x1001 |];
+       }
+        : Pdb.Debug_subsections.cross_module_import);
+      { module_name_offset = u32 42; references = [||] };
+      { module_name_offset = u32 99; references = [| u32 0x1234 |] };
+    |]
+  in
+  match roundtrip_subsection (Pdb.Debug_subsections.CrossModuleImports entries) with
+  | Pdb.Debug_subsections.CrossModuleImports out ->
+      Alcotest.(check int) "count" 3 (Array.length out);
+      Alcotest.(check int) "first refs len" 2 (Array.length out.(0).references);
+      Alcotest.(check int) "first ref 0" 0x1000
+        (Unsigned.UInt32.to_int out.(0).references.(0));
+      Alcotest.(check int) "empty refs" 0 (Array.length out.(1).references);
+      Alcotest.(check int) "third module_name_offset" 99
+        (Unsigned.UInt32.to_int out.(2).module_name_offset);
+      Alcotest.(check int) "third ref 0" 0x1234
+        (Unsigned.UInt32.to_int out.(2).references.(0))
+  | _ -> Alcotest.fail "expected CrossModuleImports"
+
+let test_cross_module_exports_empty () =
+  match roundtrip_subsection
+          (Pdb.Debug_subsections.CrossModuleExports [||])
+  with
+  | Pdb.Debug_subsections.CrossModuleExports out ->
+      Alcotest.(check int) "empty" 0 (Array.length out)
+  | _ -> Alcotest.fail "expected CrossModuleExports"
+
 let () =
   Alcotest.run "Debug Subsections"
     [
@@ -401,5 +469,14 @@ let () =
         [
           Alcotest.test_case "roundtrip" `Quick test_frame_data_roundtrip;
           Alcotest.test_case "empty" `Quick test_frame_data_empty;
+        ] );
+      ( "cross_module",
+        [
+          Alcotest.test_case "exports roundtrip" `Quick
+            test_cross_module_exports_roundtrip;
+          Alcotest.test_case "imports roundtrip" `Quick
+            test_cross_module_imports_roundtrip;
+          Alcotest.test_case "exports empty" `Quick
+            test_cross_module_exports_empty;
         ] );
     ]
