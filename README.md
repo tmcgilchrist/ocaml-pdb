@@ -33,6 +33,9 @@ What works today:
   structured inputs (types, symbols, modules, source files).
 - Windows SEH unwind tables for x86-64 and ARM64 (`Unwind` module), the
   PE/COFF analogue of DWARF CFI.
+- OMAP address-translation streams (`Omap` module) -- reader, writer, and
+  binary-search lookup for the post-link RVA remapping found in
+  reordered/PGO retail PDBs.
 - An `pdbdump` example tool, mirroring durin's `dwarfdump`.
 
 Known gaps:
@@ -48,8 +51,8 @@ Known gaps:
   needed to emit COFF `.debug$H` sections) is not implemented.
 - Many symbol and type variants exist primarily as a parser fallback
   (`Unknown`); only the kinds we've needed have hand-written fields.
-- The OMAP address-translation tables, type-server records, and the FPO
-  data subsection are not implemented.
+- Type-server records (`LF_TYPESERVER2`) and the FPO data subsection are
+  not implemented.
 
 ## Design
 

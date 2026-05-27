@@ -93,3 +93,9 @@
  (libraries pdb object alcotest)
  (action
   (run %{exe:test_unwind.exe})))
+
+(test
+ (name test_omap)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_omap.exe})))
