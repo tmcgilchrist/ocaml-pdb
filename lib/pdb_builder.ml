@@ -238,16 +238,16 @@ let finalize t =
     List.map (fun (m : module_desc) -> m.source_files) modules
   in
   if has_gsi then
-    Dbi_write.write_full dbi_buf module_infos section_contribs
+    Dbi_write.write dbi_buf module_infos section_contribs
       ~source_files:source_files_per_module
       ~machine:(machine_to_int t.machine)
       ~global_stream:globals_stream_idx
       ~public_stream:publics_stream_idx
-      ~sym_record_stream:sym_record_stream_idx
+      ~sym_record_stream:sym_record_stream_idx ()
   else
     Dbi_write.write dbi_buf module_infos section_contribs
       ~source_files:source_files_per_module
-      ~machine:(machine_to_int t.machine);
+      ~machine:(machine_to_int t.machine) ();
   let dbi_bytes = Buffer.contents dbi_buf in
   (* Build PDB Info Stream *)
   let named_streams =

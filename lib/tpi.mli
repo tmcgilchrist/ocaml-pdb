@@ -21,12 +21,16 @@ type header = {
 }
 
 val parse_header : Object.Buffer.cursor -> header
-(** Parse the TPI/IPI stream header (56 bytes). *)
+(** Parse the TPI/IPI stream header (56 bytes).
+    @raise Object.Buffer.Invalid_format on truncated input. *)
 
 val parse_type_records :
   Object.Buffer.cursor -> header -> Codeview_types.type_record Seq.t
 (** [parse_type_records cur header] lazily iterates all type records in the
-    TPI/IPI stream. *)
+    TPI/IPI stream.
+    @raise Object.Buffer.Invalid_format (during iteration) if a record's
+    length prefix overruns the stream end or the record is internally
+    malformed. *)
 
 val num_type_records : header -> int
 (** Number of type records: [type_index_end - type_index_begin]. *)

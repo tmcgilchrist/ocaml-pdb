@@ -21,7 +21,9 @@ val write : Stdlib.Buffer.t -> t -> unit
     string count epilogue. *)
 
 val parse : Object.Buffer.cursor -> t
-(** [parse cur] reads a /names stream from the cursor position. *)
+(** [parse cur] reads a /names stream from the cursor position.
+    @raise Object.Buffer.Invalid_format on truncated input or when the
+    leading signature is not [0xEFFEEFFE]. *)
 
 val lookup : t -> string -> int option
 (** [lookup t str] finds the byte offset of a string, or [None]. *)

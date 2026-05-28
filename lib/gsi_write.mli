@@ -1,6 +1,11 @@
 (** Global/Public Symbol Index (GSI/PSI) writer.
 
-    Builds the hash tables needed for global and public symbol lookup. *)
+    Counterpart to {!Gsi}. Builds the hash tables that let consumers
+    look up public or global symbols by name. The output is three
+    separate streams (symbol record + GSI hash + PSI hash) whose
+    indices feed back into the DBI header via
+    {!Dbi_write.write}'s [~sym_record_stream], [~global_stream], and
+    [~public_stream] arguments. *)
 
 type symbol_entry = {
   name : string;

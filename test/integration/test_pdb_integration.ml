@@ -44,7 +44,7 @@ let test_pdb_info_stream () =
   let msf = open_pdb "simple.pdb" in
   let stream = Pdb.Msf.get_stream_exn msf 1 in
   let cur = Object.Buffer.cursor stream in
-  let info = Pdb.Pdb_stream.read cur in
+  let info = Pdb.Pdb_stream.parse cur in
   (* VC70 version *)
   Alcotest.(check int)
     "version" 20000404

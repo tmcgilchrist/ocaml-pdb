@@ -31,7 +31,7 @@ let dump_pdb_stream msf =
   | None -> Printf.printf "PDB Info Stream: not present\n\n"
   | Some stream ->
       let cur = Object.Buffer.cursor stream in
-      let info = Pdb.Pdb_stream.read cur in
+      let info = Pdb.Pdb_stream.parse cur in
       Printf.printf "PDB Info Stream:\n";
       Printf.printf "  Version:    %s\n"
         (Pdb.Pdb_stream.string_of_pdb_version info.version);

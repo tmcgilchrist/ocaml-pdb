@@ -12,49 +12,59 @@ open Pdb_types
     wider format. *)
 
 val parse_numeric_leaf : Object.Buffer.cursor -> int64
+(** Read a CodeView numeric leaf and return its value as an [int64].
+    @raise Object.Buffer.Invalid_format on truncated input or an
+    unrecognised tag. *)
+
 val write_numeric_leaf : Stdlib.Buffer.t -> int64 -> unit
+(** Write [v] using the smallest leaf encoding that fits it. *)
 
 (** {2 Record-size limits}
 
-    CodeView caps every type or symbol record at [max_record_length]
+    CodeView caps every type or symbol record at {!max_record_length}
     bytes including the 2-byte length prefix and 2-byte leaf/symbol kind.
     Writers that emit a trailing variable-length field (typically a
     name) should consult {!bytes_remaining} before writing it and
     truncate as needed. *)
 
 val max_record_length : int
-(** 0xFF00 = 65280. Per LLVM's
-    [llvm/include/llvm/DebugInfo/CodeView/RecordSerialization.h]. *)
+(** 0xFF00 = 65280: the hard cap on a type or symbol record's on-disk
+    size including the 2-byte length prefix. *)
 
 val bytes_remaining : Stdlib.Buffer.t -> int
 (** [bytes_remaining rec_buf] returns the number of payload bytes still
     available before the in-progress record would exceed
     {!max_record_length}. [rec_buf] holds the 2-byte leaf/symbol kind
     followed by the fields written so far; the 2-byte length prefix is
-    added when the record is flushed. Equivalent to LLVM's
-    [CodeViewRecordIO::maxFieldLength()]. *)
+    added when the record is flushed. *)
 
 (** {2 Type Properties}
 
-    Bit flags describing properties of a class, structure, or union. *)
+    Bit flags appearing on every LF_CLASS / LF_STRUCTURE / LF_INTERFACE /
+    LF_UNION / LF_ENUM record. Each flag is one bit of the on-disk
+    [u16] property word; see Microsoft's [cvinfo.h] [CV_prop_t]. *)
 
 type type_properties = {
-  packed : bool;
-  ctor : bool;
-  ovlops : bool;
-  is_nested : bool;
-  cnested : bool;
-  opassign : bool;
-  opcast : bool;
-  fwdref : bool;
-  scoped : bool;
+  packed : bool;  (** No automatic field padding. *)
+  ctor : bool;  (** Has constructors and/or destructors. *)
+  ovlops : bool;  (** Has overloaded operators. *)
+  is_nested : bool;  (** This type is a nested type definition. *)
+  cnested : bool;  (** Contains nested type definitions. *)
+  opassign : bool;  (** Has overloaded assignment. *)
+  opcast : bool;  (** Has casting (conversion) methods. *)
+  fwdref : bool;  (** Forward declaration with no body. *)
+  scoped : bool;  (** Scoped definition (e.g. C++ [enum class]). *)
   has_unique_name : bool;
-  sealed : bool;
-  intrinsic : bool;
+      (** A decorated, link-unique name is appended after [name]. *)
+  sealed : bool;  (** Cannot be inherited from (C# [sealed]/C++ [final]). *)
+  intrinsic : bool;  (** Compiler intrinsic type (e.g. [__m128]). *)
 }
 
 val parse_type_properties : int -> type_properties
+(** Decode the on-disk [u16] property bitfield. *)
+
 val int_of_type_properties : type_properties -> int
+(** Inverse of {!parse_type_properties}. *)
 
 (** {2 Type Record} *)
 
@@ -195,13 +205,17 @@ type type_record =
   | Unknown of { kind : int; data : string }
 
 val parse_type_record : Object.Buffer.cursor -> int -> type_record
-(** [parse_type_record cur record_length] parses a single type record. The
-    cursor should be positioned after the length prefix but at the leaf kind
-    u16. [record_length] is the remaining payload bytes. *)
+(** [parse_type_record cur record_data_len] parses a single type record.
+    The cursor should be positioned after the length prefix but at the
+    leaf kind u16. [record_data_len] is the byte count following that
+    length prefix (so it includes the 2-byte leaf kind).
+    @raise Object.Buffer.Invalid_format if the cursor has fewer than
+    [record_data_len] bytes remaining or if the record's declared length
+    is smaller than the encoded fields require. *)
 
 val write_type_record : Stdlib.Buffer.t -> type_record -> unit
-(** [write_type_record buf record] serializes a type record including the length
-    prefix and leaf kind. *)
+(** [write_type_record buf record] serializes a type record including
+    the length prefix and leaf kind. *)
 
 val map_type_indices :
   type_ref:(Type_index.t -> Type_index.t) ->

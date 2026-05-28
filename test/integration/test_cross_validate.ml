@@ -85,7 +85,7 @@ let build_test_pdb () : string =
   let _s2 = Pdb.Msf_write.add_stream msf (Buffer.contents tpi_buf) in
   (* Stream 3: DBI Stream *)
   let dbi_buf = Buffer.create 256 in
-  Pdb.Dbi_write.write dbi_buf [] [] ~source_files:[] ~machine:0x8664;
+  Pdb.Dbi_write.write dbi_buf [] [] ~source_files:[] ~machine:0x8664 ();
   let _s3 = Pdb.Msf_write.add_stream msf (Buffer.contents dbi_buf) in
   (* Stream 4: IPI Stream (empty) *)
   let ipi_buf = Buffer.create 128 in
@@ -190,7 +190,7 @@ let test_llvm_pdbutil_roundtrip_read () =
     (* Check PDB info stream *)
     let stream1 = Pdb.Msf.get_stream_exn msf 1 in
     let cur1 = Object.Buffer.cursor stream1 in
-    let info = Pdb.Pdb_stream.read cur1 in
+    let info = Pdb.Pdb_stream.parse cur1 in
     Alcotest.(check int) "age" 1 (Unsigned.UInt32.to_int info.age);
     (* Check TPI *)
     let stream2 = Pdb.Msf.get_stream_exn msf 2 in

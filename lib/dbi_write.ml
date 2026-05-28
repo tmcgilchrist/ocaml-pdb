@@ -45,10 +45,10 @@ let write_module_info buf (m : Dbi.module_info) =
 (* DBI version: V70 = 19990903 *)
 let dbi_version_v70 = 19990903
 
-let write_full (buf : Buffer.t) (modules : Dbi.module_info list)
-    (section_contribs : Dbi.section_contribution list)
-    ~source_files ~machine ~global_stream
-    ~public_stream ~sym_record_stream : unit =
+let write (buf : Buffer.t) (modules : Dbi.module_info list)
+    (section_contribs : Dbi.section_contribution list) ~source_files ~machine
+    ?(global_stream = 0xFFFF) ?(public_stream = 0xFFFF)
+    ?(sym_record_stream = 0xFFFF) () : unit =
   let num_modules = List.length modules in
   (* [source_files = []] means "caller did not supply source filenames";
      leave each module_info's [source_file_count] alone and emit a minimal
@@ -218,7 +218,3 @@ let write_full (buf : Buffer.t) (modules : Dbi.module_info list)
   Buffer.add_string buf (Buffer.contents ec_buf);
   Buffer.add_string buf (Buffer.contents opt_dbg_buf)
 
-let write buf modules section_contribs ~source_files ~machine =
-  write_full buf modules section_contribs ~source_files ~machine
-    ~global_stream:0xFFFF ~public_stream:0xFFFF
-    ~sym_record_stream:0xFFFF

@@ -41,7 +41,7 @@ let test_pdb_stream_roundtrip () =
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
-  let info' = Pdb.Pdb_stream.read cur in
+  let info' = Pdb.Pdb_stream.parse cur in
   (* Verify header fields *)
   Alcotest.(check int)
     "version" 20140508
@@ -91,7 +91,7 @@ let test_pdb_stream_no_features () =
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
-  let info' = Pdb.Pdb_stream.read cur in
+  let info' = Pdb.Pdb_stream.parse cur in
   Alcotest.(check int)
     "version VC70" 20000404
     (Pdb.Pdb_stream.pdb_version_to_int info'.version);
@@ -134,7 +134,7 @@ let test_pdb_stream_full_roundtrip_through_msf () =
   let msf = Pdb.Msf.read msf_buf in
   let stream1 = Pdb.Msf.get_stream_exn msf 1 in
   let cur = Object.Buffer.cursor stream1 in
-  let info' = Pdb.Pdb_stream.read cur in
+  let info' = Pdb.Pdb_stream.parse cur in
   Alcotest.(check int)
     "version through MSF" 20140508
     (Pdb.Pdb_stream.pdb_version_to_int info'.version);

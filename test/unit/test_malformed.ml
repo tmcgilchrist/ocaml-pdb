@@ -168,7 +168,7 @@ let test_truncated_dbi_header () =
   bad_format (fun () -> Pdb.Dbi.parse (empty_cursor ()))
 
 let test_truncated_pdb_info_header () =
-  bad_format (fun () -> Pdb.Pdb_stream.read (empty_cursor ()))
+  bad_format (fun () -> Pdb.Pdb_stream.parse (empty_cursor ()))
 
 let test_truncated_gsi_header () =
   bad_format (fun () -> ignore (Pdb.Gsi.parse_gsi (empty_cursor ()) 0))

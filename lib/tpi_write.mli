@@ -1,4 +1,8 @@
-(** TPI/IPI stream writer. *)
+(** TPI/IPI stream writer.
+
+    Counterpart to {!Tpi}. The TPI stream (index 2) holds CodeView type
+    records; the IPI stream (index 4) holds ID records (LF_FUNC_ID,
+    LF_STRING_ID, ...); both share the same on-disk layout. *)
 
 val write : Stdlib.Buffer.t -> Codeview_types.type_record list -> unit
 (** [write buf records] serializes a complete TPI/IPI stream including the

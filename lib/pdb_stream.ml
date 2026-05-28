@@ -53,7 +53,7 @@ let read_guid (cur : Object.Buffer.cursor) : guid =
   let data4 = Object.Buffer.Read.fixed_string cur 8 in
   { data1; data2; data3; data4 }
 
-let read (cur : Object.Buffer.cursor) : t =
+let parse (cur : Object.Buffer.cursor) : t =
   (* InfoStreamHeader fixed prefix is 28 bytes: Version + Signature + Age
      (3 u32) + GUID (u32 + 2 u16 + 8 bytes). *)
   Object.Buffer.ensure cur 28 "PDB info stream: truncated header";

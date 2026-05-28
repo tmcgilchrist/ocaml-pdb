@@ -34,7 +34,7 @@ let test_minimal_pdb () =
   Alcotest.(check bool) "has streams" true (Pdb.Msf.stream_count msf >= 5);
   (* Check PDB info *)
   let s1 = Pdb.Msf.get_stream_exn msf 1 in
-  let info = Pdb.Pdb_stream.read (Object.Buffer.cursor s1) in
+  let info = Pdb.Pdb_stream.parse (Object.Buffer.cursor s1) in
   Alcotest.(check int) "age" 1 (Unsigned.UInt32.to_int info.age);
   Alcotest.(check bool) "has ContainsIdStream" true
     (List.mem Pdb.Pdb_stream.ContainsIdStream info.features);
@@ -162,7 +162,7 @@ let test_pdb_with_strings () =
   let msf = Pdb.Msf.read buf in
   (* Find /names stream via PDB info *)
   let s1 = Pdb.Msf.get_stream_exn msf 1 in
-  let info = Pdb.Pdb_stream.read (Object.Buffer.cursor s1) in
+  let info = Pdb.Pdb_stream.parse (Object.Buffer.cursor s1) in
   let names_idx =
     List.assoc "/names" info.named_streams
   in
@@ -370,7 +370,7 @@ let test_full_pdb_for_ocaml () =
     let buf = buffer_of_string pdb_bytes in
     let msf = Pdb.Msf.read buf in
     let s1 = Pdb.Msf.get_stream_exn msf 1 in
-    let info = Pdb.Pdb_stream.read (Object.Buffer.cursor s1) in
+    let info = Pdb.Pdb_stream.parse (Object.Buffer.cursor s1) in
     Alcotest.(check int) "age" 1 (Unsigned.UInt32.to_int info.age);
     Alcotest.(check int) "guid data1" 0xDEADBEEF
       (Unsigned.UInt32.to_int info.guid.data1);

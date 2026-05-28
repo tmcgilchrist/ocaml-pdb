@@ -10,7 +10,8 @@ type t = (string * int) list
 val parse : Object.Buffer.cursor -> t
 (** [parse cur] reads a named stream map from the cursor. Format: u32
     string_buffer_size, string_buffer, then a PDB hash table mapping string
-    offsets to stream indices. *)
+    offsets to stream indices.
+    @raise Object.Buffer.Invalid_format on truncated input. *)
 
 val write : Stdlib.Buffer.t -> t -> unit
 (** [write buf entries] serializes a named stream map. *)

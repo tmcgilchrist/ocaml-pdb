@@ -43,8 +43,8 @@ let parse_publics_header (cur : Object.Buffer.cursor) : publics_header =
     num_sections;
   }
 
-let parse_gsi (cur : Object.Buffer.cursor) (stream_size : int) : t =
-  let _ = stream_size in
+let parse_gsi (cur : Object.Buffer.cursor) (total_bytes : int) : t =
+  let _ = total_bytes in
   (* GSIHashHeader is 16 bytes: VerSignature, VerHdr, HrSize, NumBuckets. *)
   Object.Buffer.ensure cur 16 "GSI hash header: truncated";
   let _ver_signature = read_u32 cur in
