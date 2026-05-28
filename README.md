@@ -50,6 +50,10 @@ Known gaps:
   needed to emit COFF `.debug$H` sections) is not implemented.
 - Many symbol and type variants exist primarily as a parser fallback
   (`Unknown`); only the kinds we've needed have hand-written fields.
+- The `Pdb_builder.machine` variants `I386` (32-bit x86) and `ARM`
+  (32-bit ARM) are recognised by the builder API and serialised to the
+  correct COFF machine constants, but there is limited testing for 32-bit
+  platforms. Open an issue if you need 32-bit coverage.
 
 ## Design
 
