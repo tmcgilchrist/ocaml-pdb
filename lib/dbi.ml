@@ -7,6 +7,8 @@
 
 open Pdb_types
 
+open Binary_writer
+
 type section_contribution = {
   section : int;
   offset : int32;
@@ -72,14 +74,6 @@ type t = {
   optional_debug_header : optional_debug_header option;
 }
 
-let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
-let read_u32 cur = Object.Buffer.Read.u32 cur
-let read_i32 cur = Unsigned.UInt32.to_int32 (read_u32 cur)
-
-let read_cstring (cur : Object.Buffer.cursor) : string =
-  match Object.Buffer.Read.zero_string cur () with
-  | Some s -> s
-  | Option.None -> ""
 
 (* SectionContrib is 28 bytes *)
 let parse_section_contribution (cur : Object.Buffer.cursor) :

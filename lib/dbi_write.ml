@@ -5,28 +5,7 @@
 
 module Buffer = Stdlib.Buffer
 
-let write_u16_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
-
-let write_i32_le buf (v : int32) = write_u32_le buf (Int32.to_int v)
-
-let write_cstring buf s =
-  Buffer.add_string buf s;
-  Buffer.add_char buf '\000'
-
-let write_padding_to_align buf alignment =
-  let pos = Buffer.length buf in
-  let align = (alignment - (pos mod alignment)) mod alignment in
-  for _ = 1 to align do
-    Buffer.add_char buf '\000'
-  done
+open Binary_writer
 
 let write_section_contribution buf (sc : Dbi.section_contribution) =
   write_u16_le buf sc.section;

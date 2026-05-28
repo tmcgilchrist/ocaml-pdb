@@ -5,15 +5,11 @@
     - LLVM: llvm/include/llvm/DebugInfo/PDB/Native/HashTable.h
     - LLVM: llvm/lib/DebugInfo/PDB/Native/HashTable.cpp *)
 
+open Binary_writer
+
 type t = (string * int) list
 
 module Buffer = Stdlib.Buffer
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
 
 (** {2 Sparse bit vector serialization}
 

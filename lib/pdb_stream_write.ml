@@ -5,15 +5,7 @@
 
 module Buffer = Stdlib.Buffer
 
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
-
-let write_u16_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
+open Binary_writer
 
 let write_guid buf (g : Pdb_types.guid) =
   write_u32_le buf (Unsigned.UInt32.to_int g.data1);

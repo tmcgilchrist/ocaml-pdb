@@ -6,20 +6,12 @@
 
 module Buffer = Stdlib.Buffer
 
+open Binary_writer
+
 type symbol_entry = {
   name : string;
   sym_offset : int;
 }
-
-let write_u16_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
 
 (* Number of hash buckets, must match IPHR_HASH in LLVM *)
 let iphr_hash = 4096

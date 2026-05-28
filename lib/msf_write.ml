@@ -2,6 +2,8 @@
 
 module Buffer = Stdlib.Buffer
 
+open Binary_writer
+
 type t = {
   block_size : int;
   mutable streams : string list;  (** In reverse order *)
@@ -20,12 +22,6 @@ let add_stream t contents =
 
 let add_empty_stream t = add_stream t ""
 let div_ceil a b = (a + b - 1) / b
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
 
 (** A block at position [k * block_size + 1] or [k * block_size + 2] (for
     any [k >= 0]) is reserved as a Free Page Map block. The actual

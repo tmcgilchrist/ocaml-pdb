@@ -8,6 +8,8 @@
 open Pdb_types
 module Buffer = Stdlib.Buffer
 
+open Binary_writer
+
 type line_entry = {
   offset : u32;
   line_start : int;
@@ -70,8 +72,6 @@ type subsection =
   | CrossModuleImports of cross_module_import array
   | Unknown of { kind : int; data : string }
 
-let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
-let read_u32 cur = Object.Buffer.Read.u32 cur
 
 let checksum_kind_of_int = function
   | 0 -> None
@@ -261,23 +261,6 @@ let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
   next
 
 (** {2 Writing} *)
-
-let write_u16_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
-
-let write_padding_to_align buf alignment =
-  let pos = Buffer.length buf in
-  let align = (alignment - (pos mod alignment)) mod alignment in
-  for _ = 1 to align do
-    Buffer.add_char buf '\000'
-  done
 
 let write_subsection (buf : Buffer.t) (sub : subsection) : unit =
   let content_buf = Buffer.create 128 in

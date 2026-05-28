@@ -8,6 +8,8 @@
 module Buffer = Stdlib.Buffer
 
 (* PDB string table constants *)
+open Binary_writer
+
 let pdb_string_table_signature = 0xEFFEEFFE
 let pdb_string_table_hash_version_1 = 1
 
@@ -40,12 +42,6 @@ let lookup t str = Hashtbl.find_opt t.offsets str
 let count t = t.count
 
 (* Writing helpers *)
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
-
 let write (buf : Buffer.t) (t : t) : unit =
   let names_bytes = Buffer.contents t.names_buf in
   let byte_size = String.length names_bytes in

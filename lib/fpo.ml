@@ -6,6 +6,8 @@
 open Pdb_types
 module Buffer = Stdlib.Buffer
 
+open Binary_writer
+
 type entry = {
   offset : u32;
   size : u32;
@@ -35,16 +37,6 @@ let parse (cur : Object.Buffer.cursor) (total_bytes : int) : t =
         Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
       in
       { offset; size; num_locals; num_params; attributes })
-
-let write_u16_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
 
 let write (buf : Buffer.t) (t : t) : unit =
   Array.iter

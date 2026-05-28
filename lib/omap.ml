@@ -7,6 +7,8 @@
 open Pdb_types
 module Buffer = Stdlib.Buffer
 
+open Binary_writer
+
 type entry = { rva : u32; rva_to : u32 }
 type t = entry array
 
@@ -22,12 +24,6 @@ let parse (cur : Object.Buffer.cursor) (total_bytes : int) : t =
       let rva = Object.Buffer.Read.u32 cur in
       let rva_to = Object.Buffer.Read.u32 cur in
       { rva; rva_to })
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
 
 let write (buf : Buffer.t) (t : t) : unit =
   Array.iter

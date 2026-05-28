@@ -19,6 +19,8 @@ open Pdb_types
 
 module Buffer = Stdlib.Buffer
 
+open Binary_writer
+
 type machine = I386 | AMD64 | ARM | ARM64
 
 let machine_to_int = function
@@ -98,12 +100,6 @@ let add_string t str = Pdb_string_table.add_string t.string_table str
 
 (* CV_SIGNATURE_C13 *)
 let cv_signature_c13 = 4
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
 
 let finalize t =
   let modules = List.rev t.modules in

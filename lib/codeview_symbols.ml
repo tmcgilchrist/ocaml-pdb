@@ -7,6 +7,8 @@
 open Pdb_types
 module Buffer = Stdlib.Buffer
 
+open Binary_writer
+
 type proc_record = {
   parent : u32;
   end_ : u32;
@@ -110,14 +112,7 @@ type symbol_record =
   | EnvBlock of { fields : string list }
   | Unknown of { kind : int; data : string }
 
-let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
-let read_u32 cur = Object.Buffer.Read.u32 cur
 let read_type_index cur = Type_index.of_u32 (read_u32 cur)
-
-let read_cstring (cur : Object.Buffer.cursor) : string =
-  match Object.Buffer.Read.zero_string cur () with
-  | Some s -> s
-  | Option.None -> ""
 
 let parse_proc_record (cur : Object.Buffer.cursor) : proc_record =
   let parent = read_u32 cur in
@@ -355,24 +350,8 @@ let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
 
 (** {2 Writing} *)
 
-let write_u16_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
-
-let write_i32_le buf (v : int32) = write_u32_le buf (Int32.to_int v)
-
 let write_type_index buf ti =
   write_u32_le buf (Unsigned.UInt32.to_int (Type_index.to_u32 ti))
-
-let write_cstring buf s =
-  Buffer.add_string buf s;
-  Buffer.add_char buf '\000'
 
 (** Write a null-terminated string, truncating it (LLVM's [mapStringZ]
     take_front rule) if it would push the in-progress record past

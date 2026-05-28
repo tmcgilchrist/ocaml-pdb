@@ -6,6 +6,8 @@
 
 open Pdb_types
 
+open Binary_writer
+
 type hash_record = { offset : u32; cref : u32 }
 type t = { hash_records : hash_record array; hash_buckets : u32 array }
 
@@ -19,8 +21,6 @@ type publics_header = {
   num_sections : int;
 }
 
-let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
-let read_u32 cur = Object.Buffer.Read.u32 cur
 
 let parse_publics_header (cur : Object.Buffer.cursor) : publics_header =
   (* PublicsStreamHeader is 28 bytes: 4 u32 + 2 u16 + 2 u32. *)

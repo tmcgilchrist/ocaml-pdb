@@ -9,6 +9,8 @@ open Pdb_types
 
 module Buffer = Stdlib.Buffer
 
+open Binary_writer
+
 type unwind_code =
   | AllocSmall of { size : int }
   | AllocMedium of { size : int }
@@ -42,12 +44,6 @@ type unwind_info = {
   codes : unwind_code list;
   exception_handler : u32 option;
 }
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
 
 let write_code (buf : Buffer.t) (code : unwind_code) : unit =
   match code with

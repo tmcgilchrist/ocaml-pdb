@@ -9,6 +9,8 @@ open Pdb_types
 
 module Buffer = Stdlib.Buffer
 
+open Binary_writer
+
 type register =
   | RAX | RCX | RDX | RBX | RSP | RBP | RSI | RDI
   | R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15
@@ -52,16 +54,6 @@ type unwind_info = {
   unwind_codes : unwind_code list;
   exception_handler : u32 option;
 }
-
-let write_u16_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
 
 let parse (cur : Object.Buffer.cursor) : unwind_info =
   let version_and_flags = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in

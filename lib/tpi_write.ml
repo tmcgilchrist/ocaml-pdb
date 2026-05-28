@@ -5,17 +5,9 @@
 
 module Buffer = Stdlib.Buffer
 
-let write_u16_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF))
-
-let write_u32_le buf v =
-  Buffer.add_char buf (Char.chr (v land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
-  Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
-
 (* TPI version: V80 = 20040203 *)
+open Binary_writer
+
 let tpi_version_v80 = 20040203
 let tpi_header_size = 56
 let first_type_index = 0x1000
