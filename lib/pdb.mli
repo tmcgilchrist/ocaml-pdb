@@ -21,3 +21,4 @@ module Pdb_builder = Pdb_builder
 module Type_merge = Type_merge
 module Unwind = Unwind
 module Omap = Omap
+module Fpo = Fpo

@@ -36,6 +36,9 @@ What works today:
 - OMAP address-translation streams (`Omap` module) -- reader, writer, and
   binary-search lookup for the post-link RVA remapping found in
   reordered/PGO retail PDBs.
+- Old-style FPO data stream (`Fpo` module) -- the per-function frame info
+  format referenced from the DBI optional debug header's `fpo_data` field.
+  The newer C13 `FrameData` subsection is already covered.
 - An `pdbdump` example tool, mirroring durin's `dwarfdump`.
 
 Known gaps:
@@ -51,9 +54,6 @@ Known gaps:
   needed to emit COFF `.debug$H` sections) is not implemented.
 - Many symbol and type variants exist primarily as a parser fallback
   (`Unknown`); only the kinds we've needed have hand-written fields.
-- The FPO data subsection (older `FPO_DATA` referenced from the DBI
-  optional debug header, not the C13 `FrameData` subsection) is not
-  implemented.
 
 ## Design
 

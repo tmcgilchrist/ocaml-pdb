@@ -99,3 +99,9 @@
  (libraries pdb object alcotest)
  (action
   (run %{exe:test_omap.exe})))
+
+(test
+ (name test_fpo)
+ (libraries pdb object alcotest)
+ (action
+  (run %{exe:test_fpo.exe})))
