@@ -2,15 +2,7 @@
 
 module Buffer = Stdlib.Buffer
 
-let buffer_of_string s =
-  let len = String.length s in
-  let buf =
-    Bigarray.Array1.create Bigarray.int8_unsigned Bigarray.c_layout len
-  in
-  for i = 0 to len - 1 do
-    buf.{i} <- Char.code s.[i]
-  done;
-  buf
+open Test_support
 
 let test_pdb_version_roundtrip () =
   let versions = [ Pdb.Pdb_stream.VC70; VC80; VC110; VC140; Unknown 12345 ] in

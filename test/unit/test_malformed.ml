@@ -5,15 +5,7 @@
 
 module Buffer = Stdlib.Buffer
 
-let buffer_of_string s =
-  let len = String.length s in
-  let buf =
-    Bigarray.Array1.create Bigarray.int8_unsigned Bigarray.c_layout len
-  in
-  for i = 0 to len - 1 do
-    buf.{i} <- Char.code s.[i]
-  done;
-  buf
+open Test_support
 
 let write_u16_le buf v =
   Buffer.add_char buf (Char.chr (v land 0xFF));

@@ -1,25 +1,7 @@
 (** Tests for MSF container read/write round-trip. *)
 
-(** Helper to convert a string to an Object.Buffer.t *)
-let buffer_of_string s =
-  let len = String.length s in
-  let buf =
-    Bigarray.Array1.create Bigarray.int8_unsigned Bigarray.c_layout len
-  in
-  for i = 0 to len - 1 do
-    buf.{i} <- Char.code s.[i]
-  done;
-  buf
 
-(** Helper to convert an Object.Buffer.t to a string *)
-let string_of_buffer (buf : Object.Buffer.t) =
-  let len = Bigarray.Array1.dim buf in
-  let s = Bytes.create len in
-  for i = 0 to len - 1 do
-    Bytes.set s i (Char.chr buf.{i})
-  done;
-  Bytes.to_string s
-
+open Test_support
 let test_roundtrip_empty_streams () =
   (* Create an MSF with two empty streams *)
   let builder = Pdb.Msf_write.create ~block_size:4096 in

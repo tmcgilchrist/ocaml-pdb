@@ -1,7 +1,8 @@
 (** Tests for type deduplication. *)
 
+
+open Test_support
 let u32 n = Unsigned.UInt32.of_int n
-let ti n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n)
 let ti_to_int ti = Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 ti)
 
 let test_distinct_records () =

@@ -6,8 +6,9 @@
 
 module Buffer = Stdlib.Buffer
 
+open Test_support
+
 let u32 n = Unsigned.UInt32.of_int n
-let ti n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n)
 
 (** Check if llvm-pdbutil is available *)
 let has_llvm_pdbutil () =

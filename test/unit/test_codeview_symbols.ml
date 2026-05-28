@@ -2,19 +2,9 @@
 
 module Buffer = Stdlib.Buffer
 
-let buffer_of_string s =
-  let len = String.length s in
-  let buf =
-    Bigarray.Array1.create Bigarray.int8_unsigned Bigarray.c_layout len
-  in
-  for i = 0 to len - 1 do
-    buf.{i} <- Char.code s.[i]
-  done;
-  buf
+open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
-let ti n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n)
-let ti_to_int t = Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 t)
 
 let roundtrip_symbol name record check =
   let buf = Buffer.create 64 in

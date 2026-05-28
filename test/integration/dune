@@ -1,6 +1,6 @@
 (test
  (name test_pdb_integration)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (deps
   (file %{project_root}/test/fixtures/simple.pdb)
   (file %{project_root}/test/fixtures/complex.pdb))
@@ -9,18 +9,18 @@
 
 (test
  (name test_cross_validate)
- (libraries pdb object alcotest str)
+ (libraries pdb object alcotest str test_support)
  (action
   (run %{exe:test_cross_validate.exe})))
 
 (test
  (name test_pdb_builder)
- (libraries pdb object alcotest str)
+ (libraries pdb object alcotest str test_support)
  (action
   (run %{exe:test_pdb_builder.exe})))
 
 (test
  (name test_llvm_equiv)
- (libraries pdb object alcotest str unix)
+ (libraries pdb object alcotest str unix test_support)
  (action
   (run %{exe:test_llvm_equiv.exe})))

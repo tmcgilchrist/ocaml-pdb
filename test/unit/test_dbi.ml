@@ -2,15 +2,7 @@
 
 module Buffer = Stdlib.Buffer
 
-let buffer_of_string s =
-  let len = String.length s in
-  let buf =
-    Bigarray.Array1.create Bigarray.int8_unsigned Bigarray.c_layout len
-  in
-  for i = 0 to len - 1 do
-    buf.{i} <- Char.code s.[i]
-  done;
-  buf
+open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
 

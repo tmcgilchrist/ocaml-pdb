@@ -1,107 +1,107 @@
 (test
  (name test_msf)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_msf.exe})))
 
 (test
  (name test_hash)
- (libraries pdb alcotest)
+ (libraries pdb alcotest test_support)
  (action
   (run %{exe:test_hash.exe})))
 
 (test
  (name test_named_stream_map)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_named_stream_map.exe})))
 
 (test
  (name test_pdb_stream)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_pdb_stream.exe})))
 
 (test
  (name test_codeview_constants_roundtrip)
- (libraries pdb alcotest qcheck-core qcheck-alcotest)
+ (libraries pdb alcotest qcheck-core qcheck-alcotest test_support)
  (preprocess
   (staged_pps ppx_import ppx_deriving_qcheck)))
 
 (test
  (name test_codeview_types)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_codeview_types.exe})))
 
 (test
  (name test_codeview_symbols)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_codeview_symbols.exe})))
 
 (test
  (name test_dbi)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_dbi.exe})))
 
 (test
  (name test_debug_subsections)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_debug_subsections.exe})))
 
 (test
  (name test_gsi)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_gsi.exe})))
 
 (test
  (name test_codeview_qcheck)
- (libraries pdb object alcotest qcheck-core qcheck-alcotest)
+ (libraries pdb object alcotest qcheck-core qcheck-alcotest test_support)
  (action
   (run %{exe:test_codeview_qcheck.exe})))
 
 (test
  (name test_malformed)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_malformed.exe})))
 
 (test
  (name test_string_table)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_string_table.exe})))
 
 (test
  (name test_type_merge)
- (libraries pdb alcotest)
+ (libraries pdb alcotest test_support)
  (action
   (run %{exe:test_type_merge.exe})))
 
 (test
  (name test_hash_differential)
- (libraries pdb alcotest qcheck-core qcheck-alcotest)
+ (libraries pdb alcotest qcheck-core qcheck-alcotest test_support)
  (action
   (run %{exe:test_hash_differential.exe})))
 
 (test
  (name test_unwind)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_unwind.exe})))
 
 (test
  (name test_omap)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_omap.exe})))
 
 (test
  (name test_fpo)
- (libraries pdb object alcotest)
+ (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_fpo.exe})))
