@@ -379,6 +379,48 @@ let test_fpm_full_bitmap () =
       Alcotest.failf "bit %d past num_blocks should be free, got %d" b bit
   done
 
+(** With [block_size = 512], a single FPM block covers
+    [block_size * 8 = 4096] file blocks. Push a stream past 2 MB to
+    force the writer to reserve a second pair of FPM blocks at
+    positions 513 and 514. *)
+let test_multi_fpm_block () =
+  let builder = Pdb.Msf_write.create ~block_size:512 in
+  let payload_size = 2_600_000 in
+  let payload =
+    String.init payload_size (fun i -> Char.chr ((i * 31) land 0xFF))
+  in
+  let _ = Pdb.Msf_write.add_stream builder payload in
+  let msf_bytes = Pdb.Msf_write.finalize builder in
+  let buf = buffer_of_string msf_bytes in
+  let msf = Pdb.Msf.read buf in
+  let sb = Pdb.Msf.superblock msf in
+  let block_size = Unsigned.UInt32.to_int sb.block_size in
+  let num_blocks = Unsigned.UInt32.to_int sb.num_blocks in
+  Alcotest.(check bool) "more than one FPM interval" true
+    (num_blocks > block_size);
+  (* The second FPM pair is at positions 513 and 514; both must mirror
+     the bits for blocks [4096, 8192). *)
+  let fpm0_2 = String.sub msf_bytes ((block_size + 1) * block_size) block_size in
+  let fpm1_2 = String.sub msf_bytes ((block_size + 2) * block_size) block_size in
+  Alcotest.(check string) "FPM0[1] == FPM1[1]" fpm0_2 fpm1_2;
+  (* The FPM blocks themselves (positions 513, 514) must be marked
+     allocated in FPM[0]. Bit 513 lives at byte 64, bit 1. *)
+  let fpm0_1 = String.sub msf_bytes block_size block_size in
+  let b513 = (Char.code fpm0_1.[513 / 8] lsr (513 mod 8)) land 1 in
+  let b514 = (Char.code fpm0_1.[514 / 8] lsr (514 mod 8)) land 1 in
+  Alcotest.(check int) "block 513 (FPM0[1]) allocated" 0 b513;
+  Alcotest.(check int) "block 514 (FPM1[1]) allocated" 0 b514;
+  (* Reading the stream back must reconstruct the payload byte-for-byte
+     -- the reader must follow the block list through the gaps where
+     FPM blocks were reserved. *)
+  let s0 = Pdb.Msf.get_stream_exn msf 0 in
+  Alcotest.(check int) "stream size" payload_size (Bigarray.Array1.dim s0);
+  for i = 0 to payload_size - 1 do
+    if s0.{i} <> Char.code payload.[i] then
+      Alcotest.failf "byte %d: expected %d, got %d" i
+        (Char.code payload.[i]) s0.{i}
+  done
+
 let () =
   Alcotest.run "MSF"
     [
@@ -416,5 +458,7 @@ let () =
             test_fpm_blocks_1_and_2_identical;
           Alcotest.test_case "full bitmap matches reachable blocks" `Quick
             test_fpm_full_bitmap;
+          Alcotest.test_case "multi-FPM-block file" `Quick
+            test_multi_fpm_block;
         ] );
     ]

@@ -43,10 +43,6 @@ What works today:
 
 Known gaps:
 
-- The Free Page Map is written correctly for files small enough to fit in
-  a single FPM block (one FPM block covers `block_size * 8` blocks, i.e.
-  128 MB at 4 KB block size). Larger PDBs would need multiple FPM blocks
-  at `block_size` intervals; this writer does not yet produce them.
 - Cross-compilation-unit type merging is implemented by re-serialisation
   (LLVM's `MergingTypeTableBuilder` approach): references are remapped onto
   a shared numbering and identical records deduplicated. The alternative
