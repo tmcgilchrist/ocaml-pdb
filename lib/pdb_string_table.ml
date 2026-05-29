@@ -46,7 +46,7 @@ let write buf t =
   let names_bytes = Buffer.contents t.names_buf in
   let byte_size = String.length names_bytes in
   (* Compute bucket count: use ~2x the number of strings for load factor *)
-  let bucket_count = max 1 (t.count * 2 + 1) in
+  let bucket_count = max 1 ((t.count * 2) + 1) in
   (* Build hash table: buckets[hash % bucket_count] = offset *)
   let buckets = Array.make bucket_count 0 in
   Hashtbl.iter
@@ -57,8 +57,7 @@ let write buf t =
       (* Linear probe for empty slot *)
       let rec find_slot i =
         let idx = (start + i) mod bucket_count in
-        if buckets.(idx) = 0 then idx
-        else find_slot (i + 1)
+        if buckets.(idx) = 0 then idx else find_slot (i + 1)
       in
       let idx = find_slot 0 in
       buckets.(idx) <- offset)
@@ -84,21 +83,15 @@ let parse cur =
       (Printf.sprintf
          "/names string table: bad signature 0x%08x (expected 0x%08x)" signature
          pdb_string_table_signature);
-  let _hash_version =
-    Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
-  in
-  let byte_size =
-    Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
-  in
+  let _hash_version = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
+  let byte_size = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
   Object.Buffer.ensure cur byte_size
     (Printf.sprintf "/names string table: names buffer (%d bytes) overruns"
        byte_size);
   let names_bytes = Object.Buffer.Read.fixed_string cur byte_size in
   (* Read hash table *)
   Object.Buffer.ensure cur 4 "/names string table: missing bucket_count";
-  let bucket_count =
-    Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
-  in
+  let bucket_count = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
   Object.Buffer.ensure cur
     ((bucket_count * 4) + 4)
     (Printf.sprintf
@@ -109,9 +102,7 @@ let parse cur =
         Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int)
   in
   (* Read epilogue *)
-  let string_count =
-    Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int
-  in
+  let string_count = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
   (* Reconstruct the table *)
   let t =
     {

@@ -2,12 +2,11 @@
 
 (** LLVM-equivalence tests.
 
-    For each scenario, this driver:
-    1. Locates the corresponding LLVM YAML fixture (in llvm-project source tree)
-    2. Runs [llvm-pdbutil yaml2pdb] on it to produce a reference PDB
-    3. Programmatically builds an equivalent PDB via [Pdb.Pdb_builder]
-    4. Dumps both with [llvm-pdbutil dump <subcmd>]
-    5. Diffs the text output, failing the test on any mismatch
+    For each scenario, this driver: 1. Locates the corresponding LLVM YAML
+    fixture (in llvm-project source tree) 2. Runs [llvm-pdbutil yaml2pdb] on it
+    to produce a reference PDB 3. Programmatically builds an equivalent PDB via
+    [Pdb.Pdb_builder] 4. Dumps both with [llvm-pdbutil dump <subcmd>] 5. Diffs
+    the text output, failing the test on any mismatch
 
     Tests skip cleanly when [llvm-pdbutil] is not on PATH or the LLVM source
     tree cannot be found.
@@ -26,8 +25,8 @@ let has_llvm_pdbutil () =
     Unix.close_process_in ic = Unix.WEXITED 0
   with _ -> false
 
-(** Resolve the LLVM PDB Inputs directory.
-    Order: [LLVM_PROJECT_DIR] env var, then a known local path. *)
+(** Resolve the LLVM PDB Inputs directory. Order: [LLVM_PROJECT_DIR] env var,
+    then a known local path. *)
 let llvm_pdb_inputs () =
   let candidates =
     match Sys.getenv_opt "LLVM_PROJECT_DIR" with
@@ -59,9 +58,9 @@ let write_file path bytes =
 
 (** {1 Output normalization}
 
-    [llvm-pdbutil dump] embeds the input file path in some headers, and the
-    test produces two temp files. Replace both temp paths with a stable
-    placeholder so diffs only reflect content differences. *)
+    [llvm-pdbutil dump] embeds the input file path in some headers, and the test
+    produces two temp files. Replace both temp paths with a stable placeholder
+    so diffs only reflect content differences. *)
 let normalize ~ref_path ~our_path output =
   let q s = Str.quote s in
   output
@@ -71,8 +70,7 @@ let normalize ~ref_path ~our_path output =
 (** {1 Scenario runner} *)
 
 type scenario = {
-  name : string;
-  (** Short identifier (also used in temp filenames) *)
+  name : string;  (** Short identifier (also used in temp filenames) *)
   yaml : string;  (** YAML file name in LLVM PDB Inputs dir *)
   dump_args : string;  (** [llvm-pdbutil dump] subcommand args *)
   build : unit -> string;  (** Build the equivalent PDB byte string *)
@@ -99,9 +97,11 @@ let run_scenario s =
               (Filename.quote yaml_path) (Filename.quote ref_pdb)
           in
           let yaml2pdb_out = run_command yaml2pdb_cmd in
-          if not (Sys.file_exists ref_pdb)
-             || (let st = Unix.stat ref_pdb in
-                 st.st_size = 0)
+          if
+            (not (Sys.file_exists ref_pdb))
+            ||
+            let st = Unix.stat ref_pdb in
+            st.st_size = 0
           then begin
             Sys.remove our_pdb;
             Alcotest.failf "yaml2pdb produced no output for %s:\n%s" s.yaml
@@ -115,16 +115,19 @@ let run_scenario s =
               (Printf.sprintf "llvm-pdbutil dump %s %s 2>&1" s.dump_args
                  (Filename.quote path))
           in
-          let ref_dump = normalize ~ref_path:ref_pdb ~our_path:our_pdb (dump ref_pdb) in
-          let our_dump = normalize ~ref_path:ref_pdb ~our_path:our_pdb (dump our_pdb) in
+          let ref_dump =
+            normalize ~ref_path:ref_pdb ~our_path:our_pdb (dump ref_pdb)
+          in
+          let our_dump =
+            normalize ~ref_path:ref_pdb ~our_path:our_pdb (dump our_pdb)
+          in
           (* Set OCAML_PDB_KEEP_TEMP=1 to leave the temp PDBs on disk for
              inspection with llvm-pdbutil. *)
           (match Sys.getenv_opt "OCAML_PDB_KEEP_TEMP" with
           | None ->
               Sys.remove ref_pdb;
               Sys.remove our_pdb
-          | Some _ ->
-              Printf.eprintf "kept: ref=%s our=%s\n" ref_pdb our_pdb);
+          | Some _ -> Printf.eprintf "kept: ref=%s our=%s\n" ref_pdb our_pdb);
           Alcotest.(check string)
             (Printf.sprintf "%s dump matches LLVM reference" s.name)
             ref_dump our_dump
@@ -132,8 +135,8 @@ let run_scenario s =
 
 (** {1 Scenarios} *)
 
-(** Equivalent of [objfilename.yaml]: one DBI module with name + obj path,
-    no module stream content. *)
+(** Equivalent of [objfilename.yaml]: one DBI module with name + obj path, no
+    module stream content. *)
 let build_objfilename () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   Pdb.Pdb_builder.add_module b
@@ -186,9 +189,9 @@ let one_symbol_scenario =
   }
 
 (** Equivalent of [merge-types-1.yaml]: 8 TPI records spanning LF_POINTER,
-    LF_STRUCTURE (forward ref with unique name), LF_ARGLIST, LF_PROCEDURE.
-    Type indices are referenced by both basic-type values (e.g. 0x75 for
-    [unsigned]) and user-defined indices (>= 0x1000). *)
+    LF_STRUCTURE (forward ref with unique name), LF_ARGLIST, LF_PROCEDURE. Type
+    indices are referenced by both basic-type values (e.g. 0x75 for [unsigned])
+    and user-defined indices (>= 0x1000). *)
 let build_merge_types () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
@@ -224,27 +227,23 @@ let build_merge_types () =
   (* 0x1003: uint32_t** *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.Pointer
-         { pointee_type = t 0x1000; attrs = ptr_attrs })
+      (Pdb.Codeview_types.Pointer { pointee_type = t 0x1000; attrs = ptr_attrs })
   in
   (* 0x1004: uint32_t triple-ptr *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.Pointer
-         { pointee_type = t 0x1003; attrs = ptr_attrs })
+      (Pdb.Codeview_types.Pointer { pointee_type = t 0x1003; attrs = ptr_attrs })
   in
   (* 0x1005: int64_t* (second copy) *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.Pointer
-         { pointee_type = t 0x1001; attrs = ptr_attrs })
+      (Pdb.Codeview_types.Pointer { pointee_type = t 0x1001; attrs = ptr_attrs })
   in
   (* 0x1006: (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.ArgList
-         { args =
-             [| Pdb.Type_index.uint32; t 0x1000; t 0x1003 |] })
+         { args = [| Pdb.Type_index.uint32; t 0x1000; t 0x1003 |] })
   in
   (* 0x1007: uint32_t (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
   let _ =
@@ -281,28 +280,22 @@ let hex_decode (s : string) : string =
   String.init n (fun i ->
       Char.chr ((nibble s.[2 * i] lsl 4) lor nibble s.[(2 * i) + 1]))
 
-(** Equivalent of [debug-subsections.yaml] (subset matching [-l] and [--il]
-    dump output). The fixture defines four modules:
-      0. Foo.obj, 1. Bar.obj — exercise CrossModuleExports/Imports
-         subsections (not currently implemented in our writer), so we
-         emit them as empty modules. Only their DBI entries matter for
-         [-l] / [--il] output, which shows just the module header.
-      2. empty.obj — FileChecksums + Lines + InlineeLines, the path that
-         actually matters for source-level debugging.
-      3. ObjFileSubsections — StringTable/Symbols/FrameData subsections
-         (also empty for our purposes here).
-    Filenames referenced by the line info are registered in /names so
+(** Equivalent of [debug-subsections.yaml] (subset matching [-l] and [--il] dump
+    output). The fixture defines four modules: 0. Foo.obj, 1. Bar.obj — exercise
+    CrossModuleExports/Imports subsections (not currently implemented in our
+    writer), so we emit them as empty modules. Only their DBI entries matter for
+    [-l] / [--il] output, which shows just the module header. 2. empty.obj —
+    FileChecksums + Lines + InlineeLines, the path that actually matters for
+    source-level debugging. 3. ObjFileSubsections —
+    StringTable/Symbols/FrameData subsections (also empty for our purposes
+    here). Filenames referenced by the line info are registered in /names so
     file_name_offset matches LLVM's. *)
 let build_debug_subsections () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
   let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
-  let empty_cpp =
-    "d:\\src\\llvm\\test\\debuginfo\\pdb\\inputs\\empty.cpp"
-  in
-  let winerror_h =
-    "f:\\dd\\externalapis\\windows\\10\\sdk\\inc\\winerror.h"
-  in
+  let empty_cpp = "d:\\src\\llvm\\test\\debuginfo\\pdb\\inputs\\empty.cpp" in
+  let winerror_h = "f:\\dd\\externalapis\\windows\\10\\sdk\\inc\\winerror.h" in
   let empty_cpp_off = Pdb.Pdb_builder.add_string b empty_cpp in
   let winerror_h_off = Pdb.Pdb_builder.add_string b winerror_h in
   (* File checksum table entries are aligned to 4 bytes: each MD5 entry
@@ -438,11 +431,10 @@ let debug_subsections_scenario =
     build = build_debug_subsections;
   }
 
-(** Equivalent of [source-names-1.yaml]: one DBI module with a single
-    source file recorded in the FileInfo substream (no module debug
-    stream, no FileChecksums subsection). Exercises the DBI FileInfo
-    substream's NumSourceFiles / ModFileCounts / FileNameOffsets /
-    NamesBuffer layout. *)
+(** Equivalent of [source-names-1.yaml]: one DBI module with a single source
+    file recorded in the FileInfo substream (no module debug stream, no
+    FileChecksums subsection). Exercises the DBI FileInfo substream's
+    NumSourceFiles / ModFileCounts / FileNameOffsets / NamesBuffer layout. *)
 let build_source_names () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   Pdb.Pdb_builder.add_module b
@@ -464,10 +456,10 @@ let source_names_scenario =
     build = build_source_names;
   }
 
-(** Equivalent of [source-names-2.yaml]: companion to [source-names-1.yaml]
-    with a different source filename (.cc instead of .c). The pair is used
-    by LLVM's PDB-merging tests; for us each is an independent validation
-    of the DBI FileInfo NamesBuffer. *)
+(** Equivalent of [source-names-2.yaml]: companion to [source-names-1.yaml] with
+    a different source filename (.cc instead of .c). The pair is used by LLVM's
+    PDB-merging tests; for us each is an independent validation of the DBI
+    FileInfo NamesBuffer. *)
 let build_source_names_2 () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   Pdb.Pdb_builder.add_module b
@@ -522,19 +514,19 @@ let unknown_symbol_scenario =
     build = build_unknown_symbol;
   }
 
-(** Equivalent of [longname-truncation.yaml]: two LF_STRUCTURE records with
-    very long names (68k+ chars), exercising LLVM's truncation logic in
+(** Equivalent of [longname-truncation.yaml]: two LF_STRUCTURE records with very
+    long names (68k+ chars), exercising LLVM's truncation logic in
     [TypeRecordMapping::mapNameAndUniqueName]. Two cases:
 
-    - Record 0x1000 has both Name and UniqueName. LLVM caps the on-disk
-      record at ~4156 bytes: Name = take_front(4064) + MD5_hex(Name);
-      UniqueName = "??@" + MD5_hex(UniqueName) + "@".
+    - Record 0x1000 has both Name and UniqueName. LLVM caps the on-disk record
+      at ~4156 bytes: Name = take_front(4064) + MD5_hex(Name); UniqueName =
+      "??@" + MD5_hex(UniqueName) + "@".
     - Record 0x1001 has Name only. The simple truncation
       [Name.take_front(maxFieldLength() - 1)] runs and the record fills
       MaxRecordLength = 0xFF00 = 65280 bytes.
 
-    The original 68k-char strings are passed in; the writer truncates
-    them on the way out, matching LLVM byte-for-byte. *)
+    The original 68k-char strings are passed in; the writer truncates them on
+    the way out, matching LLVM byte-for-byte. *)
 let build_longname_truncation () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let t n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n) in
@@ -581,10 +573,10 @@ let longname_truncation_scenario =
   }
 
 (** Equivalent of [merge-types-2.yaml]: companion to merge-types-1 with a
-    different ordering of LF_POINTER chains and a struct forward
-    reference (OnlyInMerge2). Exercises TPI coverage for the same record
-    kinds but at different type indices, validating that our builder
-    handles forward references to user-defined indices in any order. *)
+    different ordering of LF_POINTER chains and a struct forward reference
+    (OnlyInMerge2). Exercises TPI coverage for the same record kinds but at
+    different type indices, validating that our builder handles forward
+    references to user-defined indices in any order. *)
 let build_merge_types_2 () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
@@ -599,21 +591,18 @@ let build_merge_types_2 () =
   (* 0x1001: uint32_t ptr-ptr *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.Pointer
-         { pointee_type = t 0x1000; attrs = ptr_attrs })
+      (Pdb.Codeview_types.Pointer { pointee_type = t 0x1000; attrs = ptr_attrs })
   in
   (* 0x1002: uint32_t triple-ptr *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.Pointer
-         { pointee_type = t 0x1001; attrs = ptr_attrs })
+      (Pdb.Codeview_types.Pointer { pointee_type = t 0x1001; attrs = ptr_attrs })
   in
   (* 0x1003: (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
   let _ =
     Pdb.Pdb_builder.add_type b
       (Pdb.Codeview_types.ArgList
-         { args =
-             [| Pdb.Type_index.uint32; t 0x1000; t 0x1001 |] })
+         { args = [| Pdb.Type_index.uint32; t 0x1000; t 0x1001 |] })
   in
   (* 0x1004: uint32_t (uint32_t, uint32_t*, uint32_t ptr-ptr) *)
   let _ =
@@ -636,8 +625,7 @@ let build_merge_types_2 () =
   (* 0x1006: int64_t ptr-ptr *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.Pointer
-         { pointee_type = t 0x1005; attrs = ptr_attrs })
+      (Pdb.Codeview_types.Pointer { pointee_type = t 0x1005; attrs = ptr_attrs })
   in
   (* 0x1007: struct OnlyInMerge2 (forward ref + has-unique-name) *)
   let _ =
@@ -666,8 +654,8 @@ let merge_types_2_scenario =
 
 (** Equivalent of [merge-ids-1.yaml]: 7 IPI records exercising LF_STRING_ID
     (with and without a parent ID) and LF_SUBSTR_LIST. Validates that
-    [Pdb_builder.add_id] emits IPI records byte-for-byte equivalent to
-    yaml2pdb output. *)
+    [Pdb_builder.add_id] emits IPI records byte-for-byte equivalent to yaml2pdb
+    output. *)
 let build_merge_ids () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
@@ -700,8 +688,7 @@ let build_merge_ids () =
   (* 0x1005: LF_SUBSTR_LIST [0x1003, 0x1004] *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.SubstrList
-         { strings = [| t 0x1003; t 0x1004 |] })
+      (Pdb.Codeview_types.SubstrList { strings = [| t 0x1003; t 0x1004 |] })
   in
   (* 0x1006: 'Main' with parent id = 0x1005 *)
   let _ =
@@ -718,9 +705,9 @@ let merge_ids_scenario =
     build = build_merge_ids;
   }
 
-(** Equivalent of [merge-ids-2.yaml]: companion to merge-ids-1 with a
-    different ordering of LF_STRING_ID records and an LF_SUBSTR_LIST
-    that references them out of order. *)
+(** Equivalent of [merge-ids-2.yaml]: companion to merge-ids-1 with a different
+    ordering of LF_STRING_ID records and an LF_SUBSTR_LIST that references them
+    out of order. *)
 let build_merge_ids_2 () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
@@ -743,8 +730,7 @@ let build_merge_ids_2 () =
   (* 0x1003: LF_SUBSTR_LIST [0x1002, 0x1000] (SubOne, SubTwo) *)
   let _ =
     Pdb.Pdb_builder.add_id b
-      (Pdb.Codeview_types.SubstrList
-         { strings = [| t 0x1002; t 0x1000 |] })
+      (Pdb.Codeview_types.SubstrList { strings = [| t 0x1002; t 0x1000 |] })
   in
   (* 0x1004: 'One' *)
   let _ =
@@ -766,12 +752,12 @@ let merge_ids_2_scenario =
     build = build_merge_ids_2;
   }
 
-(** Equivalent of [merge-ids-and-types-1.yaml]: combined TPI + IPI scenario.
-    The TPI defines a [FooBar] struct, an [int main(int, char-ptr-ptr)] procedure,
-    and a member function. The IPI references them via LF_FUNC_ID,
-    LF_MFUNC_ID, and LF_UDT_MOD_SRC_LINE — exercising cross-stream type
-    references. Also exercises the new FunctionOptions field on
-    LF_MFUNCTION (Constructor = 0x02). *)
+(** Equivalent of [merge-ids-and-types-1.yaml]: combined TPI + IPI scenario. The
+    TPI defines a [FooBar] struct, an [int main(int, char-ptr-ptr)] procedure,
+    and a member function. The IPI references them via LF_FUNC_ID, LF_MFUNC_ID,
+    and LF_UDT_MOD_SRC_LINE — exercising cross-stream type references. Also
+    exercises the new FunctionOptions field on LF_MFUNCTION (Constructor =
+    0x02). *)
 let build_merge_ids_and_types () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
@@ -825,8 +811,7 @@ let build_merge_ids_and_types () =
   (* TPI 0x1004: FooBar* *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.Pointer
-         { pointee_type = t 0x1003; attrs = ptr_attrs })
+      (Pdb.Codeview_types.Pointer { pointee_type = t 0x1003; attrs = ptr_attrs })
   in
   (* TPI 0x1005: (int) *)
   let _ =
@@ -890,10 +875,10 @@ let merge_ids_and_types_scenario =
   }
 
 (** Equivalent of [merge-ids-and-types-2.yaml]: the companion file to
-    merge-ids-and-types-1, designed by LLVM to exercise PDB type merging.
-    It shares some records with file 1 (so they'd merge) and introduces
-    new variants (main2, foo, FooMethod2). For us each is an independent
-    end-to-end validation of TPI + IPI writes. *)
+    merge-ids-and-types-1, designed by LLVM to exercise PDB type merging. It
+    shares some records with file 1 (so they'd merge) and introduces new
+    variants (main2, foo, FooMethod2). For us each is an independent end-to-end
+    validation of TPI + IPI writes. *)
 let build_merge_ids_and_types_2 () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   let u = Unsigned.UInt32.of_int in
@@ -963,8 +948,7 @@ let build_merge_ids_and_types_2 () =
   (* TPI 0x1006: FooBar* *)
   let _ =
     Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.Pointer
-         { pointee_type = t 0x1004; attrs = ptr_attrs })
+      (Pdb.Codeview_types.Pointer { pointee_type = t 0x1004; attrs = ptr_attrs })
   in
   (* TPI 0x1007: int (int, char ptr-ptr) *)
   let _ =

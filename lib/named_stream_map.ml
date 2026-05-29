@@ -67,10 +67,10 @@ let parse_hash_table cur =
   done;
   List.rev !entries
 
-(** Generic placement: slot for a given key is [(key mod capacity)] with
-    linear probing. Suitable for tables where the key already represents
-    the hash. The named stream map uses a different placement function
-    (see [write_named_hash_table_body]). *)
+(** Generic placement: slot for a given key is [(key mod capacity)] with linear
+    probing. Suitable for tables where the key already represents the hash. The
+    named stream map uses a different placement function (see
+    [write_named_hash_table_body]). *)
 let write_hash_table buf entries capacity =
   let size = List.length entries in
   write_u32_le buf size;
@@ -127,9 +127,9 @@ let parse cur =
     ht_entries
 
 (** Write the named-stream hash table. Slot placement uses
-    [hash_v1(name) mod capacity] with linear probing so that LLVM's
-    lookup — which computes the same [hashStringV1] on the queried name —
-    finds entries at the expected bucket. *)
+    [hash_v1(name) mod capacity] with linear probing so that LLVM's lookup —
+    which computes the same [hashStringV1] on the queried name — finds entries
+    at the expected bucket. *)
 let write_named_hash_table buf entries capacity =
   let size = List.length entries in
   write_u32_le buf size;

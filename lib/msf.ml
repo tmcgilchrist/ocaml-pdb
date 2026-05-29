@@ -40,7 +40,8 @@ let read_u32_at (buf : Object.Buffer.t) offset =
   lor (buf.{offset + 3} lsl 24)
 
 (** Reassemble a stream from non-contiguous blocks into a contiguous buffer. *)
-let reassemble_stream (buf : Object.Buffer.t) block_size block_list stream_size =
+let reassemble_stream (buf : Object.Buffer.t) block_size block_list stream_size
+    =
   let result =
     Bigarray.Array1.create Bigarray.int8_unsigned Bigarray.c_layout stream_size
   in

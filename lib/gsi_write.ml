@@ -5,13 +5,9 @@
     - LLVM: llvm/include/llvm/DebugInfo/PDB/Native/GlobalsStream.h *)
 
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
-type symbol_entry = {
-  name : string;
-  sym_offset : int;
-}
+type symbol_entry = { name : string; sym_offset : int }
 
 (* Number of hash buckets, must match IPHR_HASH in LLVM *)
 let iphr_hash = 4096
@@ -38,10 +34,12 @@ let write_gsi buf entries =
     (* Write empty GSI: header + empty bitmap + no buckets *)
     write_u32_le buf gsi_hdr_signature;
     write_u32_le buf gsi_hdr_version;
-    write_u32_le buf 0; (* HrSize = 0 *)
+    write_u32_le buf 0;
+    (* HrSize = 0 *)
     let bitmap_words = (iphr_hash + 32) / 32 in
     let bitmap_bytes = bitmap_words * 4 in
-    write_u32_le buf bitmap_bytes; (* NumBuckets = bitmap size only *)
+    write_u32_le buf bitmap_bytes;
+    (* NumBuckets = bitmap size only *)
     for _ = 1 to bitmap_words do
       write_u32_le buf 0
     done
@@ -58,7 +56,9 @@ let write_gsi buf entries =
     in
     (* Count entries per bucket *)
     let bucket_counts = Array.make iphr_hash 0 in
-    List.iter (fun (b, _) -> bucket_counts.(b) <- bucket_counts.(b) + 1) bucketed;
+    List.iter
+      (fun (b, _) -> bucket_counts.(b) <- bucket_counts.(b) + 1)
+      bucketed;
     (* Exclusive prefix sum for bucket start offsets *)
     let bucket_starts = Array.make iphr_hash 0 in
     let sum = ref 0 in
@@ -67,7 +67,8 @@ let write_gsi buf entries =
       sum := !sum + bucket_counts.(i)
     done;
     (* Place entries into hash records array in bucket order *)
-    let hash_records = Array.make num_entries (0, 0) in (* (record_index, sym_offset) *)
+    let hash_records = Array.make num_entries (0, 0) in
+    (* (record_index, sym_offset) *)
     let bucket_cursors = Array.copy bucket_starts in
     List.iteri
       (fun idx (b, e) ->
@@ -111,7 +112,8 @@ let write_gsi buf entries =
     done;
     let bucket_offsets = List.rev !bucket_offsets in
     (* Write GSI header *)
-    let hr_size = num_entries * 8 in (* 8 bytes per PSHashRecord *)
+    let hr_size = num_entries * 8 in
+    (* 8 bytes per PSHashRecord *)
     let num_buckets_field =
       (bitmap_words * 4) + (List.length bucket_offsets * 4)
     in
@@ -132,9 +134,7 @@ let write_gsi buf entries =
   end
 
 (** Extract the name from a public symbol record. *)
-let pub_name = function
-  | Codeview_symbols.Pub32 { name; _ } -> name
-  | _ -> ""
+let pub_name = function Codeview_symbols.Pub32 { name; _ } -> name | _ -> ""
 
 let write_publics_stream buf symbols =
   (* Serialize all symbol records to get offsets *)
@@ -172,14 +172,22 @@ let write_publics_stream buf symbols =
   in
   let addr_map_size = List.length sorted_addr * 4 in
   (* Write publics header *)
-  write_u32_le buf gsi_bytes; (* SymHash *)
-  write_u32_le buf addr_map_size; (* AddrMap *)
-  write_u32_le buf 0; (* NumThunks *)
-  write_u32_le buf 0; (* SizeOfThunk *)
-  write_u16_le buf 0; (* ISectThunkTable *)
-  write_u16_le buf 0; (* padding *)
-  write_u32_le buf 0; (* OffThunkTable *)
-  write_u32_le buf 0; (* NumSections *)
+  write_u32_le buf gsi_bytes;
+  (* SymHash *)
+  write_u32_le buf addr_map_size;
+  (* AddrMap *)
+  write_u32_le buf 0;
+  (* NumThunks *)
+  write_u32_le buf 0;
+  (* SizeOfThunk *)
+  write_u16_le buf 0;
+  (* ISectThunkTable *)
+  write_u16_le buf 0;
+  (* padding *)
+  write_u32_le buf 0;
+  (* OffThunkTable *)
+  write_u32_le buf 0;
+  (* NumSections *)
   (* Write GSI hash *)
   Buffer.add_string buf (Buffer.contents gsi_buf);
   (* Write address map *)

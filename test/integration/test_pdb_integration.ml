@@ -174,7 +174,8 @@ let test_dbi_stream () =
   Alcotest.(check string)
     "obj file name" "simple.obj" dbi.modules.(0).obj_file_name
 
-(** {2 Complex fixture tests (inheritance, virtual methods, multiple modules)} *)
+(** {2 Complex fixture tests (inheritance, virtual methods, multiple modules)}
+*)
 
 let test_complex_tpi () =
   let msf = open_pdb "complex.pdb" in
@@ -203,15 +204,17 @@ let test_complex_tpi () =
   (* 0x1006: LF_MFUNCTION (void Base::vfunc) *)
   (match List.nth records 6 with
   | Pdb.Codeview_types.MFunction { return_type; class_type; param_count; _ } ->
-      Alcotest.(check int) "mfunc ret" 3
+      Alcotest.(check int)
+        "mfunc ret" 3
         (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 return_type));
-      Alcotest.(check int) "mfunc class" 0x1002
+      Alcotest.(check int)
+        "mfunc class" 0x1002
         (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 class_type));
       Alcotest.(check int) "mfunc params" 0 param_count
   | _ -> Alcotest.fail "0x1006: expected MFunction");
   (* 0x1008: Base field list with VFuncTab, Member, 2x OneMethod *)
   (match List.nth records 8 with
-  | Pdb.Codeview_types.FieldList { members } ->
+  | Pdb.Codeview_types.FieldList { members } -> (
       Alcotest.(check int) "base fieldlist" 4 (List.length members);
       (match List.nth members 0 with
       | Pdb.Codeview_types.VFuncTab _ -> ()
@@ -221,7 +224,7 @@ let test_complex_tpi () =
           Alcotest.(check string) "base member" "value" name;
           Alcotest.(check int64) "base member offset" 8L offset
       | _ -> Alcotest.fail "base[1]: expected Member");
-      (match List.nth members 2 with
+      match List.nth members 2 with
       | Pdb.Codeview_types.OneMethod { name; _ } ->
           Alcotest.(check string) "base onemethod" "vfunc" name
       | _ -> Alcotest.fail "base[2]: expected OneMethod")
@@ -231,20 +234,22 @@ let test_complex_tpi () =
   | Pdb.Codeview_types.Structure { name; size; vtable_shape; _ } ->
       Alcotest.(check string) "Base complete" "Base" name;
       Alcotest.(check int64) "Base size" 16L size;
-      Alcotest.(check int) "Base vtshape" 0x1003
+      Alcotest.(check int)
+        "Base vtshape" 0x1003
         (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 vtable_shape))
   | _ -> Alcotest.fail "0x1009: expected Structure");
   (* 0x100B: Derived field list with BaseClass, Member, OneMethod *)
   (match List.nth records 11 with
-  | Pdb.Codeview_types.FieldList { members } ->
+  | Pdb.Codeview_types.FieldList { members } -> (
       Alcotest.(check int) "derived fieldlist" 3 (List.length members);
       (match List.nth members 0 with
       | Pdb.Codeview_types.BaseClass { base_type; offset; _ } ->
-          Alcotest.(check int) "bclass type" 0x1002
+          Alcotest.(check int)
+            "bclass type" 0x1002
             (Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 base_type));
           Alcotest.(check int64) "bclass offset" 0L offset
       | _ -> Alcotest.fail "derived[0]: expected BaseClass");
-      (match List.nth members 1 with
+      match List.nth members 1 with
       | Pdb.Codeview_types.Member { name; offset; _ } ->
           Alcotest.(check string) "derived member" "extra" name;
           Alcotest.(check int64) "derived member offset" 16L offset
@@ -297,10 +302,8 @@ let test_complex_dbi () =
   let cur = Object.Buffer.cursor stream in
   let dbi = Pdb.Dbi.parse cur in
   Alcotest.(check int) "2 modules" 2 (Array.length dbi.modules);
-  Alcotest.(check string) "module 0" "complex.obj"
-    dbi.modules.(0).module_name;
-  Alcotest.(check string) "module 1" "* Linker *"
-    dbi.modules.(1).module_name
+  Alcotest.(check string) "module 0" "complex.obj" dbi.modules.(0).module_name;
+  Alcotest.(check string) "module 1" "* Linker *" dbi.modules.(1).module_name
 
 let () =
   Alcotest.run "PDB Integration"
@@ -313,8 +316,7 @@ let () =
       ("dbi", [ Alcotest.test_case "dbi stream" `Quick test_dbi_stream ]);
       ( "complex",
         [
-          Alcotest.test_case "TPI (inheritance+vtable)" `Quick
-            test_complex_tpi;
+          Alcotest.test_case "TPI (inheritance+vtable)" `Quick test_complex_tpi;
           Alcotest.test_case "IPI (udt_src_line)" `Quick test_complex_ipi;
           Alcotest.test_case "DBI (multiple modules)" `Quick test_complex_dbi;
         ] );

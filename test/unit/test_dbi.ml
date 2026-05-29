@@ -1,7 +1,6 @@
 (** Tests for DBI stream read/write. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
@@ -142,8 +141,8 @@ let test_dbi_header_fields () =
   Alcotest.(check int) "mod sym_stream" 5 dbi.modules.(0).module_sym_stream;
   Alcotest.(check int) "mod sym_bytes" 100 dbi.modules.(0).sym_byte_size;
   (* Writer emits a 22-byte optional debug header (11 x u16, all 0xFFFF) *)
-  Alcotest.(check int) "opt debug header size" 22
-    dbi.header.optional_dbg_header_size
+  Alcotest.(check int)
+    "opt debug header size" 22 dbi.header.optional_dbg_header_size
 
 let test_dbi_module_c13_fields () =
   let m : Pdb.Dbi.module_info =
@@ -166,8 +165,7 @@ let test_dbi_module_c13_fields () =
   let cur = Object.Buffer.cursor obj_buf in
   let dbi = Pdb.Dbi.parse cur in
   Alcotest.(check int) "c13_byte_size" 300 dbi.modules.(0).c13_byte_size;
-  Alcotest.(check int) "source_file_count" 2
-    dbi.modules.(0).source_file_count;
+  Alcotest.(check int) "source_file_count" 2 dbi.modules.(0).source_file_count;
   Alcotest.(check int) "sym_byte_size" 200 dbi.modules.(0).sym_byte_size
 
 let test_dbi_section_contrib_fields () =
@@ -189,23 +187,24 @@ let test_dbi_section_contrib_fields () =
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
   let dbi = Pdb.Dbi.parse cur in
-  Alcotest.(check int) "sc count" 1
-    (Array.length dbi.section_contributions);
+  Alcotest.(check int) "sc count" 1 (Array.length dbi.section_contributions);
   let s = dbi.section_contributions.(0) in
   Alcotest.(check int) "sc section" 2 s.section;
   Alcotest.(check int) "sc offset" 0x1000 (Int32.to_int s.offset);
   Alcotest.(check int) "sc size" 0x500 (Int32.to_int s.size);
-  Alcotest.(check int) "sc characteristics" 0x60000020
+  Alcotest.(check int)
+    "sc characteristics" 0x60000020
     (Unsigned.UInt32.to_int s.characteristics);
   Alcotest.(check int) "sc module_index" 1 s.module_index;
-  Alcotest.(check int) "sc data_crc" 0xDEADBEEF
+  Alcotest.(check int)
+    "sc data_crc" 0xDEADBEEF
     (Unsigned.UInt32.to_int s.data_crc land 0xFFFFFFFF);
-  Alcotest.(check int) "sc reloc_crc" 0xCAFEBABE
+  Alcotest.(check int)
+    "sc reloc_crc" 0xCAFEBABE
     (Unsigned.UInt32.to_int s.reloc_crc land 0xFFFFFFFF)
 
-(** Every field of the optional debug header must round-trip exactly.
-    Use 11 distinct sentinel values so a swap between fields would be
-    visible. *)
+(** Every field of the optional debug header must round-trip exactly. Use 11
+    distinct sentinel values so a swap between fields would be visible. *)
 let test_dbi_optional_debug_header () =
   let h : Pdb.Dbi.optional_debug_header =
     {
@@ -242,10 +241,11 @@ let test_dbi_optional_debug_header () =
       Alcotest.(check int) "xdata" 14 h'.xdata;
       Alcotest.(check int) "pdata" 15 h'.pdata;
       Alcotest.(check int) "new_fpo_data" 16 h'.new_fpo_data;
-      Alcotest.(check int) "original_section_header" 17 h'.original_section_header
+      Alcotest.(check int)
+        "original_section_header" 17 h'.original_section_header
 
-(** Omitting [~optional_debug_header] should still produce a parseable
-    DBI whose optional debug header is all-0xFFFF (the legacy default). *)
+(** Omitting [~optional_debug_header] should still produce a parseable DBI whose
+    optional debug header is all-0xFFFF (the legacy default). *)
 let test_dbi_optional_debug_header_default () =
   let buf = Buffer.create 128 in
   Pdb.Dbi_write.write buf [] [] ~source_files:[] ~machine:0x8664 ();
@@ -256,8 +256,8 @@ let test_dbi_optional_debug_header_default () =
   | None -> Alcotest.fail "expected Some"
   | Some h ->
       Alcotest.(check int) "fpo_data" 0xFFFF h.fpo_data;
-      Alcotest.(check int) "original_section_header" 0xFFFF
-        h.original_section_header
+      Alcotest.(check int)
+        "original_section_header" 0xFFFF h.original_section_header
 
 let test_dbi_version_signature () =
   let buf = Buffer.create 128 in
@@ -267,10 +267,12 @@ let test_dbi_version_signature () =
   let cur = Object.Buffer.cursor obj_buf in
   let dbi = Pdb.Dbi.parse cur in
   (* Version signature should be -1 *)
-  Alcotest.(check int) "version_signature" (-1)
+  Alcotest.(check int)
+    "version_signature" (-1)
     (Int32.to_int dbi.header.version_signature);
   (* Version header should be V70 = 19990903 *)
-  Alcotest.(check int) "version_header" 19990903
+  Alcotest.(check int)
+    "version_header" 19990903
     (Unsigned.UInt32.to_int dbi.header.version_header)
 
 let () =

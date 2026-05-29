@@ -1,7 +1,6 @@
 (** Tests for CodeView symbol records. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
@@ -71,9 +70,7 @@ let test_gproc32_roundtrip () =
           Alcotest.(check int)
             (name ^ " code_size") 50
             (Unsigned.UInt32.to_int p.code_size);
-          Alcotest.(check int)
-            (name ^ " type") 0x1000
-            (ti_to_int p.type_index);
+          Alcotest.(check int) (name ^ " type") 0x1000 (ti_to_int p.type_index);
           Alcotest.(check int) (name ^ " segment") 1 p.segment
       | _ -> Alcotest.fail (name ^ ": expected GProc32"))
 
@@ -90,9 +87,7 @@ let test_gdata32_roundtrip () =
       match r with
       | Pdb.Codeview_symbols.GData32 d ->
           Alcotest.(check string) (name ^ " name") "global_var" d.name;
-          Alcotest.(check int)
-            (name ^ " type") 0x0074
-            (ti_to_int d.type_index)
+          Alcotest.(check int) (name ^ " type") 0x0074 (ti_to_int d.type_index)
       | _ -> Alcotest.fail (name ^ ": expected GData32"))
 
 let test_local_roundtrip () =
@@ -104,9 +99,7 @@ let test_local_roundtrip () =
       | Pdb.Codeview_symbols.Local { type_index; flags; name = n } ->
           Alcotest.(check string) (name ^ " name") "x" n;
           Alcotest.(check int) (name ^ " flags") 0x01 flags;
-          Alcotest.(check int)
-            (name ^ " type") 0x0074
-            (ti_to_int type_index)
+          Alcotest.(check int) (name ^ " type") 0x0074 (ti_to_int type_index)
       | _ -> Alcotest.fail (name ^ ": expected Local"))
 
 let test_udt_roundtrip () =
@@ -215,7 +208,8 @@ let test_compile3_roundtrip () =
       | Pdb.Codeview_symbols.Compile3
           { flags; machine; frontend_version; backend_version; version_string }
         ->
-          Alcotest.(check int) (name ^ " flags") 0x00000100
+          Alcotest.(check int)
+            (name ^ " flags") 0x00000100
             (Unsigned.UInt32.to_int flags);
           Alcotest.(check int) (name ^ " machine") 0x8664 machine;
           let fe_maj, fe_min, fe_bld, _ = frontend_version in
@@ -224,8 +218,9 @@ let test_compile3_roundtrip () =
           Alcotest.(check int) (name ^ " fe_bld") 30148 fe_bld;
           let be_maj, _, _, _ = backend_version in
           Alcotest.(check int) (name ^ " be_maj") 19 be_maj;
-          Alcotest.(check string) (name ^ " version")
-            "Microsoft (R) Optimizing Compiler" version_string
+          Alcotest.(check string)
+            (name ^ " version") "Microsoft (R) Optimizing Compiler"
+            version_string
       | _ -> Alcotest.fail (name ^ ": expected Compile3"))
 
 let test_lproc32_roundtrip () =
@@ -244,12 +239,12 @@ let test_lproc32_roundtrip () =
       name = "helper";
     }
   in
-  roundtrip_symbol "lproc32" (Pdb.Codeview_symbols.LProc32 proc)
-    (fun name r ->
+  roundtrip_symbol "lproc32" (Pdb.Codeview_symbols.LProc32 proc) (fun name r ->
       match r with
       | Pdb.Codeview_symbols.LProc32 p ->
           Alcotest.(check string) (name ^ " name") "helper" p.name;
-          Alcotest.(check int) (name ^ " code_size") 30
+          Alcotest.(check int)
+            (name ^ " code_size") 30
             (Unsigned.UInt32.to_int p.code_size)
       | _ -> Alcotest.fail (name ^ ": expected LProc32"))
 
@@ -302,8 +297,12 @@ let test_lproc32id_roundtrip () =
 let test_gthread32_roundtrip () =
   roundtrip_symbol "gthread32"
     (Pdb.Codeview_symbols.GThread32
-       { type_index = ti 0x0074; offset = u32 0x4000; segment = 3;
-         name = "tls_var" })
+       {
+         type_index = ti 0x0074;
+         offset = u32 0x4000;
+         segment = 3;
+         name = "tls_var";
+       })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.GThread32 d ->
@@ -314,8 +313,12 @@ let test_gthread32_roundtrip () =
 let test_lthread32_roundtrip () =
   roundtrip_symbol "lthread32"
     (Pdb.Codeview_symbols.LThread32
-       { type_index = ti 0x0074; offset = u32 0x4010; segment = 3;
-         name = "tls_local" })
+       {
+         type_index = ti 0x0074;
+         offset = u32 0x4010;
+         segment = 3;
+         name = "tls_local";
+       })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.LThread32 d ->
@@ -325,14 +328,19 @@ let test_lthread32_roundtrip () =
 let test_defrange_fp_rel_roundtrip () =
   roundtrip_symbol "defrange_fp_rel"
     (Pdb.Codeview_symbols.DefRangeFramePointerRel
-       { offset = -8l; range_offset = u32 0x10; range_section = 1;
-         range_length = 20 })
+       {
+         offset = -8l;
+         range_offset = u32 0x10;
+         range_section = 1;
+         range_length = 20;
+       })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.DefRangeFramePointerRel
           { offset; range_offset; range_section; range_length } ->
           Alcotest.(check int) (name ^ " offset") (-8) (Int32.to_int offset);
-          Alcotest.(check int) (name ^ " range_offset") 0x10
+          Alcotest.(check int)
+            (name ^ " range_offset") 0x10
             (Unsigned.UInt32.to_int range_offset);
           Alcotest.(check int) (name ^ " range_section") 1 range_section;
           Alcotest.(check int) (name ^ " range_length") 20 range_length
@@ -341,8 +349,13 @@ let test_defrange_fp_rel_roundtrip () =
 let test_defrange_register_rel_roundtrip () =
   roundtrip_symbol "defrange_reg_rel"
     (Pdb.Codeview_symbols.DefRangeRegisterRel
-       { base_register = 334; offset = 16l; range_offset = u32 0x20;
-         range_section = 1; range_length = 30 })
+       {
+         base_register = 334;
+         offset = 16l;
+         range_offset = u32 0x20;
+         range_section = 1;
+         range_length = 30;
+       })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.DefRangeRegisterRel
@@ -355,8 +368,13 @@ let test_defrange_register_rel_roundtrip () =
 let test_defrange_register_roundtrip () =
   roundtrip_symbol "defrange_register"
     (Pdb.Codeview_symbols.DefRangeRegister
-       { register = 17; may_have_no_name = 0; range_offset = u32 0x30;
-         range_section = 1; range_length = 10 })
+       {
+         register = 17;
+         may_have_no_name = 0;
+         range_offset = u32 0x30;
+         range_section = 1;
+         range_length = 10;
+       })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.DefRangeRegister { register; _ } ->
@@ -370,21 +388,27 @@ let test_defrange_fp_rel_full_scope_roundtrip () =
       match r with
       | Pdb.Codeview_symbols.DefRangeFramePointerRelFullScope { offset } ->
           Alcotest.(check int) (name ^ " offset") (-16) (Int32.to_int offset)
-      | _ ->
-          Alcotest.fail
-            (name ^ ": expected DefRangeFramePointerRelFullScope"))
+      | _ -> Alcotest.fail (name ^ ": expected DefRangeFramePointerRelFullScope"))
 
 let test_block32_roundtrip () =
   roundtrip_symbol "block32"
     (Pdb.Codeview_symbols.Block32
-       { parent = u32 0; end_ = u32 50; length = u32 20;
-         offset = u32 0x100; segment = 1; name = "" })
+       {
+         parent = u32 0;
+         end_ = u32 50;
+         length = u32 20;
+         offset = u32 0x100;
+         segment = 1;
+         name = "";
+       })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Block32 { length; offset; segment; _ } ->
-          Alcotest.(check int) (name ^ " length") 20
+          Alcotest.(check int)
+            (name ^ " length") 20
             (Unsigned.UInt32.to_int length);
-          Alcotest.(check int) (name ^ " offset") 0x100
+          Alcotest.(check int)
+            (name ^ " offset") 0x100
             (Unsigned.UInt32.to_int offset);
           Alcotest.(check int) (name ^ " segment") 1 segment
       | _ -> Alcotest.fail (name ^ ": expected Block32"))
@@ -392,14 +416,19 @@ let test_block32_roundtrip () =
 let test_inlinesite_roundtrip () =
   roundtrip_symbol "inlinesite"
     (Pdb.Codeview_symbols.InlineSite
-       { parent = u32 0; end_ = u32 80; inlinee = ti 0x1000;
-         annotations = "\x0B\x06\x02" })
+       {
+         parent = u32 0;
+         end_ = u32 80;
+         inlinee = ti 0x1000;
+         annotations = "\x0B\x06\x02";
+       })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.InlineSite { inlinee; annotations; _ } ->
-          Alcotest.(check int) (name ^ " inlinee") 0x1000
-            (ti_to_int inlinee);
-          Alcotest.(check int) (name ^ " annotations len") 3
+          Alcotest.(check int) (name ^ " inlinee") 0x1000 (ti_to_int inlinee);
+          Alcotest.(check int)
+            (name ^ " annotations len")
+            3
             (String.length annotations)
       | _ -> Alcotest.fail (name ^ ": expected InlineSite"))
 
@@ -432,11 +461,14 @@ let test_frameproc_roundtrip () =
       match r with
       | Pdb.Codeview_symbols.FrameProc
           { total_frame_bytes; callee_saved_reg_bytes; frame_proc_flags; _ } ->
-          Alcotest.(check int) (name ^ " frame") 48
+          Alcotest.(check int)
+            (name ^ " frame") 48
             (Unsigned.UInt32.to_int total_frame_bytes);
-          Alcotest.(check int) (name ^ " callee_saved") 16
+          Alcotest.(check int)
+            (name ^ " callee_saved") 16
             (Unsigned.UInt32.to_int callee_saved_reg_bytes);
-          Alcotest.(check int) (name ^ " flags") 0x00114000
+          Alcotest.(check int)
+            (name ^ " flags") 0x00114000
             (Unsigned.UInt32.to_int frame_proc_flags)
       | _ -> Alcotest.fail (name ^ ": expected FrameProc"))
 
@@ -447,8 +479,7 @@ let test_register_roundtrip () =
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Register { type_index; register; name = n } ->
-          Alcotest.(check int) (name ^ " type") 0x0074
-            (ti_to_int type_index);
+          Alcotest.(check int) (name ^ " type") 0x0074 (ti_to_int type_index);
           Alcotest.(check int) (name ^ " register") 17 register;
           Alcotest.(check string) (name ^ " name") "eax_var" n
       | _ -> Alcotest.fail (name ^ ": expected Register"))
@@ -460,7 +491,8 @@ let test_label32_roundtrip () =
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Label32 { offset; segment; name = n; _ } ->
-          Alcotest.(check int) (name ^ " offset") 0x200
+          Alcotest.(check int)
+            (name ^ " offset") 0x200
             (Unsigned.UInt32.to_int offset);
           Alcotest.(check int) (name ^ " segment") 1 segment;
           Alcotest.(check string) (name ^ " name") "$LN3" n
@@ -469,8 +501,12 @@ let test_label32_roundtrip () =
 let test_ldata32_roundtrip () =
   roundtrip_symbol "ldata32"
     (Pdb.Codeview_symbols.LData32
-       { type_index = ti 0x0074; offset = u32 0x6000; segment = 2;
-         name = "static_var" })
+       {
+         type_index = ti 0x0074;
+         offset = u32 0x6000;
+         segment = 2;
+         name = "static_var";
+       })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.LData32 d ->
@@ -489,22 +525,18 @@ let test_envblock_roundtrip () =
     (Pdb.Codeview_symbols.EnvBlock
        {
          fields =
-           [
-             "cwd"; "C:\\project";
-             "cl"; "C:\\msvc\\cl.exe";
-             "cmd"; "-Zi -Od";
-           ];
+           [ "cwd"; "C:\\project"; "cl"; "C:\\msvc\\cl.exe"; "cmd"; "-Zi -Od" ];
        })
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.EnvBlock { fields } ->
           Alcotest.(check int) (name ^ " field count") 6 (List.length fields);
           Alcotest.(check string) (name ^ " field 0") "cwd" (List.nth fields 0);
-          Alcotest.(check string) (name ^ " field 1") "C:\\project"
-            (List.nth fields 1);
+          Alcotest.(check string)
+            (name ^ " field 1") "C:\\project" (List.nth fields 1);
           Alcotest.(check string) (name ^ " field 4") "cmd" (List.nth fields 4);
-          Alcotest.(check string) (name ^ " field 5") "-Zi -Od"
-            (List.nth fields 5)
+          Alcotest.(check string)
+            (name ^ " field 5") "-Zi -Od" (List.nth fields 5)
       | _ -> Alcotest.fail (name ^ ": expected EnvBlock"))
 
 let test_envblock_empty () =
@@ -566,10 +598,10 @@ let test_unknown_symbol_empty_payload () =
 (** {2 Long-name truncation in symbol records}
 
     Mirrors LLVM's [mapStringZ] [take_front(maxFieldLength() - 1)] rule.
-    S_PUB32's fixed prefix is 2-byte kind + 4 (flags) + 4 (offset) + 2
-    (segment) = 12 bytes; with max_record_length = 0xFF00 = 65280 and the
-    2-byte length prefix, [BytesLeft = 65280 - 2 - 12 = 65266] so the
-    longest name we can emit is 65265 chars. *)
+    S_PUB32's fixed prefix is 2-byte kind + 4 (flags) + 4 (offset) + 2 (segment)
+    = 12 bytes; with max_record_length = 0xFF00 = 65280 and the 2-byte length
+    prefix, [BytesLeft = 65280 - 2 - 12 = 65266] so the longest name we can emit
+    is 65265 chars. *)
 let test_pub32_truncates_long_name () =
   let orig = String.make 70000 'X' in
   roundtrip_symbol "pub32_long"
@@ -578,16 +610,15 @@ let test_pub32_truncates_long_name () =
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.Pub32 { name = parsed; _ } ->
-          Alcotest.(check int) (name ^ " length") 65265
-            (String.length parsed);
-          Alcotest.(check string) (name ^ " content")
-            (String.make 65265 'X') parsed
+          Alcotest.(check int) (name ^ " length") 65265 (String.length parsed);
+          Alcotest.(check string)
+            (name ^ " content") (String.make 65265 'X') parsed
       | _ -> Alcotest.fail (name ^ ": expected Pub32"))
 
 (** S_GPROC32 prefix is 2 (kind) + 4 * 8 (parent, end_, next, code_size,
-    debug_start, debug_end, type_index, offset) + 2 (segment) + 1 (flags)
-    = 37 bytes. [BytesLeft = 65280 - 2 - 37 = 65241], so the longest name
-    is 65240 chars. *)
+    debug_start, debug_end, type_index, offset) + 2 (segment) + 1 (flags) = 37
+    bytes. [BytesLeft = 65280 - 2 - 37 = 65241], so the longest name is 65240
+    chars. *)
 let test_gproc32_truncates_long_name () =
   let orig = String.make 70000 'Z' in
   roundtrip_symbol "gproc32_long"
@@ -608,10 +639,9 @@ let test_gproc32_truncates_long_name () =
     (fun name r ->
       match r with
       | Pdb.Codeview_symbols.GProc32 p ->
-          Alcotest.(check int) (name ^ " length") 65240
-            (String.length p.name);
-          Alcotest.(check string) (name ^ " content")
-            (String.make 65240 'Z') p.name
+          Alcotest.(check int) (name ^ " length") 65240 (String.length p.name);
+          Alcotest.(check string)
+            (name ^ " content") (String.make 65240 'Z') p.name
       | _ -> Alcotest.fail (name ^ ": expected GProc32"))
 
 (** Names that fit pass through unchanged. *)

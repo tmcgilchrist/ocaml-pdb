@@ -178,17 +178,9 @@ type field_entry =
       vbptr_offset : int64;
       vbtable_index : int64;
     }
-  | NestedType of {
-      attrs : int;
-      nested_type : Type_index.t;
-      name : string;
-    }
+  | NestedType of { attrs : int; nested_type : Type_index.t; name : string }
   | VFuncTab of { vftable_type : Type_index.t }
-  | StaticMember of {
-      attrs : int;
-      field_type : Type_index.t;
-      name : string;
-    }
+  | StaticMember of { attrs : int; field_type : Type_index.t; name : string }
   | Index of { continuation : Type_index.t }
 
 type type_record =
@@ -238,15 +230,9 @@ type type_record =
       name : string;
       unique_name : string option;
     }
-  | Bitfield of {
-      underlying_type : Type_index.t;
-      length : int;
-      position : int;
-    }
+  | Bitfield of { underlying_type : Type_index.t; length : int; position : int }
   | VTShape of { descriptors : int array }
-  | MethodList of {
-      entries : (int * Type_index.t * int option) list;
-    }
+  | MethodList of { entries : (int * Type_index.t * int option) list }
   | FuncId of {
       scope_id : Type_index.t;
       func_type : Type_index.t;
@@ -268,21 +254,21 @@ type type_record =
     }
   | SubstrList of { strings : Type_index.t array }
   | TypeServer2 of { guid : guid; age : u32; name : string }
-      (** LF_TYPESERVER2 (0x1515): a reference to an external PDB file
-          managed by a Microsoft type server, used by MSVC's [/Zi]
-          option. The record itself carries no TypeIndex references --
-          the type information lives in the named PDB. *)
+      (** LF_TYPESERVER2 (0x1515): a reference to an external PDB file managed
+          by a Microsoft type server, used by MSVC's [/Zi] option. The record
+          itself carries no TypeIndex references -- the type information lives
+          in the named PDB. *)
   | Unknown of { kind : int; data : string }
 
 (** Remap every TypeIndex reference in a record. [type_ref] is applied to
-    references into the TPI stream, [id_ref] to references into the IPI
-    stream. The classification follows LLVM's [discoverTypeIndices]
+    references into the TPI stream, [id_ref] to references into the IPI stream.
+    The classification follows LLVM's [discoverTypeIndices]
     (llvm/lib/DebugInfo/CodeView/TypeIndexDiscovery.cpp): IPI records use
     [id_ref] for [FuncId.scope_id], [StringId.id], [BuildInfo.args],
     [SubstrList.strings], and [UdtSrcLine.source]; all other references --
     including [MFuncId]'s two fields and [UdtSrcLine.udt] -- are type
-    references. [UdtModSrcLine.source] is intentionally left untouched
-    because LLVM does not treat it as a reference. *)
+    references. [UdtModSrcLine.source] is intentionally left untouched because
+    LLVM does not treat it as a reference. *)
 let map_type_indices ~type_ref ~id_ref record =
   let t = type_ref and i = id_ref in
   let map_class (cr : class_record) =
@@ -360,12 +346,7 @@ let map_type_indices ~type_ref ~id_ref record =
   | FieldList { members } -> FieldList { members = List.map map_field members }
   | Array { element_type; index_type; size; name } ->
       Array
-        {
-          element_type = t element_type;
-          index_type = t index_type;
-          size;
-          name;
-        }
+        { element_type = t element_type; index_type = t index_type; size; name }
   | Class cr -> Class (map_class cr)
   | Structure cr -> Structure (map_class cr)
   | Interface cr -> Interface (map_class cr)
@@ -380,8 +361,14 @@ let map_type_indices ~type_ref ~id_ref record =
           unique_name;
         }
   | Enum
-      { field_count; properties; underlying_type; field_list; name; unique_name }
-    ->
+      {
+        field_count;
+        properties;
+        underlying_type;
+        field_list;
+        name;
+        unique_name;
+      } ->
       Enum
         {
           field_count;
@@ -395,10 +382,7 @@ let map_type_indices ~type_ref ~id_ref record =
       Bitfield { underlying_type = t underlying_type; length; position }
   | VTShape v -> VTShape v
   | MethodList { entries } ->
-      MethodList
-        {
-          entries = List.map (fun (a, mt, v) -> (a, t mt, v)) entries;
-        }
+      MethodList { entries = List.map (fun (a, mt, v) -> (a, t mt, v)) entries }
   | FuncId { scope_id; func_type; name } ->
       FuncId { scope_id = i scope_id; func_type = t func_type; name }
   | MFuncId { parent_type; func_type; name } ->
@@ -420,6 +404,7 @@ let skip_padding (cur : Object.Buffer.cursor) (end_pos : int) : unit =
   done
 
 let read_type_index cur = Type_index.of_u32 (read_u32 cur)
+
 let write_type_index buf ti =
   write_u32_le buf (Unsigned.UInt32.to_int (Type_index.to_u32 ti))
 
@@ -739,19 +724,20 @@ let write_padding buf =
     unique-name) truncated and hashed -- see {!truncate_long_name}. *)
 let max_record_length = 0xFF00
 
+(* LLVM's cap on a hashed name including the appended hash, and the length
+   of a 16-byte MD5 rendered as lowercase hex. *)
+
 (** Truncate [name] (and optional [unique_name]) so the record fits within
     {!max_record_length} bytes, mirroring LLVM's [mapNameAndUniqueName]
     (llvm/lib/DebugInfo/CodeView/TypeRecordMapping.cpp).
 
-    [bytes_left] is the number of payload bytes still available for the
-    name(s) and their null terminators. With a unique name, the unique
-    name is replaced by ["??@" + MD5_hex(unique) + "@"] (36 chars) and the
-    name is truncated to leave room for an appended 32-char MD5 hex of
-    the original. Without a unique name, the name is simply
-    [take_front(bytes_left - 1)]. *)
-(* LLVM's cap on a hashed name including the appended hash, and the length
-   of a 16-byte MD5 rendered as lowercase hex. *)
+    [bytes_left] is the number of payload bytes still available for the name(s)
+    and their null terminators. With a unique name, the unique name is replaced
+    by ["??@" + MD5_hex(unique) + "@"] (36 chars) and the name is truncated to
+    leave room for an appended 32-char MD5 hex of the original. Without a unique
+    name, the name is simply [take_front(bytes_left - 1)]. *)
 let max_hashed_name_len = 4096
+
 let md5_hex_len = 32
 let md5_hex s = Digest.to_hex (Digest.string s)
 
@@ -775,12 +761,11 @@ let truncate_long_name ~bytes_left ~name ~unique_name =
         let take_n = max 0 (bytes_left - 1) in
         (String.sub name 0 take_n, None)
 
-(** Payload bytes still available in the in-progress record [rec_buf].
-    [rec_buf] holds the 2-byte leaf kind followed by fields written so
-    far; the 2-byte length prefix is added when the record is flushed.
-    Equivalent to LLVM's [CodeViewRecordIO::maxFieldLength()]. *)
-let bytes_remaining rec_buf =
-  max_record_length - 2 - Buffer.length rec_buf
+(** Payload bytes still available in the in-progress record [rec_buf]. [rec_buf]
+    holds the 2-byte leaf kind followed by fields written so far; the 2-byte
+    length prefix is added when the record is flushed. Equivalent to LLVM's
+    [CodeViewRecordIO::maxFieldLength()]. *)
+let bytes_remaining rec_buf = max_record_length - 2 - Buffer.length rec_buf
 
 (** Write a record's trailing name and optional unique-name into [rec_buf],
     truncating both with {!truncate_long_name} if they would overflow the

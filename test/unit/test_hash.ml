@@ -67,11 +67,13 @@ let test_hash_exact_main () =
   Alcotest.(check int) "\"main\"" 0x6E64C225 (Pdb.Hash.hash_string_v1 "main")
 
 let test_hash_exact_names () =
-  Alcotest.(check int) "\"/names\"" 0x6D6CFC21
+  Alcotest.(check int)
+    "\"/names\"" 0x6D6CFC21
     (Pdb.Hash.hash_string_v1 "/names")
 
 let test_hash_exact_linkinfo () =
-  Alcotest.(check int) "\"/LinkInfo\"" 0x282209ED
+  Alcotest.(check int)
+    "\"/LinkInfo\"" 0x282209ED
     (Pdb.Hash.hash_string_v1 "/LinkInfo")
 
 let test_hash_exact_a () =
@@ -84,8 +86,7 @@ let test_hash_exact_abc () =
   Alcotest.(check int) "\"abc\"" 0x2024460A (Pdb.Hash.hash_string_v1 "abc")
 
 let test_hash_exact_abcd () =
-  Alcotest.(check int) "\"abcd\"" 0x646F8A62
-    (Pdb.Hash.hash_string_v1 "abcd")
+  Alcotest.(check int) "\"abcd\"" 0x646F8A62 (Pdb.Hash.hash_string_v1 "abcd")
 
 let test_hash_exact_case_insensitive () =
   (* "MAIN" must produce the exact same hash as "main" *)
@@ -95,14 +96,15 @@ let test_hash_exact_int () =
   Alcotest.(check int) "\"int\"" 0x20244A14 (Pdb.Hash.hash_string_v1 "int")
 
 let test_hash_exact_point () =
-  Alcotest.(check int) "\"Point\"" 0x6E64CC6D
-    (Pdb.Hash.hash_string_v1 "Point")
+  Alcotest.(check int) "\"Point\"" 0x6E64CC6D (Pdb.Hash.hash_string_v1 "Point")
 
 let test_hash_exact_unique_name () =
-  Alcotest.(check int) "\".?AUPoint@@\"" 0x3B2F6E43
+  Alcotest.(check int)
+    "\".?AUPoint@@\"" 0x3B2F6E43
     (Pdb.Hash.hash_string_v1 ".?AUPoint@@")
 
-(** Exact CRC32/JamCRC values (hash_buffer_v8), validated against C reference. *)
+(** Exact CRC32/JamCRC values (hash_buffer_v8), validated against C reference.
+*)
 
 let test_crc32_empty () =
   Alcotest.(check int) "crc32 empty" 0x00000000 (Pdb.Hash.hash_buffer_v8 "")
@@ -114,7 +116,8 @@ let test_crc32_abc () =
   Alcotest.(check int) "crc32 abc" 0xCA6598D0 (Pdb.Hash.hash_buffer_v8 "abc")
 
 let test_crc32_123456789 () =
-  Alcotest.(check int) "crc32 123456789" 0x2DFD2D88
+  Alcotest.(check int)
+    "crc32 123456789" 0x2DFD2D88
     (Pdb.Hash.hash_buffer_v8 "123456789")
 
 let () =

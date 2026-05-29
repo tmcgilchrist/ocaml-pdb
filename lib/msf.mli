@@ -20,8 +20,7 @@ type superblock = {
       (** Byte size of the stream directory, used to determine how many
           directory blocks the block map points at. *)
   block_map_addr : u32;
-      (** Block index of the block map (an array of directory block
-          indices). *)
+      (** Block index of the block map (an array of directory block indices). *)
 }
 
 val msf_magic : string
@@ -34,9 +33,9 @@ type t
 (** A parsed MSF container with all streams reassembled. *)
 
 val read : Object.Buffer.t -> t
-(** [read buffer] parses an MSF file from [buffer], validating the
-    superblock and reassembling all streams from their block lists.
-    Raises [Object.Buffer.Invalid_format] on malformed input. *)
+(** [read buffer] parses an MSF file from [buffer], validating the superblock
+    and reassembling all streams from their block lists. Raises
+    [Object.Buffer.Invalid_format] on malformed input. *)
 
 val superblock : t -> superblock
 (** The validated superblock. *)
@@ -45,8 +44,8 @@ val stream_count : t -> int
 (** Number of logical streams (including any zero-byte ones). *)
 
 val get_stream : t -> int -> Object.Buffer.t option
-(** [get_stream t idx] returns the reassembled bytes of stream [idx], or
-    [None] if [idx] is out of range. *)
+(** [get_stream t idx] returns the reassembled bytes of stream [idx], or [None]
+    if [idx] is out of range. *)
 
 val get_stream_exn : t -> int -> Object.Buffer.t
 (** Like {!get_stream} but raises [Object.Buffer.Invalid_format] on an

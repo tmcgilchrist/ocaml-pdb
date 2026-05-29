@@ -210,7 +210,8 @@ let dump_symbols msf =
                   | UNamespace { name } ->
                       Printf.sprintf "S_UNAMESPACE \"%s\"" name
                   | EnvBlock { fields } ->
-                      Printf.sprintf "S_ENVBLOCK (%d fields)" (List.length fields)
+                      Printf.sprintf "S_ENVBLOCK (%d fields)"
+                        (List.length fields)
                   | Unknown { kind; _ } -> Printf.sprintf "Unknown(0x%04X)" kind))
               sym_list
           end)

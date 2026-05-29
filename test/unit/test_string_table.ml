@@ -1,7 +1,6 @@
 (** Tests for PDB global string table (/names stream). *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let test_empty_table () =
@@ -22,9 +21,11 @@ let test_single_string () =
   Alcotest.(check bool) "offset > 0" true (off > 0);
   Alcotest.(check int) "count" 1 (Pdb.Pdb_string_table.count t);
   (* Lookup *)
-  Alcotest.(check (option int)) "lookup" (Some off)
+  Alcotest.(check (option int))
+    "lookup" (Some off)
     (Pdb.Pdb_string_table.lookup t "hello.c");
-  Alcotest.(check (option int)) "lookup missing" Option.None
+  Alcotest.(check (option int))
+    "lookup missing" Option.None
     (Pdb.Pdb_string_table.lookup t "missing.c");
   (* Round-trip *)
   let buf = Buffer.create 128 in
@@ -34,7 +35,8 @@ let test_single_string () =
   let cur = Object.Buffer.cursor obj_buf in
   let t' = Pdb.Pdb_string_table.parse cur in
   Alcotest.(check int) "parsed count" 1 (Pdb.Pdb_string_table.count t');
-  Alcotest.(check (option int)) "parsed lookup" (Some off)
+  Alcotest.(check (option int))
+    "parsed lookup" (Some off)
     (Pdb.Pdb_string_table.lookup t' "hello.c")
 
 let test_multiple_strings () =
@@ -44,7 +46,8 @@ let test_multiple_strings () =
   let off3 = Pdb.Pdb_string_table.add_string t "baz.cpp" in
   Alcotest.(check int) "count" 3 (Pdb.Pdb_string_table.count t);
   (* Offsets should all be different *)
-  Alcotest.(check bool) "different offsets" true
+  Alcotest.(check bool)
+    "different offsets" true
     (off1 <> off2 && off2 <> off3 && off1 <> off3);
   (* Round-trip *)
   let buf = Buffer.create 256 in
@@ -54,11 +57,14 @@ let test_multiple_strings () =
   let cur = Object.Buffer.cursor obj_buf in
   let t' = Pdb.Pdb_string_table.parse cur in
   Alcotest.(check int) "parsed count" 3 (Pdb.Pdb_string_table.count t');
-  Alcotest.(check (option int)) "foo.c" (Some off1)
+  Alcotest.(check (option int))
+    "foo.c" (Some off1)
     (Pdb.Pdb_string_table.lookup t' "foo.c");
-  Alcotest.(check (option int)) "bar.h" (Some off2)
+  Alcotest.(check (option int))
+    "bar.h" (Some off2)
     (Pdb.Pdb_string_table.lookup t' "bar.h");
-  Alcotest.(check (option int)) "baz.cpp" (Some off3)
+  Alcotest.(check (option int))
+    "baz.cpp" (Some off3)
     (Pdb.Pdb_string_table.lookup t' "baz.cpp")
 
 let test_deduplication () =
@@ -83,9 +89,11 @@ let test_windows_paths () =
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
   let t' = Pdb.Pdb_string_table.parse cur in
-  Alcotest.(check (option int)) "main.c" (Some off1)
+  Alcotest.(check (option int))
+    "main.c" (Some off1)
     (Pdb.Pdb_string_table.lookup t' "C:\\Users\\dev\\project\\main.c");
-  Alcotest.(check (option int)) "util.h" (Some off2)
+  Alcotest.(check (option int))
+    "util.h" (Some off2)
     (Pdb.Pdb_string_table.lookup t' "C:\\Users\\dev\\project\\util.h")
 
 let test_many_strings () =
@@ -114,8 +122,8 @@ let test_many_strings () =
         (Pdb.Pdb_string_table.lookup t' name))
     offsets
 
-(** A header whose [byte_size] claims more names-buffer bytes than the
-    cursor actually contains must surface as Invalid_format. *)
+(** A header whose [byte_size] claims more names-buffer bytes than the cursor
+    actually contains must surface as Invalid_format. *)
 let test_truncated_mid_names_buffer () =
   let buf = Buffer.create 12 in
   let put_u32 v =
@@ -124,9 +132,12 @@ let test_truncated_mid_names_buffer () =
     Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
     Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
   in
-  put_u32 0xEFFEEFFE;  (* signature *)
-  put_u32 1;            (* hash_version *)
-  put_u32 100;          (* byte_size larger than what follows (0 bytes) *)
+  put_u32 0xEFFEEFFE;
+  (* signature *)
+  put_u32 1;
+  (* hash_version *)
+  put_u32 100;
+  (* byte_size larger than what follows (0 bytes) *)
   let bytes = Buffer.contents buf in
   let cur = Object.Buffer.cursor (buffer_of_string bytes) in
   match Pdb.Pdb_string_table.parse cur with

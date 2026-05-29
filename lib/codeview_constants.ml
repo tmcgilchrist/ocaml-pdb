@@ -902,27 +902,25 @@ let string_of_pointer_mode = function
 
 (** {2 Pointer Attributes (LF_POINTER's "attrs" field)}
 
-    Bit layout in the u32:
-      bits 0-4   PointerKind  (5 bits)
-      bits 5-7   PointerMode  (3 bits)
-      bits 8-12  PointerOptions (5 bits, flags)
-      bits 13-18 PointerSize    (6 bits, in bytes) *)
+    Bit layout in the u32: bits 0-4 PointerKind (5 bits) bits 5-7 PointerMode (3
+    bits) bits 8-12 PointerOptions (5 bits, flags) bits 13-18 PointerSize (6
+    bits, in bytes) *)
 
 let make_pointer_attrs ?(mode = Pointer) ?(flags = 0) kind ~size =
   let kind_bits = int_of_pointer_kind kind in
   let mode_bits = int_of_pointer_mode mode in
-  (kind_bits land 0x1F)
+  kind_bits land 0x1F
   lor ((mode_bits land 0x07) lsl 5)
   lor ((flags land 0x1F) lsl 8)
   lor ((size land 0x3F) lsl 13)
 
-(** Common pointer attribute values. A "standard" 32-bit C pointer has
-    kind = Near32 and size = 4 bytes; a 64-bit one has Near64 and 8. *)
+(** Common pointer attribute values. A "standard" 32-bit C pointer has kind =
+    Near32 and size = 4 bytes; a 64-bit one has Near64 and 8. *)
 let near32_pointer_attrs = make_pointer_attrs Near32 ~size:4
 (** [near32_pointer_attrs] = 0x800A *)
 
-let near64_pointer_attrs = make_pointer_attrs Near64 ~size:8
 (** [near64_pointer_attrs] = 0x1000C *)
+let near64_pointer_attrs = make_pointer_attrs Near64 ~size:8
 
 (** {2 Member Access} *)
 

@@ -1,5 +1,5 @@
-(** Differential testing: compare OCaml hash functions against the LLVM
-    C reference implementation (tmp/hash_oracle).
+(** Differential testing: compare OCaml hash functions against the LLVM C
+    reference implementation (tmp/hash_oracle).
 
     Generates random strings via QCheck and verifies both implementations
     produce identical values. *)
@@ -48,12 +48,11 @@ let run_oracle mode input =
 let gen_safe_string =
   QCheck.Gen.(
     let+ len = int_range 0 50 in
-    String.init len (fun i -> Char.chr (((i * 7 + 33) mod 90) + 33)))
+    String.init len (fun i -> Char.chr ((((i * 7) + 33) mod 90) + 33)))
 
 let test_hash_v1_differential =
   QCheck.Test.make ~name:"hash_string_v1 matches C oracle" ~count:200
-    (QCheck.make gen_safe_string)
-    (fun s ->
+    (QCheck.make gen_safe_string) (fun s ->
       if not (has_oracle ()) then true (* skip if oracle not built *)
       else
         let ocaml_result = Pdb.Hash.hash_string_v1 s in
@@ -62,8 +61,7 @@ let test_hash_v1_differential =
 
 let test_hash_v8_differential =
   QCheck.Test.make ~name:"hash_buffer_v8 matches C oracle" ~count:200
-    (QCheck.make gen_safe_string)
-    (fun s ->
+    (QCheck.make gen_safe_string) (fun s ->
       if not (has_oracle ()) then true
       else
         let ocaml_result = Pdb.Hash.hash_buffer_v8 s in
@@ -75,34 +73,50 @@ let test_v1_specific_strings () =
   if not (has_oracle ()) then Alcotest.skip ()
   else
     let cases =
-      [ ""; "a"; "ab"; "abc"; "abcd"; "abcde"; "main"; "/names";
-        "/LinkInfo"; "MAIN"; "int"; "Point"; ".?AUPoint@@";
+      [
+        "";
+        "a";
+        "ab";
+        "abc";
+        "abcd";
+        "abcde";
+        "main";
+        "/names";
+        "/LinkInfo";
+        "MAIN";
+        "int";
+        "Point";
+        ".?AUPoint@@";
         "C:\\Users\\dev\\project\\main.c";
-        "std::vector<int, std::allocator<int>>" ]
+        "std::vector<int, std::allocator<int>>";
+      ]
     in
     List.iter
       (fun s ->
         let ocaml_v = Pdb.Hash.hash_string_v1 s in
         let c_v = run_oracle "v1" s in
-        Alcotest.(check int)
-          (Printf.sprintf "v1(%S)" s)
-          c_v ocaml_v)
+        Alcotest.(check int) (Printf.sprintf "v1(%S)" s) c_v ocaml_v)
       cases
 
 let test_v8_specific_strings () =
   if not (has_oracle ()) then Alcotest.skip ()
   else
     let cases =
-      [ ""; "a"; "abc"; "123456789"; "hello world";
-        "\x00\x01\x02\x03"; "LF_STRUCTURE" ]
+      [
+        "";
+        "a";
+        "abc";
+        "123456789";
+        "hello world";
+        "\x00\x01\x02\x03";
+        "LF_STRUCTURE";
+      ]
     in
     List.iter
       (fun s ->
         let ocaml_v = Pdb.Hash.hash_buffer_v8 s in
         let c_v = run_oracle "v8" s in
-        Alcotest.(check int)
-          (Printf.sprintf "v8(%S)" s)
-          c_v ocaml_v)
+        Alcotest.(check int) (Printf.sprintf "v8(%S)" s) c_v ocaml_v)
       cases
 
 let () =

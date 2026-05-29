@@ -110,19 +110,17 @@ type symbol_record =
   | Unknown of { kind : int; data : string }
 
 val parse_symbol_record : Object.Buffer.cursor -> int -> symbol_record
-(** [parse_symbol_record cur record_data_len] parses a single symbol
-    record. The cursor should be positioned at the symbol kind u16.
-    [record_data_len] is the byte count following the length prefix
-    (so it includes the 2-byte symbol kind).
-    Raises [Object.Buffer.Invalid_format] if the cursor has fewer than
-    [record_data_len] bytes remaining or the record's declared length
-    is smaller than the encoded fields require. *)
+(** [parse_symbol_record cur record_data_len] parses a single symbol record. The
+    cursor should be positioned at the symbol kind u16. [record_data_len] is the
+    byte count following the length prefix (so it includes the 2-byte symbol
+    kind). Raises [Object.Buffer.Invalid_format] if the cursor has fewer than
+    [record_data_len] bytes remaining or the record's declared length is smaller
+    than the encoded fields require. *)
 
 val write_symbol_record : Stdlib.Buffer.t -> symbol_record -> unit
-(** [write_symbol_record buf record] serializes a symbol record
-    including the length prefix and symbol kind. *)
+(** [write_symbol_record buf record] serializes a symbol record including the
+    length prefix and symbol kind. *)
 
 val parse_symbol_stream : Object.Buffer.cursor -> int -> symbol_record Seq.t
-(** [parse_symbol_stream cur total_bytes] lazily iterates symbol records.
-    Raises [Object.Buffer.Invalid_format] (during iteration) on a malformed
-    record. *)
+(** [parse_symbol_stream cur total_bytes] lazily iterates symbol records. Raises
+    [Object.Buffer.Invalid_format] (during iteration) on a malformed record. *)

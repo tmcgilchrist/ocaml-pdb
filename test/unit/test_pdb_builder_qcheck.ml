@@ -1,12 +1,10 @@
 (** QCheck property-based tests for the high-level PDB builder.
 
-    Each property drives the builder with arbitrary but valid inputs,
-    finalizes the resulting byte string, and verifies an end-to-end
-    invariant by parsing it back through [Msf] and the per-stream
-    readers. *)
+    Each property drives the builder with arbitrary but valid inputs, finalizes
+    the resulting byte string, and verifies an end-to-end invariant by parsing
+    it back through [Msf] and the per-stream readers. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let default_count =
@@ -41,11 +39,12 @@ let serialize_type r =
 let gen_ident =
   QCheck.Gen.(
     let* len = int_range 1 16 in
-    string_size ~gen:(map (fun n -> Char.chr (97 + (n mod 26))) nat)
+    string_size
+      ~gen:(map (fun n -> Char.chr (97 + (n mod 26))) nat)
       (return len))
 
-(** Generate a small ArgList type record. Distinct [n] yields a distinct
-    wire form. *)
+(** Generate a small ArgList type record. Distinct [n] yields a distinct wire
+    form. *)
 let gen_arglist =
   QCheck.Gen.(
     let* n = int_range 0 4 in
@@ -106,9 +105,7 @@ let prop_types_roundtrip =
       List.iter
         (fun r -> Hashtbl.replace parsed_set (serialize_type r) ())
         parsed;
-      List.for_all
-        (fun r -> Hashtbl.mem parsed_set (serialize_type r))
-        records)
+      List.for_all (fun r -> Hashtbl.mem parsed_set (serialize_type r)) records)
 
 let pub_name = function
   | Pdb.Codeview_symbols.Pub32 { name; _ } -> name
@@ -147,7 +144,9 @@ let prop_strings_roundtrip =
   q_test "strings round-trip through /names" ident_arb (fun names ->
       let uniq = dedup_by ~key:Fun.id names in
       let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
-      let added = List.map (fun n -> (n, Pdb.Pdb_builder.add_string b n)) uniq in
+      let added =
+        List.map (fun n -> (n, Pdb.Pdb_builder.add_string b n)) uniq
+      in
       let pdb_bytes = Pdb.Pdb_builder.finalize b in
       let buf = buffer_of_string pdb_bytes in
       let msf = Pdb.Msf.read buf in

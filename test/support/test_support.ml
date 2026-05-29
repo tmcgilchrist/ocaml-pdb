@@ -1,7 +1,7 @@
 (** Shared test helpers. *)
 
-(** Build an [Object.Buffer.t] from a string. The buffer's contents are
-    the bytes of [s], in the same order. *)
+(** Build an [Object.Buffer.t] from a string. The buffer's contents are the
+    bytes of [s], in the same order. *)
 let buffer_of_string s =
   let len = String.length s in
   let buf =

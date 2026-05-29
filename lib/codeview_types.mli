@@ -12,37 +12,34 @@ open Pdb_types
     wider format. *)
 
 val parse_numeric_leaf : Object.Buffer.cursor -> int64
-(** Read a CodeView numeric leaf and return its value as an [int64].
-    Raises [Object.Buffer.Invalid_format] on truncated input or an
-    unrecognised tag. *)
+(** Read a CodeView numeric leaf and return its value as an [int64]. Raises
+    [Object.Buffer.Invalid_format] on truncated input or an unrecognised tag. *)
 
 val write_numeric_leaf : Stdlib.Buffer.t -> int64 -> unit
 (** Write [v] using the smallest leaf encoding that fits it. *)
 
 (** {2 Record-size limits}
 
-    CodeView caps every type or symbol record at {!max_record_length}
-    bytes including the 2-byte length prefix and 2-byte leaf/symbol kind.
-    Writers that emit a trailing variable-length field (typically a
-    name) should consult {!bytes_remaining} before writing it and
-    truncate as needed. *)
+    CodeView caps every type or symbol record at {!max_record_length} bytes
+    including the 2-byte length prefix and 2-byte leaf/symbol kind. Writers that
+    emit a trailing variable-length field (typically a name) should consult
+    {!bytes_remaining} before writing it and truncate as needed. *)
 
 val max_record_length : int
-(** 0xFF00 = 65280: the hard cap on a type or symbol record's on-disk
-    size including the 2-byte length prefix. *)
+(** 0xFF00 = 65280: the hard cap on a type or symbol record's on-disk size
+    including the 2-byte length prefix. *)
 
 val bytes_remaining : Stdlib.Buffer.t -> int
 (** [bytes_remaining rec_buf] returns the number of payload bytes still
-    available before the in-progress record would exceed
-    {!max_record_length}. [rec_buf] holds the 2-byte leaf/symbol kind
-    followed by the fields written so far; the 2-byte length prefix is
-    added when the record is flushed. *)
+    available before the in-progress record would exceed {!max_record_length}.
+    [rec_buf] holds the 2-byte leaf/symbol kind followed by the fields written
+    so far; the 2-byte length prefix is added when the record is flushed. *)
 
 (** {2 Type Properties}
 
     Bit flags appearing on every LF_CLASS / LF_STRUCTURE / LF_INTERFACE /
-    LF_UNION / LF_ENUM record. Each flag is one bit of the on-disk
-    [u16] property word; see Microsoft's [cvinfo.h] [CV_prop_t]. *)
+    LF_UNION / LF_ENUM record. Each flag is one bit of the on-disk [u16]
+    property word; see Microsoft's [cvinfo.h] [CV_prop_t]. *)
 
 type type_properties = {
   packed : bool;  (** No automatic field padding. *)
@@ -102,17 +99,9 @@ type field_entry =
       vbptr_offset : int64;
       vbtable_index : int64;
     }
-  | NestedType of {
-      attrs : int;
-      nested_type : Type_index.t;
-      name : string;
-    }
+  | NestedType of { attrs : int; nested_type : Type_index.t; name : string }
   | VFuncTab of { vftable_type : Type_index.t }
-  | StaticMember of {
-      attrs : int;
-      field_type : Type_index.t;
-      name : string;
-    }
+  | StaticMember of { attrs : int; field_type : Type_index.t; name : string }
   | Index of { continuation : Type_index.t }
 
 type type_record =
@@ -166,11 +155,7 @@ type type_record =
       name : string;
       unique_name : string option;
     }
-  | Bitfield of {
-      underlying_type : Type_index.t;
-      length : int;
-      position : int;
-    }
+  | Bitfield of { underlying_type : Type_index.t; length : int; position : int }
   | VTShape of { descriptors : int array }
   | MethodList of {
       entries : (int * Type_index.t * int option) list;
@@ -198,24 +183,23 @@ type type_record =
     }
   | SubstrList of { strings : Type_index.t array }
   | TypeServer2 of { guid : guid; age : u32; name : string }
-      (** LF_TYPESERVER2 (0x1515): reference to an external PDB file
-          containing this module's type information, used by MSVC's
-          [/Zi] compile-with-shared-type-server flag. Carries no
-          TypeIndex references. *)
+      (** LF_TYPESERVER2 (0x1515): reference to an external PDB file containing
+          this module's type information, used by MSVC's [/Zi]
+          compile-with-shared-type-server flag. Carries no TypeIndex references.
+      *)
   | Unknown of { kind : int; data : string }
 
 val parse_type_record : Object.Buffer.cursor -> int -> type_record
-(** [parse_type_record cur record_data_len] parses a single type record.
-    The cursor should be positioned after the length prefix but at the
-    leaf kind u16. [record_data_len] is the byte count following that
-    length prefix (so it includes the 2-byte leaf kind).
-    Raises [Object.Buffer.Invalid_format] if the cursor has fewer than
-    [record_data_len] bytes remaining or if the record's declared length
-    is smaller than the encoded fields require. *)
+(** [parse_type_record cur record_data_len] parses a single type record. The
+    cursor should be positioned after the length prefix but at the leaf kind
+    u16. [record_data_len] is the byte count following that length prefix (so it
+    includes the 2-byte leaf kind). Raises [Object.Buffer.Invalid_format] if the
+    cursor has fewer than [record_data_len] bytes remaining or if the record's
+    declared length is smaller than the encoded fields require. *)
 
 val write_type_record : Stdlib.Buffer.t -> type_record -> unit
-(** [write_type_record buf record] serializes a type record including
-    the length prefix and leaf kind. *)
+(** [write_type_record buf record] serializes a type record including the length
+    prefix and leaf kind. *)
 
 val map_type_indices :
   type_ref:(Type_index.t -> Type_index.t) ->
@@ -223,9 +207,9 @@ val map_type_indices :
   type_record ->
   type_record
 (** [map_type_indices ~type_ref ~id_ref record] returns [record] with every
-    TypeIndex reference remapped: [type_ref] is applied to references into
-    the TPI stream and [id_ref] to references into the IPI stream. The
-    TPI/IPI classification matches LLVM's [discoverTypeIndices]. Used by
+    TypeIndex reference remapped: [type_ref] is applied to references into the
+    TPI stream and [id_ref] to references into the IPI stream. The TPI/IPI
+    classification matches LLVM's [discoverTypeIndices]. Used by
     cross-compilation-unit type merging to rewrite references onto a shared
     numbering. Non-reference fields (names, sizes, attribute words) are left
     unchanged. *)

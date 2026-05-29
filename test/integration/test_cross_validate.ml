@@ -5,7 +5,6 @@
     strings. This validates write-path compatibility with the LLVM reference. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
@@ -65,7 +64,7 @@ let build_test_pdb () : string =
         {
           return_type = ti 0x0074;
           calling_conv = Pdb.Codeview_constants.NearC;
-      options = 0;
+          options = 0;
           param_count = 0;
           arg_list = ti 0x1000;
         };
@@ -94,8 +93,7 @@ let build_test_pdb () : string =
   Pdb.Msf_write.finalize msf
 
 let test_llvm_pdbutil_summary () =
-  if not (has_llvm_pdbutil ()) then
-    Alcotest.skip ()
+  if not (has_llvm_pdbutil ()) then Alcotest.skip ()
   else begin
     let pdb_bytes = build_test_pdb () in
     let tmpfile = Filename.temp_file "ocaml_pdb_test_" ".pdb" in
@@ -103,29 +101,32 @@ let test_llvm_pdbutil_summary () =
     output_string oc pdb_bytes;
     close_out oc;
     let output =
-      run_command
-        (Printf.sprintf "llvm-pdbutil dump --summary %s 2>&1" tmpfile)
+      run_command (Printf.sprintf "llvm-pdbutil dump --summary %s 2>&1" tmpfile)
     in
     Sys.remove tmpfile;
     (* Verify llvm-pdbutil can read the file and reports key fields *)
-    Alcotest.(check bool) "contains Block Size" true
+    Alcotest.(check bool)
+      "contains Block Size" true
       (String.length output > 0
-       && (try
-             ignore (Str.search_forward (Str.regexp "Block Size") output 0);
-             true
-           with Not_found -> false));
-    Alcotest.(check bool) "contains Number of streams" true
+      &&
+        try
+          ignore (Str.search_forward (Str.regexp "Block Size") output 0);
+          true
+        with Not_found -> false);
+    Alcotest.(check bool)
+      "contains Number of streams" true
       (try
-         ignore
-           (Str.search_forward (Str.regexp "Number of streams") output 0);
+         ignore (Str.search_forward (Str.regexp "Number of streams") output 0);
          true
        with Not_found -> false);
-    Alcotest.(check bool) "contains Age: 1" true
+    Alcotest.(check bool)
+      "contains Age: 1" true
       (try
          ignore (Str.search_forward (Str.regexp "Age: 1") output 0);
          true
        with Not_found -> false);
-    Alcotest.(check bool) "contains Has Types: true" true
+    Alcotest.(check bool)
+      "contains Has Types: true" true
       (try
          ignore (Str.search_forward (Str.regexp "Has Types: true") output 0);
          true
@@ -133,8 +134,7 @@ let test_llvm_pdbutil_summary () =
   end
 
 let test_llvm_pdbutil_types () =
-  if not (has_llvm_pdbutil ()) then
-    Alcotest.skip ()
+  if not (has_llvm_pdbutil ()) then Alcotest.skip ()
   else begin
     let pdb_bytes = build_test_pdb () in
     let tmpfile = Filename.temp_file "ocaml_pdb_test_" ".pdb" in
@@ -142,37 +142,38 @@ let test_llvm_pdbutil_types () =
     output_string oc pdb_bytes;
     close_out oc;
     let output =
-      run_command
-        (Printf.sprintf "llvm-pdbutil dump --types %s 2>&1" tmpfile)
+      run_command (Printf.sprintf "llvm-pdbutil dump --types %s 2>&1" tmpfile)
     in
     Sys.remove tmpfile;
     (* Verify type records are readable *)
-    Alcotest.(check bool) "contains LF_ARGLIST" true
+    Alcotest.(check bool)
+      "contains LF_ARGLIST" true
       (try
          ignore (Str.search_forward (Str.regexp "LF_ARGLIST") output 0);
          true
        with Not_found -> false);
-    Alcotest.(check bool) "contains LF_PROCEDURE" true
+    Alcotest.(check bool)
+      "contains LF_PROCEDURE" true
       (try
          ignore (Str.search_forward (Str.regexp "LF_PROCEDURE") output 0);
          true
        with Not_found -> false);
-    Alcotest.(check bool) "contains Point" true
+    Alcotest.(check bool)
+      "contains Point" true
       (try
          ignore (Str.search_forward (Str.regexp "Point") output 0);
          true
        with Not_found -> false);
-    Alcotest.(check bool) "contains 3 records" true
+    Alcotest.(check bool)
+      "contains 3 records" true
       (try
-         ignore
-           (Str.search_forward (Str.regexp "Showing 3 records") output 0);
+         ignore (Str.search_forward (Str.regexp "Showing 3 records") output 0);
          true
        with Not_found -> false)
   end
 
 let test_llvm_pdbutil_roundtrip_read () =
-  if not (has_llvm_pdbutil ()) then
-    Alcotest.skip ()
+  if not (has_llvm_pdbutil ()) then Alcotest.skip ()
   else begin
     (* Write PDB, read back with our library, verify consistency *)
     let pdb_bytes = build_test_pdb () in
@@ -185,8 +186,7 @@ let test_llvm_pdbutil_roundtrip_read () =
     let msf = Pdb.Msf.read buf in
     Sys.remove tmpfile;
     (* Verify our reader can parse what our writer produced *)
-    Alcotest.(check bool) "has 5+ streams" true
-      (Pdb.Msf.stream_count msf >= 5);
+    Alcotest.(check bool) "has 5+ streams" true (Pdb.Msf.stream_count msf >= 5);
     (* Check PDB info stream *)
     let stream1 = Pdb.Msf.get_stream_exn msf 1 in
     let cur1 = Object.Buffer.cursor stream1 in
@@ -198,10 +198,10 @@ let test_llvm_pdbutil_roundtrip_read () =
     let header = Pdb.Tpi.parse_header cur2 in
     Alcotest.(check int) "3 type records" 3 (Pdb.Tpi.num_type_records header);
     let records = List.of_seq (Pdb.Tpi.parse_type_records cur2 header) in
-    (match List.nth records 2 with
+    match List.nth records 2 with
     | Pdb.Codeview_types.Structure { name; _ } ->
         Alcotest.(check string) "struct name" "Point" name
-    | _ -> Alcotest.fail "expected Structure")
+    | _ -> Alcotest.fail "expected Structure"
   end
 
 let () =

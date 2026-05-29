@@ -1,7 +1,6 @@
 (** Tests for x86-64 and ARM64 Windows unwind info read/write. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
@@ -11,15 +10,31 @@ let u32 n = Unsigned.UInt32.of_int n
 let test_x64_register_roundtrip () =
   let open Pdb.Unwind.X64 in
   let regs =
-    [ RAX; RCX; RDX; RBX; RSP; RBP; RSI; RDI; R8; R9; R10; R11; R12; R13;
-      R14; R15 ]
+    [
+      RAX;
+      RCX;
+      RDX;
+      RBX;
+      RSP;
+      RBP;
+      RSI;
+      RDI;
+      R8;
+      R9;
+      R10;
+      R11;
+      R12;
+      R13;
+      R14;
+      R15;
+    ]
   in
   List.iteri
     (fun i reg ->
-      Alcotest.(check int) (Printf.sprintf "reg %d" i) i
-        (register_to_int reg);
+      Alcotest.(check int) (Printf.sprintf "reg %d" i) i (register_to_int reg);
       let rt = int_to_register i in
-      Alcotest.(check int) (Printf.sprintf "roundtrip %d" i)
+      Alcotest.(check int)
+        (Printf.sprintf "roundtrip %d" i)
         (register_to_int reg) (register_to_int rt))
     regs
 
@@ -40,8 +55,11 @@ let test_x64_minimal () =
     {
       version = 1;
       flags =
-        { exception_handler = false; termination_handler = false;
-          chain_info = false };
+        {
+          exception_handler = false;
+          termination_handler = false;
+          chain_info = false;
+        };
       size_of_prolog = 8;
       frame_register = Some RBP;
       frame_offset = 0;
@@ -69,8 +87,7 @@ let test_x64_minimal () =
   | SetFPReg _ -> ()
   | _ -> Alcotest.fail "expected SetFPReg");
   match List.nth parsed.unwind_codes 2 with
-  | PushNonVol { reg; _ } ->
-      Alcotest.(check int) "rbp" 5 (register_to_int reg)
+  | PushNonVol { reg; _ } -> Alcotest.(check int) "rbp" 5 (register_to_int reg)
   | _ -> Alcotest.fail "expected PushNonVol"
 
 let test_x64_ocaml_typical () =
@@ -79,8 +96,11 @@ let test_x64_ocaml_typical () =
     {
       version = 1;
       flags =
-        { exception_handler = false; termination_handler = false;
-          chain_info = false };
+        {
+          exception_handler = false;
+          termination_handler = false;
+          chain_info = false;
+        };
       size_of_prolog = 20;
       frame_register = Some RBP;
       frame_offset = 0;
@@ -100,7 +120,9 @@ let test_x64_ocaml_typical () =
   in
   let buf = Buffer.create 32 in
   write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
+  let parsed =
+    parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf)))
+  in
   Alcotest.(check int) "8 codes" 8 (List.length parsed.unwind_codes)
 
 let test_x64_alloc_large () =
@@ -109,8 +131,11 @@ let test_x64_alloc_large () =
     {
       version = 1;
       flags =
-        { exception_handler = false; termination_handler = false;
-          chain_info = false };
+        {
+          exception_handler = false;
+          termination_handler = false;
+          chain_info = false;
+        };
       size_of_prolog = 10;
       frame_register = None;
       frame_offset = 0;
@@ -124,7 +149,9 @@ let test_x64_alloc_large () =
   in
   let buf = Buffer.create 32 in
   write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
+  let parsed =
+    parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf)))
+  in
   match List.nth parsed.unwind_codes 0 with
   | AllocLarge { size; _ } -> Alcotest.(check int) "4096" 4096 size
   | _ -> Alcotest.fail "expected AllocLarge"
@@ -135,8 +162,11 @@ let test_x64_save_nonvol () =
     {
       version = 1;
       flags =
-        { exception_handler = false; termination_handler = false;
-          chain_info = false };
+        {
+          exception_handler = false;
+          termination_handler = false;
+          chain_info = false;
+        };
       size_of_prolog = 15;
       frame_register = None;
       frame_offset = 0;
@@ -151,7 +181,9 @@ let test_x64_save_nonvol () =
   in
   let buf = Buffer.create 32 in
   write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
+  let parsed =
+    parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf)))
+  in
   match List.nth parsed.unwind_codes 0 with
   | SaveNonVol { reg; offset; _ } ->
       Alcotest.(check int) "rbx" 3 (register_to_int reg);
@@ -164,8 +196,11 @@ let test_x64_exception_handler () =
     {
       version = 1;
       flags =
-        { exception_handler = true; termination_handler = false;
-          chain_info = false };
+        {
+          exception_handler = true;
+          termination_handler = false;
+          chain_info = false;
+        };
       size_of_prolog = 5;
       frame_register = None;
       frame_offset = 0;
@@ -175,7 +210,9 @@ let test_x64_exception_handler () =
   in
   let buf = Buffer.create 32 in
   write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
+  let parsed =
+    parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf)))
+  in
   Alcotest.(check bool) "ehandler" true parsed.flags.exception_handler;
   match parsed.exception_handler with
   | Some rva -> Alcotest.(check int) "rva" 0x5000 (Unsigned.UInt32.to_int rva)
@@ -187,8 +224,11 @@ let test_x64_no_codes () =
     {
       version = 1;
       flags =
-        { exception_handler = false; termination_handler = false;
-          chain_info = false };
+        {
+          exception_handler = false;
+          termination_handler = false;
+          chain_info = false;
+        };
       size_of_prolog = 0;
       frame_register = None;
       frame_offset = 0;
@@ -205,13 +245,17 @@ let test_x64_no_codes () =
 
 (** {2 ARM64 UNWIND_INFO} *)
 
-(** Round-trip [codes] through [write] / [parse] and return the parsed
-    list. The caller is responsible for terminating [codes] with [End]. *)
+(** Round-trip [codes] through [write] / [parse] and return the parsed list. The
+    caller is responsible for terminating [codes] with [End]. *)
 let arm64_roundtrip codes =
   let open Pdb.Unwind.Arm64 in
   let info =
-    { function_length = 64; has_exception_data = false; codes;
-      exception_handler = None }
+    {
+      function_length = 64;
+      has_exception_data = false;
+      codes;
+      exception_handler = None;
+    }
   in
   let buf = Buffer.create 32 in
   write buf info;
@@ -220,8 +264,8 @@ let arm64_roundtrip codes =
   in
   parsed.codes
 
-(** Round-trip ARM64 unwind code variants in isolation so a single
-    parser bug localises to one entry in the case list. *)
+(** Round-trip ARM64 unwind code variants in isolation so a single parser bug
+    localises to one entry in the case list. *)
 let test_arm64_all_codes () =
   let open Pdb.Unwind.Arm64 in
   let cases : (string * unwind_code) list =
@@ -259,8 +303,8 @@ let test_arm64_all_codes () =
         Alcotest.failf "%s: round-trip mismatch" name)
     cases
 
-(** A multi-opcode payload with several different byte widths back to
-    back, to verify the parser walks consecutive codes correctly. *)
+(** A multi-opcode payload with several different byte widths back to back, to
+    verify the parser walks consecutive codes correctly. *)
 let test_arm64_callee_saves () =
   let open Pdb.Unwind.Arm64 in
   let codes =
@@ -287,10 +331,13 @@ let test_arm64_exception_handler () =
   in
   let buf = Buffer.create 32 in
   write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
+  let parsed =
+    parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf)))
+  in
   Alcotest.(check bool) "has ex data" true parsed.has_exception_data;
   match parsed.exception_handler with
-  | Some rva -> Alcotest.(check int) "handler" 0x8000 (Unsigned.UInt32.to_int rva)
+  | Some rva ->
+      Alcotest.(check int) "handler" 0x8000 (Unsigned.UInt32.to_int rva)
   | None -> Alcotest.fail "expected handler"
 
 (** {2 Dispatch tests} *)
@@ -301,8 +348,11 @@ let test_dispatch_x64 () =
     {
       version = 1;
       flags =
-        { exception_handler = false; termination_handler = false;
-          chain_info = false };
+        {
+          exception_handler = false;
+          termination_handler = false;
+          chain_info = false;
+        };
       size_of_prolog = 5;
       frame_register = Some RBP;
       frame_offset = 0;

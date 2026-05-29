@@ -1,7 +1,6 @@
 (** MSF (Multi-Stream File) container writer. *)
 
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
 type t = {
@@ -23,17 +22,17 @@ let add_stream t contents =
 let add_empty_stream t = add_stream t ""
 let div_ceil a b = (a + b - 1) / b
 
-(** A block at position [k * block_size + 1] or [k * block_size + 2] (for
-    any [k >= 0]) is reserved as a Free Page Map block. The actual
-    superblock at position 0 is not an FPM block. *)
+(** A block at position [k * block_size + 1] or [k * block_size + 2] (for any
+    [k >= 0]) is reserved as a Free Page Map block. The actual superblock at
+    position 0 is not an FPM block. *)
 let is_fpm_block block_size idx =
   if idx = 0 then false
   else
     let r = idx mod block_size in
     r = 1 || r = 2
 
-(** Allocate [count] consecutive non-FPM block indices starting from
-    [start]. Returns the assigned indices and the next free index. *)
+(** Allocate [count] consecutive non-FPM block indices starting from [start].
+    Returns the assigned indices and the next free index. *)
 let alloc_blocks block_size start count =
   let blocks = Array.make count 0 in
   let next = ref start in
@@ -59,9 +58,7 @@ let finalize t =
   let total_stream_blocks = List.fold_left ( + ) 0 stream_block_counts in
   (* Directory layout: u32 num_streams + u32 per stream size + u32 per
      stream block index. *)
-  let num_directory_bytes =
-    4 + (num_streams * 4) + (total_stream_blocks * 4)
-  in
+  let num_directory_bytes = 4 + (num_streams * 4) + (total_stream_blocks * 4) in
   let num_directory_blocks = div_ceil num_directory_bytes block_size in
   let block_map_blocks = div_ceil (num_directory_blocks * 4) block_size in
   (* Allocate the block map, directory blocks, and stream blocks via the
@@ -155,8 +152,7 @@ let finalize t =
   let put_chunked_block idx contents offset block_len =
     let avail = String.length contents - offset in
     let len = min block_len avail in
-    if len > 0 then
-      Bytes.blit_string contents offset out (idx * block_size) len
+    if len > 0 then Bytes.blit_string contents offset out (idx * block_size) len
   in
   put_block 0 superblock_bytes;
   (* Both FPM mirrors get the same bytes. *)
@@ -168,8 +164,7 @@ let finalize t =
     if fpm1 < total_blocks then put_block fpm1 chunk
   done;
   Array.iteri
-    (fun i b ->
-      put_chunked_block b block_map_bytes (i * block_size) block_size)
+    (fun i b -> put_chunked_block b block_map_bytes (i * block_size) block_size)
     block_map_block_idxs;
   Array.iteri
     (fun i b -> put_chunked_block b directory_bytes (i * block_size) block_size)

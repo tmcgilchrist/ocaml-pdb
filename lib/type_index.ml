@@ -1,5 +1,5 @@
-(** A CodeView TypeIndex, symbolically distinguished between built-in
-    primitives and user-defined records. *)
+(** A CodeView TypeIndex, symbolically distinguished between built-in primitives
+    and user-defined records. *)
 
 open Pdb_types
 
@@ -32,12 +32,11 @@ let of_u32 v =
 
 let simple ?(mode = Codeview_constants.Direct) kind = Simple { kind; mode }
 let user v = User v
-
 let is_simple = function Simple _ -> true | User _ -> false
 
 let is_none = function
-  | Simple
-      { kind = Codeview_constants.None; mode = Codeview_constants.Direct } ->
+  | Simple { kind = Codeview_constants.None; mode = Codeview_constants.Direct }
+    ->
       true
   | _ -> false
 
@@ -52,7 +51,10 @@ let int32 = simple Codeview_constants.Int32
 let uint32 = simple Codeview_constants.UInt32
 let int64 = simple Codeview_constants.Int64
 let uint64 = simple Codeview_constants.UInt64
+
 let char_ptr32 =
-  simple ~mode:Codeview_constants.NearPointer32 Codeview_constants.NarrowCharacter
+  simple ~mode:Codeview_constants.NearPointer32
+    Codeview_constants.NarrowCharacter
+
 let void_ptr32 =
   simple ~mode:Codeview_constants.NearPointer32 Codeview_constants.Void

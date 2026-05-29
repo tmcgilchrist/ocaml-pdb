@@ -51,8 +51,8 @@ type frame_data_entry = {
 }
 
 type cross_module_export = { local : u32; global : u32 }
-(** Maps a TypeIndex local to one module onto a global TypeIndex shared
-    across modules in the same PDB. *)
+(** Maps a TypeIndex local to one module onto a global TypeIndex shared across
+    modules in the same PDB. *)
 
 type cross_module_import = {
   module_name_offset : u32;
@@ -72,10 +72,10 @@ type subsection =
   | Unknown of { kind : int; data : string }
 
 val parse_subsections : Object.Buffer.cursor -> int -> subsection Seq.t
-(** [parse_subsections cur total_bytes] lazily iterates C13 subsections.
-    Raises [Object.Buffer.Invalid_format] (during iteration) if a
-    subsection's kind/size header is truncated or its declared size
-    overruns the [total_bytes] window. *)
+(** [parse_subsections cur total_bytes] lazily iterates C13 subsections. Raises
+    [Object.Buffer.Invalid_format] (during iteration) if a subsection's
+    kind/size header is truncated or its declared size overruns the
+    [total_bytes] window. *)
 
 val write_subsection : Stdlib.Buffer.t -> subsection -> unit
 (** [write_subsection buf sub] serializes a single subsection. *)

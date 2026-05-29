@@ -9,7 +9,6 @@
 
 open Pdb_types
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
 type entry = { rva : u32; rva_to : u32 }
@@ -18,8 +17,7 @@ type t = entry array
 let parse cur total_bytes =
   if total_bytes mod 8 <> 0 then
     Object.Buffer.invalid_format
-      (Printf.sprintf "OMAP stream: %d bytes is not a multiple of 8"
-         total_bytes);
+      (Printf.sprintf "OMAP stream: %d bytes is not a multiple of 8" total_bytes);
   Object.Buffer.ensure cur total_bytes
     (Printf.sprintf "OMAP stream: %d bytes overrun cursor" total_bytes);
   let n = total_bytes / 8 in

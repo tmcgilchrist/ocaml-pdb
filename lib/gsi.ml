@@ -5,7 +5,6 @@
     - LLVM: llvm/include/llvm/DebugInfo/PDB/Native/RawTypes.h *)
 
 open Pdb_types
-
 open Binary_writer
 
 type hash_record = { offset : u32; cref : u32 }
@@ -20,7 +19,6 @@ type publics_header = {
   off_thunk_table : u32;
   num_sections : int;
 }
-
 
 let parse_publics_header cur =
   (* PublicsStreamHeader is 28 bytes: 4 u32 + 2 u16 + 2 u32. *)
@@ -44,14 +42,16 @@ let parse_publics_header cur =
   }
 
 let parse_gsi cur total_bytes =
-  let _ = total_bytes in        (* TODO Why don't we use total_bytes? *)
+  let _ = total_bytes in
+  (* TODO Why don't we use total_bytes? *)
   (* GSIHashHeader is 16 bytes: VerSignature, VerHdr, HrSize, NumBuckets. *)
   Object.Buffer.ensure cur 16 "GSI hash header: truncated";
   let _ver_signature = read_u32 cur in
   let _ver_hdr = read_u32 cur in
   let hr_size = Unsigned.UInt32.to_int (read_u32 cur) in
   let buckets_byte_size = Unsigned.UInt32.to_int (read_u32 cur) in
-  Object.Buffer.ensure cur (hr_size + buckets_byte_size)
+  Object.Buffer.ensure cur
+    (hr_size + buckets_byte_size)
     (Printf.sprintf
        "GSI: %d-byte hash record block + %d-byte buckets exceed stream end"
        hr_size buckets_byte_size);

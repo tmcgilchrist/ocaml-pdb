@@ -4,7 +4,6 @@
     - LLVM: llvm/lib/DebugInfo/PDB/Native/InfoStreamBuilder.cpp *)
 
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
 let write_guid buf (g : Pdb_types.guid) =

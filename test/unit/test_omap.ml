@@ -1,7 +1,6 @@
 (** Tests for OMAP address-translation streams. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
@@ -79,9 +78,8 @@ let test_truncated () =
   | _ -> Alcotest.fail "expected Invalid_format"
   | exception Object.Buffer.Invalid_format _ -> ()
 
-(** A [total_bytes] that is a multiple of 8 but exceeds what the cursor
-    actually contains must surface as Invalid_format, not as a Bigarray
-    bounds error. *)
+(** A [total_bytes] that is a multiple of 8 but exceeds what the cursor actually
+    contains must surface as Invalid_format, not as a Bigarray bounds error. *)
 let test_truncated_mid_entry () =
   let obj_buf = buffer_of_string (String.make 8 '\x00') in
   let cur = Object.Buffer.cursor obj_buf in

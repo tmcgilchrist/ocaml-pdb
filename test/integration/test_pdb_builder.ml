@@ -1,7 +1,6 @@
 (** Tests for the high-level PDB builder. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
@@ -36,7 +35,8 @@ let test_minimal_pdb () =
   let s1 = Pdb.Msf.get_stream_exn msf 1 in
   let info = Pdb.Pdb_stream.parse (Object.Buffer.cursor s1) in
   Alcotest.(check int) "age" 1 (Unsigned.UInt32.to_int info.age);
-  Alcotest.(check bool) "has ContainsIdStream" true
+  Alcotest.(check bool)
+    "has ContainsIdStream" true
     (List.mem Pdb.Pdb_stream.ContainsIdStream info.features);
   (* Check TPI has 0 records *)
   let s2 = Pdb.Msf.get_stream_exn msf 2 in
@@ -46,17 +46,26 @@ let test_minimal_pdb () =
 let test_pdb_with_types () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
   (* Add some types *)
-  let _arglist = Pdb.Pdb_builder.add_type b
-    (Pdb.Codeview_types.ArgList { args = [||] }) in
-  let _proc = Pdb.Pdb_builder.add_type b
-    (Pdb.Codeview_types.Procedure
-       { return_type = ti 0x0074; calling_conv = Pdb.Codeview_constants.NearC;
-      options = 0;
-         param_count = 0; arg_list = ti 0x1000 }) in
+  let _arglist =
+    Pdb.Pdb_builder.add_type b (Pdb.Codeview_types.ArgList { args = [||] })
+  in
+  let _proc =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Procedure
+         {
+           return_type = ti 0x0074;
+           calling_conv = Pdb.Codeview_constants.NearC;
+           options = 0;
+           param_count = 0;
+           arg_list = ti 0x1000;
+         })
+  in
   (* Add an IPI record *)
-  let _func_id = Pdb.Pdb_builder.add_id b
-    (Pdb.Codeview_types.FuncId
-       { scope_id = ti 0; func_type = ti 0x1001; name = "main" }) in
+  let _func_id =
+    Pdb.Pdb_builder.add_id b
+      (Pdb.Codeview_types.FuncId
+         { scope_id = ti 0; func_type = ti 0x1001; name = "main" })
+  in
   let pdb_bytes = Pdb.Pdb_builder.finalize b in
   let buf = buffer_of_string pdb_bytes in
   let msf = Pdb.Msf.read buf in
@@ -83,19 +92,24 @@ let test_pdb_with_types () =
 
 let test_pdb_with_module () =
   let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
-  let _proc_ti = Pdb.Pdb_builder.add_type b
-    (Pdb.Codeview_types.Procedure
-       { return_type = ti 0x0074; calling_conv = Pdb.Codeview_constants.NearC;
-      options = 0;
-         param_count = 0; arg_list = ti 0 }) in
+  let _proc_ti =
+    Pdb.Pdb_builder.add_type b
+      (Pdb.Codeview_types.Procedure
+         {
+           return_type = ti 0x0074;
+           calling_conv = Pdb.Codeview_constants.NearC;
+           options = 0;
+           param_count = 0;
+           arg_list = ti 0;
+         })
+  in
   Pdb.Pdb_builder.add_module b
     {
       name = "test.obj";
       obj_file = "test.obj";
       symbols =
         [
-          Pdb.Codeview_symbols.ObjName
-            { signature = u32 0; name = "test.obj" };
+          Pdb.Codeview_symbols.ObjName { signature = u32 0; name = "test.obj" };
           Pdb.Codeview_symbols.Compile3
             {
               flags = u32 0;
@@ -116,8 +130,7 @@ let test_pdb_with_module () =
   let s3 = Pdb.Msf.get_stream_exn msf 3 in
   let dbi = Pdb.Dbi.parse (Object.Buffer.cursor s3) in
   Alcotest.(check int) "1 module" 1 (Array.length dbi.modules);
-  Alcotest.(check string) "module name" "test.obj"
-    dbi.modules.(0).module_name;
+  Alcotest.(check string) "module name" "test.obj" dbi.modules.(0).module_name;
   Alcotest.(check int) "machine" 0x8664 dbi.header.machine;
   (* Read module symbols *)
   let syms = List.of_seq (Pdb.Dbi.module_symbols msf dbi.modules.(0)) in
@@ -138,19 +151,26 @@ let test_pdb_with_publics () =
        { flags = u32 2; offset = u32 0x1000; segment = 1; name = "_main" });
   Pdb.Pdb_builder.add_global b
     (Pdb.Codeview_symbols.GData32
-       { type_index = ti 0x0074; offset = u32 0x2000; segment = 2;
-         name = "g_var" });
+       {
+         type_index = ti 0x0074;
+         offset = u32 0x2000;
+         segment = 2;
+         name = "g_var";
+       });
   let pdb_bytes = Pdb.Pdb_builder.finalize b in
   let buf = buffer_of_string pdb_bytes in
   let msf = Pdb.Msf.read buf in
   let s3 = Pdb.Msf.get_stream_exn msf 3 in
   let dbi = Pdb.Dbi.parse (Object.Buffer.cursor s3) in
   (* Verify stream indices are set (not 0xFFFF) *)
-  Alcotest.(check bool) "global stream set" true
+  Alcotest.(check bool)
+    "global stream set" true
     (dbi.header.global_stream_index <> 0xFFFF);
-  Alcotest.(check bool) "public stream set" true
+  Alcotest.(check bool)
+    "public stream set" true
     (dbi.header.public_stream_index <> 0xFFFF);
-  Alcotest.(check bool) "sym record stream set" true
+  Alcotest.(check bool)
+    "sym record stream set" true
     (dbi.header.sym_record_stream <> 0xFFFF)
 
 let test_pdb_with_strings () =
@@ -163,28 +183,31 @@ let test_pdb_with_strings () =
   (* Find /names stream via PDB info *)
   let s1 = Pdb.Msf.get_stream_exn msf 1 in
   let info = Pdb.Pdb_stream.parse (Object.Buffer.cursor s1) in
-  let names_idx =
-    List.assoc "/names" info.named_streams
-  in
+  let names_idx = List.assoc "/names" info.named_streams in
   let names_stream = Pdb.Msf.get_stream_exn msf names_idx in
-  let st =
-    Pdb.Pdb_string_table.parse (Object.Buffer.cursor names_stream)
-  in
-  Alcotest.(check (option int)) "lookup test.c" (Some off)
+  let st = Pdb.Pdb_string_table.parse (Object.Buffer.cursor names_stream) in
+  Alcotest.(check (option int))
+    "lookup test.c" (Some off)
     (Pdb.Pdb_string_table.lookup st "test.c")
 
 let test_llvm_pdbutil_validates () =
   if not (has_llvm_pdbutil ()) then Alcotest.skip ()
   else begin
     let b = Pdb.Pdb_builder.create Pdb.Pdb_builder.AMD64 in
-    let _ = Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.ArgList { args = [||] }) in
-    let _ = Pdb.Pdb_builder.add_type b
-      (Pdb.Codeview_types.Procedure
-         { return_type = ti 0x0074;
-           calling_conv = Pdb.Codeview_constants.NearC;
-      options = 0;
-           param_count = 0; arg_list = ti 0x1000 }) in
+    let _ =
+      Pdb.Pdb_builder.add_type b (Pdb.Codeview_types.ArgList { args = [||] })
+    in
+    let _ =
+      Pdb.Pdb_builder.add_type b
+        (Pdb.Codeview_types.Procedure
+           {
+             return_type = ti 0x0074;
+             calling_conv = Pdb.Codeview_constants.NearC;
+             options = 0;
+             param_count = 0;
+             arg_list = ti 0x1000;
+           })
+    in
     Pdb.Pdb_builder.add_module b
       {
         name = "main.obj";
@@ -212,26 +235,29 @@ let test_llvm_pdbutil_validates () =
         (Printf.sprintf "llvm-pdbutil dump --summary --types %s 2>&1" tmpfile)
     in
     Sys.remove tmpfile;
-    Alcotest.(check bool) "has Block Size" true
+    Alcotest.(check bool)
+      "has Block Size" true
       (try
          ignore (Str.search_forward (Str.regexp "Block Size") output 0);
          true
        with Not_found -> false);
-    Alcotest.(check bool) "has types" true
+    Alcotest.(check bool)
+      "has types" true
       (try
          ignore (Str.search_forward (Str.regexp "Has Types: true") output 0);
          true
        with Not_found -> false);
-    Alcotest.(check bool) "has LF_PROCEDURE" true
+    Alcotest.(check bool)
+      "has LF_PROCEDURE" true
       (try
          ignore (Str.search_forward (Str.regexp "LF_PROCEDURE") output 0);
          true
        with Not_found -> false)
   end
 
-(** End-to-end test exercising every Pdb_builder feature and validating
-    the output with llvm-pdbutil. Also serves as documentation for how
-    to use the library to produce a realistic PDB. *)
+(** End-to-end test exercising every Pdb_builder feature and validating the
+    output with llvm-pdbutil. Also serves as documentation for how to use the
+    library to produce a realistic PDB. *)
 let test_full_pdb_for_ocaml () =
   if not (has_llvm_pdbutil ()) then Alcotest.skip ()
   else begin
@@ -262,7 +288,7 @@ let test_full_pdb_for_ocaml () =
            {
              return_type = ti 0x0074;
              calling_conv = Pdb.Codeview_constants.NearC;
-      options = 0;
+             options = 0;
              param_count = 1;
              arg_list = arglist_ti;
            })
@@ -298,9 +324,7 @@ let test_full_pdb_for_ocaml () =
                 version_string = "ocaml-pdb 0.1";
               };
             Pdb.Codeview_symbols.EnvBlock
-              {
-                fields = [ "cwd"; "C:\\proj"; "cl"; "ocamlopt" ];
-              };
+              { fields = [ "cwd"; "C:\\proj"; "cl"; "ocamlopt" ] };
           ];
         subsections =
           [
@@ -335,20 +359,10 @@ let test_full_pdb_for_ocaml () =
     (* Publics: main and a helper *)
     Pdb.Pdb_builder.add_public b
       (Pdb.Codeview_symbols.Pub32
-         {
-           flags = u32 2;
-           offset = u32 0;
-           segment = 1;
-           name = "main";
-         });
+         { flags = u32 2; offset = u32 0; segment = 1; name = "main" });
     Pdb.Pdb_builder.add_public b
       (Pdb.Codeview_symbols.Pub32
-         {
-           flags = u32 0;
-           offset = u32 32;
-           segment = 1;
-           name = "helper";
-         });
+         { flags = u32 0; offset = u32 32; segment = 1; name = "helper" });
 
     (* Globals: a data symbol *)
     Pdb.Pdb_builder.add_global b
@@ -372,14 +386,14 @@ let test_full_pdb_for_ocaml () =
     let s1 = Pdb.Msf.get_stream_exn msf 1 in
     let info = Pdb.Pdb_stream.parse (Object.Buffer.cursor s1) in
     Alcotest.(check int) "age" 1 (Unsigned.UInt32.to_int info.age);
-    Alcotest.(check int) "guid data1" 0xDEADBEEF
+    Alcotest.(check int)
+      "guid data1" 0xDEADBEEF
       (Unsigned.UInt32.to_int info.guid.data1);
 
     (* Validate with llvm-pdbutil -- run separate commands to avoid
        module stream errors aborting the whole dump *)
     let output =
-      run_command
-        (Printf.sprintf "llvm-pdbutil dump --summary %s 2>&1" tmpfile)
+      run_command (Printf.sprintf "llvm-pdbutil dump --summary %s 2>&1" tmpfile)
       ^ run_command
           (Printf.sprintf "llvm-pdbutil dump --types --ids %s 2>&1" tmpfile)
       ^ run_command
@@ -396,7 +410,8 @@ let test_full_pdb_for_ocaml () =
     Alcotest.(check bool) "has Age: 1" true (contains "Age: 1");
     Alcotest.(check bool) "Has Types: true" true (contains "Has Types: true");
     Alcotest.(check bool) "Has IDs: true" true (contains "Has IDs: true");
-    Alcotest.(check bool) "Has Debug Info: true" true
+    Alcotest.(check bool)
+      "Has Debug Info: true" true
       (contains "Has Debug Info: true");
     Alcotest.(check bool) "has LF_PROCEDURE" true (contains "LF_PROCEDURE");
     Alcotest.(check bool) "has LF_FUNC_ID" true (contains "LF_FUNC_ID");

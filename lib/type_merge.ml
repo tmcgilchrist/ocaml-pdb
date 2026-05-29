@@ -1,7 +1,7 @@
 (** Type deduplication for TPI/IPI streams.
 
-    Deduplicates type records by hashing their serialized bytes. Records
-    with identical wire format get the same TypeIndex.
+    Deduplicates type records by hashing their serialized bytes. Records with
+    identical wire format get the same TypeIndex.
 
     References:
     - LLVM: llvm/lib/DebugInfo/CodeView/MergingTypeTableBuilder.cpp *)
@@ -9,13 +9,12 @@
 module Buffer = Stdlib.Buffer
 
 type t = {
-  mutable records : Codeview_types.type_record list; (** reverse order *)
+  mutable records : Codeview_types.type_record list;  (** reverse order *)
   mutable next_index : int;
-  seen : (string, Type_index.t) Hashtbl.t; (** serialized bytes -> TypeIndex *)
+  seen : (string, Type_index.t) Hashtbl.t;  (** serialized bytes -> TypeIndex *)
 }
 
-let create () =
-  { records = []; next_index = 0x1000; seen = Hashtbl.create 128 }
+let create () = { records = []; next_index = 0x1000; seen = Hashtbl.create 128 }
 
 (* Serialize a type record to bytes for dedup comparison.
    We serialize without the length prefix since the content is what matters. *)
@@ -52,9 +51,9 @@ let cross_ids c = records c.ids
 
 (** Build a remap closure over an array of already-merged indices for the
     current compilation unit. Index [j] (TypeIndex [0x1000 + j]) maps to
-    [remap.(j)]. Simple/None indices and any out-of-range user index (a
-    forward reference, which does not occur in a well-formed stream) pass
-    through unchanged. *)
+    [remap.(j)]. Simple/None indices and any out-of-range user index (a forward
+    reference, which does not occur in a well-formed stream) pass through
+    unchanged. *)
 let remap_of remap ti =
   match ti with
   | Type_index.Simple _ -> ti

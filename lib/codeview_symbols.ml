@@ -6,7 +6,6 @@
 
 open Pdb_types
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
 type proc_record = {
@@ -357,9 +356,7 @@ let write_type_index buf ti =
 let write_truncated_cstring buf s =
   let bytes_left = Codeview_types.bytes_remaining buf in
   let max_chars = max 0 (bytes_left - 1) in
-  let s =
-    if String.length s > max_chars then String.sub s 0 max_chars else s
-  in
+  let s = if String.length s > max_chars then String.sub s 0 max_chars else s in
   write_cstring buf s
 
 let write_proc_record buf kind p =
@@ -532,7 +529,8 @@ let write_symbol_record buf record =
       write_truncated_cstring rec_buf name
   | EnvBlock { fields } ->
       write_u16_le rec_buf 0x113d;
-      Buffer.add_char rec_buf '\000'; (* reserved byte *)
+      Buffer.add_char rec_buf '\000';
+      (* reserved byte *)
       List.iter (write_cstring rec_buf) fields;
       Buffer.add_char rec_buf '\000' (* double-null terminator *)
   | Unknown { kind; data } ->

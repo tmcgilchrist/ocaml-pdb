@@ -1,7 +1,6 @@
 (** Tests for PDB Named Stream Map and Hash Table. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let test_hash_table_roundtrip () =
@@ -80,8 +79,8 @@ let check_hash_table_roundtrip ~capacity entries =
         (List.exists (fun (k', v') -> k = k' && v = v') result))
     entries
 
-(** Every key here hashes to slot 0, so writer must probe past occupied
-    slots to find a free one. *)
+(** Every key here hashes to slot 0, so writer must probe past occupied slots to
+    find a free one. *)
 let test_hash_table_collisions () =
   check_hash_table_roundtrip ~capacity:8
     [ (0, 100); (8, 101); (16, 102); (24, 103); (32, 104) ]

@@ -3,12 +3,11 @@
     References:
     - LLVM: llvm/include/llvm/Support/Win64EH.h
     - LLVM: llvm/lib/MC/MCWin64EH.cpp (ARM64 emission)
-    - Microsoft: https://docs.microsoft.com/en-us/cpp/build/arm64-exception-handling *)
+    - Microsoft:
+      https://docs.microsoft.com/en-us/cpp/build/arm64-exception-handling *)
 
 open Pdb_types
-
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
 type unwind_code =
@@ -64,8 +63,7 @@ let write_code buf code =
   | SaveFPLR { offset } ->
       Buffer.add_char buf (Char.chr (0x40 lor ((offset lsr 3) land 0x3F)))
   | SaveFPLRX { offset } ->
-      Buffer.add_char buf
-        (Char.chr (0x80 lor (((offset lsr 3) - 1) land 0x3F)))
+      Buffer.add_char buf (Char.chr (0x80 lor (((offset lsr 3) - 1) land 0x3F)))
   | SaveRegP { reg; offset } ->
       Buffer.add_char buf (Char.chr (0xC8 lor ((reg land 0xC) lsr 2)));
       Buffer.add_char buf
@@ -73,8 +71,7 @@ let write_code buf code =
   | SaveRegPX { reg; offset } ->
       Buffer.add_char buf (Char.chr (0xCC lor ((reg land 0xC) lsr 2)));
       Buffer.add_char buf
-        (Char.chr
-           (((reg land 0x3) lsl 6) lor (((offset lsr 3) - 1) land 0x3F)))
+        (Char.chr (((reg land 0x3) lsl 6) lor (((offset lsr 3) - 1) land 0x3F)))
   | SaveReg { reg; offset } ->
       Buffer.add_char buf (Char.chr (0xD0 lor ((reg land 0xC) lsr 2)));
       Buffer.add_char buf
@@ -82,8 +79,7 @@ let write_code buf code =
   | SaveRegX { reg; offset } ->
       Buffer.add_char buf (Char.chr (0xD4 lor ((reg land 0x8) lsr 3)));
       Buffer.add_char buf
-        (Char.chr
-           (((reg land 0x7) lsl 5) lor (((offset lsr 3) - 1) land 0x1F)))
+        (Char.chr (((reg land 0x7) lsl 5) lor (((offset lsr 3) - 1) land 0x1F)))
   | SaveLRPair { reg; offset } ->
       Buffer.add_char buf (Char.chr (0xD6 lor ((reg land 0x7) lsr 2)));
       Buffer.add_char buf
@@ -95,8 +91,7 @@ let write_code buf code =
   | SaveFRegPX { reg; offset } ->
       Buffer.add_char buf (Char.chr (0xDA lor ((reg land 0x4) lsr 2)));
       Buffer.add_char buf
-        (Char.chr
-           (((reg land 0x3) lsl 6) lor (((offset lsr 3) - 1) land 0x3F)))
+        (Char.chr (((reg land 0x3) lsl 6) lor (((offset lsr 3) - 1) land 0x3F)))
   | SaveFReg { reg; offset } ->
       Buffer.add_char buf (Char.chr (0xDC lor ((reg land 0x4) lsr 2)));
       Buffer.add_char buf
@@ -104,8 +99,7 @@ let write_code buf code =
   | SaveFRegX { reg; offset } ->
       Buffer.add_char buf (Char.chr 0xDE);
       Buffer.add_char buf
-        (Char.chr
-           (((reg land 0x7) lsl 5) lor (((offset lsr 3) - 1) land 0x1F)))
+        (Char.chr (((reg land 0x7) lsl 5) lor (((offset lsr 3) - 1) land 0x1F)))
   | SetFP -> Buffer.add_char buf (Char.chr 0xE1)
   | AddFP { offset } ->
       Buffer.add_char buf (Char.chr 0xE2);
@@ -123,8 +117,7 @@ let parse_code bytes pos =
   let b0 = Char.code bytes.[!pos] in
   incr pos;
   if b0 land 0xE0 = 0x00 then AllocSmall { size = (b0 land 0x1F) lsl 4 }
-  else if b0 land 0xE0 = 0x20 then
-    SaveR19R20X { offset = (b0 land 0x1F) lsl 3 }
+  else if b0 land 0xE0 = 0x20 then SaveR19R20X { offset = (b0 land 0x1F) lsl 3 }
   else if b0 land 0xC0 = 0x40 then SaveFPLR { offset = (b0 land 0x3F) lsl 3 }
   else if b0 land 0xC0 = 0x80 then
     SaveFPLRX { offset = ((b0 land 0x3F) + 1) lsl 3 }
@@ -211,11 +204,7 @@ let parse_code bytes pos =
   else if b0 = 0xDE then begin
     let b1 = Char.code bytes.[!pos] in
     incr pos;
-    SaveFRegX
-      {
-        reg = (b1 lsr 5) land 0x7;
-        offset = ((b1 land 0x1F) + 1) lsl 3;
-      }
+    SaveFRegX { reg = (b1 lsr 5) land 0x7; offset = ((b1 land 0x1F) + 1) lsl 3 }
   end
   else if b0 = 0xE0 then begin
     let b1 = Char.code bytes.[!pos] in
@@ -249,7 +238,7 @@ let parse cur =
   Object.Buffer.ensure cur 4 "ARM64 .pdata: truncated header";
   try
     let row1 = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
-    let function_length = (row1 land 0x3FFFF) * 4 in
+    let function_length = row1 land 0x3FFFF * 4 in
     let x_flag = (row1 lsr 20) land 1 <> 0 in
     let e_flag = (row1 lsr 21) land 1 <> 0 in
     let epilog_count = (row1 lsr 22) land 0x1F in
@@ -299,13 +288,11 @@ let write buf info =
   let code_byte_len = Buffer.length code_buf in
   let code_words = (code_byte_len + 3) / 4 in
   let padded_len = code_words * 4 in
-  let func_len_field = (info.function_length / 4) land 0x3FFFF in
+  let func_len_field = info.function_length / 4 land 0x3FFFF in
   let x_bit = if info.has_exception_data then 1 else 0 in
   let e_bit = 1 in
   let row1 =
-    func_len_field
-    lor (x_bit lsl 20)
-    lor (e_bit lsl 21)
+    func_len_field lor (x_bit lsl 20) lor (e_bit lsl 21)
     lor ((code_words land 0x1F) lsl 27)
   in
   write_u32_le buf row1;

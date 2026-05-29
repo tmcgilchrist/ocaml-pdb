@@ -1,7 +1,6 @@
 (** Tests for PDB Info Stream (Stream 1) read/write. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let test_pdb_version_roundtrip () =

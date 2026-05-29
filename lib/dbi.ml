@@ -6,7 +6,6 @@
     - LLVM docs: https://llvm.org/docs/PDB/DbiStream.html *)
 
 open Pdb_types
-
 open Binary_writer
 
 type section_contribution = {
@@ -73,7 +72,6 @@ type t = {
   section_contributions : section_contribution array;
   optional_debug_header : optional_debug_header option;
 }
-
 
 (* SectionContrib is 28 bytes *)
 let parse_section_contribution cur =

@@ -1,15 +1,14 @@
 (** Tests for type deduplication. *)
 
-
 open Test_support
+
 let u32 n = Unsigned.UInt32.of_int n
 let ti_to_int ti = Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 ti)
 
 let test_distinct_records () =
   let t = Pdb.Type_merge.create () in
   let idx0 =
-    Pdb.Type_merge.insert t
-      (Pdb.Codeview_types.ArgList { args = [||] })
+    Pdb.Type_merge.insert t (Pdb.Codeview_types.ArgList { args = [||] })
   in
   let idx1 =
     Pdb.Type_merge.insert t
@@ -17,7 +16,7 @@ let test_distinct_records () =
          {
            return_type = ti 0x0074;
            calling_conv = Pdb.Codeview_constants.NearC;
-      options = 0;
+           options = 0;
            param_count = 0;
            arg_list = ti 0x1000;
          })
@@ -77,18 +76,23 @@ let test_similar_but_different () =
            unique_name = Option.None;
          })
   in
-  Alcotest.(check bool) "different indices" true (ti_to_int idx0 <> ti_to_int idx1);
+  Alcotest.(check bool)
+    "different indices" true
+    (ti_to_int idx0 <> ti_to_int idx1);
   Alcotest.(check int) "count 2" 2 (Pdb.Type_merge.count t)
 
 let test_find_index () =
   let t = Pdb.Type_merge.create () in
-  let record = Pdb.Codeview_types.Bitfield
-    { underlying_type = ti 0x0074; length = 5; position = 3 }
+  let record =
+    Pdb.Codeview_types.Bitfield
+      { underlying_type = ti 0x0074; length = 5; position = 3 }
   in
-  Alcotest.(check bool) "not found before insert" true
+  Alcotest.(check bool)
+    "not found before insert" true
     (Pdb.Type_merge.find_index t record = Option.None);
   let idx = Pdb.Type_merge.insert t record in
-  Alcotest.(check bool) "found after insert" true
+  Alcotest.(check bool)
+    "found after insert" true
     (Pdb.Type_merge.find_index t record = Some idx)
 
 let test_records_in_order () =
@@ -132,8 +136,8 @@ let test_many_duplicates () =
 
 let id_int t = Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 t)
 
-(** type_ref and id_ref are applied to the correct fields. FuncId has an
-    id reference (scope_id) and a type reference (func_type). *)
+(** type_ref and id_ref are applied to the correct fields. FuncId has an id
+    reference (scope_id) and a type reference (func_type). *)
 let test_map_distinguishes_type_and_id () =
   let bump_type t = ti (id_int t + 0x100) in
   let bump_id t = ti (id_int t + 0x200) in
@@ -149,8 +153,8 @@ let test_map_distinguishes_type_and_id () =
       Alcotest.(check int) "func_type via type_ref" 0x1100 (id_int func_type)
   | _ -> Alcotest.fail "expected FuncId"
 
-(** Simple (built-in) indices are passed to the callback but a no-op
-    remap leaves them unchanged; user indices in a Pointer are remapped. *)
+(** Simple (built-in) indices are passed to the callback but a no-op remap
+    leaves them unchanged; user indices in a Pointer are remapped. *)
 let test_map_pointer_and_arglist () =
   let f t = ti (id_int t + 1) in
   (match
@@ -198,16 +202,22 @@ let test_cross_identical_units () =
   let merged = Pdb.Type_merge.cross_types c in
   Alcotest.(check int) "2 unique records" 2 (List.length merged);
   (* Both units map to the same merged indices. *)
-  Alcotest.(check int) "remap1.(0) = remap2.(0)" (id_int remap1.(0))
+  Alcotest.(check int)
+    "remap1.(0) = remap2.(0)"
+    (id_int remap1.(0))
     (id_int remap2.(0));
-  Alcotest.(check int) "remap1.(1) = remap2.(1)" (id_int remap1.(1))
+  Alcotest.(check int)
+    "remap1.(1) = remap2.(1)"
+    (id_int remap1.(1))
     (id_int remap2.(1));
   (* The merged procedure's return_type points at the merged pointer. *)
-  (match List.nth merged 1 with
+  match List.nth merged 1 with
   | Pdb.Codeview_types.Procedure { return_type; _ } ->
-      Alcotest.(check int) "proc return -> merged pointer"
-        (id_int remap1.(0)) (id_int return_type)
-  | _ -> Alcotest.fail "expected Procedure")
+      Alcotest.(check int)
+        "proc return -> merged pointer"
+        (id_int remap1.(0))
+        (id_int return_type)
+  | _ -> Alcotest.fail "expected Procedure"
 
 (** Distinct types across units stay distinct. *)
 let test_cross_distinct_units () =
@@ -226,11 +236,12 @@ let test_cross_distinct_units () =
           { pointee_type = ti 0x0075; attrs = Unsigned.UInt32.of_int 0x1000C };
       ]
   in
-  Alcotest.(check int) "2 distinct pointers" 2
+  Alcotest.(check int)
+    "2 distinct pointers" 2
     (List.length (Pdb.Type_merge.cross_types c))
 
-(** Cross-unit merge with differently-numbered references: CU2 puts the
-    same pointer at a different local index, but it still dedups. *)
+(** Cross-unit merge with differently-numbered references: CU2 puts the same
+    pointer at a different local index, but it still dedups. *)
 let test_cross_renumbered_refs () =
   let c = Pdb.Type_merge.create_cross () in
   (* CU1: [0x1000]=ptr-to-int, [0x1001]=proc returning 0x1000 *)
@@ -242,10 +253,7 @@ let test_cross_renumbered_refs () =
     Pdb.Codeview_types.Modifier { modified_type = ti 0x0074; modifiers = 1 }
     :: [
          Pdb.Codeview_types.Pointer
-           {
-             pointee_type = ti 0x0074;
-             attrs = Unsigned.UInt32.of_int 0x1000C;
-           };
+           { pointee_type = ti 0x0074; attrs = Unsigned.UInt32.of_int 0x1000C };
          Pdb.Codeview_types.Procedure
            {
              return_type = ti 0x1001;
@@ -265,8 +273,8 @@ let test_cross_renumbered_refs () =
   Alcotest.(check int) "CU2 pointer dedups" 0x1000 (id_int remap2.(1));
   Alcotest.(check int) "CU2 proc dedups" 0x1001 (id_int remap2.(2))
 
-(** IDs merge with both type-ref and id-ref distinction: a StringId chain
-    plus a FuncId referencing a type. *)
+(** IDs merge with both type-ref and id-ref distinction: a StringId chain plus a
+    FuncId referencing a type. *)
 let test_cross_ids () =
   let c = Pdb.Type_merge.create_cross () in
   (* One CU of types: a procedure at local 0x1000. *)
@@ -297,18 +305,21 @@ let test_cross_ids () =
   (* The merged FuncId's func_type points at the merged procedure. *)
   match List.nth merged_ids 1 with
   | Pdb.Codeview_types.FuncId { func_type; _ } ->
-      Alcotest.(check int) "func_type remapped to merged proc"
-        (id_int type_remap.(0)) (id_int func_type);
-      Alcotest.(check int) "funcid assigned id index" 0x1001
+      Alcotest.(check int)
+        "func_type remapped to merged proc"
+        (id_int type_remap.(0))
+        (id_int func_type);
+      Alcotest.(check int)
+        "funcid assigned id index" 0x1001
         (id_int id_remap.(1))
   | _ -> Alcotest.fail "expected FuncId"
 
 (** Two CUs each define a chain [dir] -> [file] -> [FuncId]. The directory
-    StringId is identical in both CUs but lands at different local
-    indices; the file and FuncId differ in name. The merged set should
-    keep exactly one shared directory and add the per-CU file + FuncId
-    records, with each CU's chain references rewritten to point at the
-    shared directory's merged index. *)
+    StringId is identical in both CUs but lands at different local indices; the
+    file and FuncId differ in name. The merged set should keep exactly one
+    shared directory and add the per-CU file + FuncId records, with each CU's
+    chain references rewritten to point at the shared directory's merged index.
+*)
 let test_cross_overlapping_string_ids () =
   let c = Pdb.Type_merge.create_cross () in
   let cu1 =
@@ -319,9 +330,7 @@ let test_cross_overlapping_string_ids () =
         { scope_id = ti 0x1001; func_type = ti 0x0003; name = "foo" };
     ]
   in
-  let remap_cu1 =
-    Pdb.Type_merge.merge_ids c ~type_remap:[||] cu1
-  in
+  let remap_cu1 = Pdb.Type_merge.merge_ids c ~type_remap:[||] cu1 in
   (* CU2 prepends an unrelated StringId so the shared dir lands at a
      different local index (0x1001) than in CU1 (0x1000). *)
   let cu2 =
@@ -333,18 +342,19 @@ let test_cross_overlapping_string_ids () =
         { scope_id = ti 0x1002; func_type = ti 0x0003; name = "bar" };
     ]
   in
-  let remap_cu2 =
-    Pdb.Type_merge.merge_ids c ~type_remap:[||] cu2
-  in
+  let remap_cu2 = Pdb.Type_merge.merge_ids c ~type_remap:[||] cu2 in
   let merged = Pdb.Type_merge.cross_ids c in
   (* Expected merged set: dir, foo.c, foo FuncId, filler, bar.c, bar FuncId. *)
   Alcotest.(check int) "6 merged id records" 6 (List.length merged);
   (* The dir StringId from CU1 (local 0x1000) and CU2 (local 0x1001) must
      map to the same merged index. *)
-  Alcotest.(check int) "shared dir collapses"
-    (id_int remap_cu1.(0)) (id_int remap_cu2.(1));
+  Alcotest.(check int)
+    "shared dir collapses"
+    (id_int remap_cu1.(0))
+    (id_int remap_cu2.(1));
   (* The per-CU file records must differ. *)
-  Alcotest.(check bool) "files distinct" true
+  Alcotest.(check bool)
+    "files distinct" true
     (id_int remap_cu1.(1) <> id_int remap_cu2.(2));
   (* Each file's [id] chain field, after remapping, must point at the
      shared dir's merged index. *)
@@ -357,27 +367,29 @@ let test_cross_overlapping_string_ids () =
   (match nth_record (id_int remap_cu1.(1)) with
   | Pdb.Codeview_types.StringId { id; str } ->
       Alcotest.(check string) "cu1 file string" "foo.c" str;
-      Alcotest.(check int) "cu1 file chains to dir" dir_merged_idx
-        (id_int id)
+      Alcotest.(check int) "cu1 file chains to dir" dir_merged_idx (id_int id)
   | _ -> Alcotest.fail "expected StringId for cu1 file");
   (match nth_record (id_int remap_cu2.(2)) with
   | Pdb.Codeview_types.StringId { id; str } ->
       Alcotest.(check string) "cu2 file string" "bar.c" str;
-      Alcotest.(check int) "cu2 file chains to dir" dir_merged_idx
-        (id_int id)
+      Alcotest.(check int) "cu2 file chains to dir" dir_merged_idx (id_int id)
   | _ -> Alcotest.fail "expected StringId for cu2 file");
   (* Each CU's FuncId must reference its own file's merged index. *)
   (match nth_record (id_int remap_cu1.(2)) with
   | Pdb.Codeview_types.FuncId { scope_id; name; _ } ->
       Alcotest.(check string) "cu1 func name" "foo" name;
-      Alcotest.(check int) "cu1 func scope -> cu1 file"
-        (id_int remap_cu1.(1)) (id_int scope_id)
+      Alcotest.(check int)
+        "cu1 func scope -> cu1 file"
+        (id_int remap_cu1.(1))
+        (id_int scope_id)
   | _ -> Alcotest.fail "expected FuncId for cu1");
   match nth_record (id_int remap_cu2.(3)) with
   | Pdb.Codeview_types.FuncId { scope_id; name; _ } ->
       Alcotest.(check string) "cu2 func name" "bar" name;
-      Alcotest.(check int) "cu2 func scope -> cu2 file"
-        (id_int remap_cu2.(2)) (id_int scope_id)
+      Alcotest.(check int)
+        "cu2 func scope -> cu2 file"
+        (id_int remap_cu2.(2))
+        (id_int scope_id)
   | _ -> Alcotest.fail "expected FuncId for cu2"
 
 let () =
@@ -411,7 +423,7 @@ let () =
             test_cross_renumbered_refs;
           Alcotest.test_case "ids merge with ref distinction" `Quick
             test_cross_ids;
-          Alcotest.test_case "overlapping string-id chains across CUs"
-            `Quick test_cross_overlapping_string_ids;
+          Alcotest.test_case "overlapping string-id chains across CUs" `Quick
+            test_cross_overlapping_string_ids;
         ] );
     ]

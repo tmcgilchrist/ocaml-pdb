@@ -4,7 +4,6 @@
     - LLVM: llvm/lib/DebugInfo/PDB/Native/DbiStreamBuilder.cpp *)
 
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
 let write_section_contribution buf (sc : Dbi.section_contribution) =
@@ -60,8 +59,7 @@ let absent_optional_debug_header : Dbi.optional_debug_header =
     original_section_header = 0xFFFF;
   }
 
-let write buf modules
-    section_contribs ~source_files ~machine
+let write buf modules section_contribs ~source_files ~machine
     ?(global_stream = 0xFFFF) ?(public_stream = 0xFFFF)
     ?(sym_record_stream = 0xFFFF)
     ?(optional_debug_header = absent_optional_debug_header) () =
@@ -129,8 +127,7 @@ let write buf modules
     source_files;
   (* ModFileCounts *)
   List.iter
-    (fun files ->
-      write_u16_le file_info_buf (List.length files land 0xFFFF))
+    (fun files -> write_u16_le file_info_buf (List.length files land 0xFFFF))
     source_files;
   (* Build NamesBuffer and per-file offsets. The same filename string is
      deduplicated by offset (LLVM's DbiStreamBuilder does the same). *)
@@ -162,8 +159,7 @@ let write buf modules
   (* Build OptionalDbgHeader: 11 x u16 stream indices. *)
   let opt_dbg_buf = Buffer.create 22 in
   let h = optional_debug_header in
-  List.iter
-    (write_u16_le opt_dbg_buf)
+  List.iter (write_u16_le opt_dbg_buf)
     [
       h.fpo_data;
       h.exception_data;
@@ -246,4 +242,3 @@ let write buf modules
   (* MFCTypeServer: nothing *)
   Buffer.add_string buf (Buffer.contents ec_buf);
   Buffer.add_string buf (Buffer.contents opt_dbg_buf)
-

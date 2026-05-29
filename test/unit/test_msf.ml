@@ -1,7 +1,7 @@
 (** Tests for MSF container read/write round-trip. *)
 
-
 open Test_support
+
 let test_roundtrip_empty_streams () =
   (* Create an MSF with two empty streams *)
   let builder = Pdb.Msf_write.create ~block_size:4096 in
@@ -114,8 +114,8 @@ let test_elf_magic_rejected () =
   (* An ELF file should be rejected with Invalid MSF magic *)
   let elf = buffer_of_string ("\x7fELF" ^ String.make 4092 '\000') in
   Alcotest.check_raises "ELF rejected"
-    (Object.Buffer.Invalid_format "Invalid MSF magic")
-    (fun () -> ignore (Pdb.Msf.read elf))
+    (Object.Buffer.Invalid_format "Invalid MSF magic") (fun () ->
+      ignore (Pdb.Msf.read elf))
 
 let test_invalid_block_size () =
   (* Construct a buffer with valid magic but invalid block size (256) *)
@@ -137,8 +137,8 @@ let test_invalid_block_size () =
   let bytes = Stdlib.Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   Alcotest.check_raises "invalid block size"
-    (Object.Buffer.Invalid_format "Invalid MSF block size: 256")
-    (fun () -> ignore (Pdb.Msf.read obj_buf))
+    (Object.Buffer.Invalid_format "Invalid MSF block size: 256") (fun () ->
+      ignore (Pdb.Msf.read obj_buf))
 
 let test_invalid_block_size_builder () =
   (* The MSF builder should reject invalid block sizes *)
@@ -251,7 +251,8 @@ let test_fpm_correctness () =
   let last_bit_idx = last_block mod 8 in
   let last_fpm_byte = Char.code msf_bytes.[fpm_offset + last_byte_idx] in
   (* The last allocated block should have bit=0 *)
-  Alcotest.(check int) "last block allocated" 0
+  Alcotest.(check int)
+    "last block allocated" 0
     (last_fpm_byte land (1 lsl last_bit_idx));
   (* Byte after the last block's byte should have free bits *)
   if last_byte_idx + 1 < block_size then begin
@@ -271,9 +272,9 @@ let test_fpm_blocks_1_and_2_identical () =
   let fpm1 = String.sub msf_bytes 1024 512 in
   Alcotest.(check string) "FPM0 == FPM1" fpm0 fpm1
 
-(** Derive the set of allocated blocks by walking the superblock, block map,
-    and stream directory. Any block reachable from one of those structures
-    must be marked allocated in the FPM; everything else must be free. *)
+(** Derive the set of allocated blocks by walking the superblock, block map, and
+    stream directory. Any block reachable from one of those structures must be
+    marked allocated in the FPM; everything else must be free. *)
 let test_fpm_full_bitmap () =
   let builder = Pdb.Msf_write.create ~block_size:512 in
   let _ = Pdb.Msf_write.add_stream builder (String.make 600 'A') in
@@ -366,15 +367,14 @@ let test_fpm_full_bitmap () =
       Alcotest.failf "bit %d past num_blocks should be free, got %d" b bit
   done
 
-(** With [block_size = 512], a single FPM block covers
-    [block_size * 8 = 4096] file blocks. Push a stream past 2 MB to
-    force the writer to reserve a second pair of FPM blocks at
-    positions 513 and 514. *)
+(** With [block_size = 512], a single FPM block covers [block_size * 8 = 4096]
+    file blocks. Push a stream past 2 MB to force the writer to reserve a second
+    pair of FPM blocks at positions 513 and 514. *)
 let test_multi_fpm_block () =
   let builder = Pdb.Msf_write.create ~block_size:512 in
   let payload_size = 2_600_000 in
   let payload =
-    String.init payload_size (fun i -> Char.chr ((i * 31) land 0xFF))
+    String.init payload_size (fun i -> Char.chr (i * 31 land 0xFF))
   in
   let _ = Pdb.Msf_write.add_stream builder payload in
   let msf_bytes = Pdb.Msf_write.finalize builder in
@@ -383,12 +383,16 @@ let test_multi_fpm_block () =
   let sb = Pdb.Msf.superblock msf in
   let block_size = Unsigned.UInt32.to_int sb.block_size in
   let num_blocks = Unsigned.UInt32.to_int sb.num_blocks in
-  Alcotest.(check bool) "more than one FPM interval" true
-    (num_blocks > block_size);
+  Alcotest.(check bool)
+    "more than one FPM interval" true (num_blocks > block_size);
   (* The second FPM pair is at positions 513 and 514; both must mirror
      the bits for blocks [4096, 8192). *)
-  let fpm0_2 = String.sub msf_bytes ((block_size + 1) * block_size) block_size in
-  let fpm1_2 = String.sub msf_bytes ((block_size + 2) * block_size) block_size in
+  let fpm0_2 =
+    String.sub msf_bytes ((block_size + 1) * block_size) block_size
+  in
+  let fpm1_2 =
+    String.sub msf_bytes ((block_size + 2) * block_size) block_size
+  in
   Alcotest.(check string) "FPM0[1] == FPM1[1]" fpm0_2 fpm1_2;
   (* The FPM blocks themselves (positions 513, 514) must be marked
      allocated in FPM[0]. Bit 513 lives at byte 64, bit 1. *)
@@ -405,7 +409,8 @@ let test_multi_fpm_block () =
   for i = 0 to payload_size - 1 do
     if s0.{i} <> Char.code payload.[i] then
       Alcotest.failf "byte %d: expected %d, got %d" i
-        (Char.code payload.[i]) s0.{i}
+        (Char.code payload.[i])
+        s0.{i}
   done
 
 let () =
@@ -426,14 +431,12 @@ let () =
         [
           Alcotest.test_case "too small" `Quick test_too_small_for_superblock;
           Alcotest.test_case "ELF rejected" `Quick test_elf_magic_rejected;
-          Alcotest.test_case "invalid block size" `Quick
-            test_invalid_block_size;
+          Alcotest.test_case "invalid block size" `Quick test_invalid_block_size;
           Alcotest.test_case "invalid block size builder" `Quick
             test_invalid_block_size_builder;
           Alcotest.test_case "multi-block directory" `Quick
             test_multi_block_stream_directory;
-          Alcotest.test_case "many small streams" `Quick
-            test_many_small_streams;
+          Alcotest.test_case "many small streams" `Quick test_many_small_streams;
           Alcotest.test_case "exact block boundary" `Quick
             test_exact_block_boundary;
           Alcotest.test_case "one byte stream" `Quick test_one_byte_stream;
@@ -445,7 +448,6 @@ let () =
             test_fpm_blocks_1_and_2_identical;
           Alcotest.test_case "full bitmap matches reachable blocks" `Quick
             test_fpm_full_bitmap;
-          Alcotest.test_case "multi-FPM-block file" `Quick
-            test_multi_fpm_block;
+          Alcotest.test_case "multi-FPM-block file" `Quick test_multi_fpm_block;
         ] );
     ]

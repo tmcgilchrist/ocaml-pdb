@@ -5,8 +5,8 @@
     [write_u8 / write_u16_le / write_u32_le / write_u64_le / write_i32_le]
     primitives; collecting them in one module avoids a copy per file. The
     [read_*] aliases unwrap the {!Object.Buffer.Read} return types
-    ({!Unsigned.UInt16.t}, etc.) into plain ints where most callers want
-    them. *)
+    ({!Unsigned.UInt16.t}, etc.) into plain ints where most callers want them.
+*)
 
 (** {2 Writes} *)
 
@@ -29,13 +29,13 @@ val write_cstring : Stdlib.Buffer.t -> string -> unit
 (** Append the bytes of [s] followed by a null terminator. *)
 
 val write_padding_to_align : Stdlib.Buffer.t -> int -> unit
-(** [write_padding_to_align buf alignment] appends zero bytes until the
-    buffer's length is a multiple of [alignment]. *)
+(** [write_padding_to_align buf alignment] appends zero bytes until the buffer's
+    length is a multiple of [alignment]. *)
 
 (** {2 Reads}
 
-    Thin wrappers that read from an {!Object.Buffer.cursor} and unwrap
-    the unsigned-integer return type into [int]. *)
+    Thin wrappers that read from an {!Object.Buffer.cursor} and unwrap the
+    unsigned-integer return type into [int]. *)
 
 val read_u8 : Object.Buffer.cursor -> int
 val read_u16 : Object.Buffer.cursor -> int

@@ -7,7 +7,6 @@
 
 open Pdb_types
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
 type line_entry = {
@@ -56,11 +55,7 @@ type frame_data_entry = {
 }
 
 type cross_module_export = { local : u32; global : u32 }
-
-type cross_module_import = {
-  module_name_offset : u32;
-  references : u32 array;
-}
+type cross_module_import = { module_name_offset : u32; references : u32 array }
 
 type subsection =
   | Lines of lines_subsection
@@ -71,7 +66,6 @@ type subsection =
   | CrossModuleExports of cross_module_export array
   | CrossModuleImports of cross_module_import array
   | Unknown of { kind : int; data : string }
-
 
 let checksum_kind_of_int = function
   | 0 -> None
@@ -186,8 +180,17 @@ let parse_frame_data (cur : Object.Buffer.cursor) sub_end =
     let saved_regs_size = read_u16 cur in
     let flags = read_u32 cur in
     entries :=
-      { rva_start; code_size; local_size; params_size; max_stack_size;
-        frame_func; prolog_size; saved_regs_size; flags }
+      {
+        rva_start;
+        code_size;
+        local_size;
+        params_size;
+        max_stack_size;
+        frame_func;
+        prolog_size;
+        saved_regs_size;
+        flags;
+      }
       :: !entries
   done;
   if cur.position < sub_end then Object.Buffer.seek cur sub_end;
@@ -232,7 +235,8 @@ let parse_subsections (cur : Object.Buffer.cursor) total_bytes =
       if cur.position + size > end_pos then
         Object.Buffer.invalid_format
           (Printf.sprintf
-             "C13 debug subsection 0x%x: size %d at offset %d overruns stream end"
+             "C13 debug subsection 0x%x: size %d at offset %d overruns stream \
+              end"
              kind size (cur.position - 8));
       let sub_end = cur.position + size in
       let sub =
@@ -288,9 +292,7 @@ let write_subsection buf sub =
             write_u32_le content_buf num_lines;
             (* BlockSize = 12 (header) + num_lines * 8 (lines)
                + if columns: num_lines * 4 (columns) *)
-            let col_size =
-              if has_columns then num_lines * 4 else 0
-            in
+            let col_size = if has_columns then num_lines * 4 else 0 in
             write_u32_le content_buf (12 + (num_lines * 8) + col_size);
             Array.iter
               (fun (le : line_entry) ->
@@ -298,7 +300,7 @@ let write_subsection buf sub =
                 let f =
                   le.line_start land 0x00FFFFFF
                   lor ((le.delta_line_end land 0x7F) lsl 24)
-                  lor (if le.is_statement then 0x80000000 else 0)
+                  lor if le.is_statement then 0x80000000 else 0
                 in
                 write_u32_le content_buf f)
               block.lines;

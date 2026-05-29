@@ -1,10 +1,9 @@
 (** Tests for malformed/corrupt input handling.
 
-    Verifies the library raises appropriate exceptions rather than
-    producing garbage or crashing on invalid input. *)
+    Verifies the library raises appropriate exceptions rather than producing
+    garbage or crashing on invalid input. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let write_u16_le buf v =
@@ -20,8 +19,8 @@ let write_u32_le buf v =
 (** {2 Truncated type records} *)
 
 (** [bad_format] matches any [Object.Buffer.Invalid_format _] exception
-    regardless of its message string — the exact wording is not part of
-    the public contract. *)
+    regardless of its message string — the exact wording is not part of the
+    public contract. *)
 let bad_format f =
   match f () with
   | _ -> Alcotest.fail "expected Invalid_format, function returned"
@@ -30,9 +29,12 @@ let bad_format f =
 let test_truncated_modifier () =
   (* LF_MODIFIER needs at least 6 bytes (2 kind + 4 type), give it only 4 *)
   let buf = Buffer.create 8 in
-  write_u16_le buf 4; (* length = 4 bytes *)
-  write_u16_le buf 0x1001; (* LF_MODIFIER *)
-  write_u16_le buf 0x0074; (* partial: only 2 of 4 bytes for modified_type *)
+  write_u16_le buf 4;
+  (* length = 4 bytes *)
+  write_u16_le buf 0x1001;
+  (* LF_MODIFIER *)
+  write_u16_le buf 0x0074;
+  (* partial: only 2 of 4 bytes for modified_type *)
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -43,8 +45,10 @@ let test_truncated_procedure () =
   (* LF_PROCEDURE needs 12 bytes payload, give it only 6 *)
   let buf = Buffer.create 12 in
   write_u16_le buf 6;
-  write_u16_le buf 0x1008; (* LF_PROCEDURE *)
-  write_u32_le buf 0x0074; (* return_type only *)
+  write_u16_le buf 0x1008;
+  (* LF_PROCEDURE *)
+  write_u32_le buf 0x0074;
+  (* return_type only *)
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -57,9 +61,12 @@ let test_truncated_gproc32 () =
   (* S_GPROC32 needs ~35+ bytes, give it only 8 *)
   let buf = Buffer.create 16 in
   write_u16_le buf 8;
-  write_u16_le buf 0x1110; (* S_GPROC32 *)
-  write_u32_le buf 0; (* parent only *)
-  write_u16_le buf 0; (* partial end_ *)
+  write_u16_le buf 0x1110;
+  (* S_GPROC32 *)
+  write_u32_le buf 0;
+  (* parent only *)
+  write_u16_le buf 0;
+  (* partial end_ *)
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -70,8 +77,10 @@ let test_truncated_pub32 () =
   (* S_PUB32 needs at least 10 bytes, give it only 4 *)
   let buf = Buffer.create 8 in
   write_u16_le buf 4;
-  write_u16_le buf 0x110e; (* S_PUB32 *)
-  write_u16_le buf 0; (* partial flags *)
+  write_u16_le buf 0x110e;
+  (* S_PUB32 *)
+  write_u16_le buf 0;
+  (* partial flags *)
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -95,8 +104,10 @@ let test_zero_length_type_record () =
   (* A type record with length = 2 (just the kind, no payload).
      This should parse as Unknown with empty data. *)
   let buf = Buffer.create 8 in
-  write_u16_le buf 2; (* length = 2, just the leaf kind *)
-  write_u16_le buf 0x9999; (* unknown kind *)
+  write_u16_le buf 2;
+  (* length = 2, just the leaf kind *)
+  write_u16_le buf 0x9999;
+  (* unknown kind *)
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
@@ -136,8 +147,8 @@ let test_msf_truncated_stream () =
   (* This should fail because num_blocks * block_size > file size *)
   Alcotest.check_raises "truncated MSF"
     (Object.Buffer.Invalid_format
-       "MSF file size smaller than num_blocks * block_size")
-    (fun () -> ignore (Pdb.Msf.read obj_buf))
+       "MSF file size smaller than num_blocks * block_size") (fun () ->
+      ignore (Pdb.Msf.read obj_buf))
 
 (** {2 TPI header edge cases} *)
 
@@ -174,8 +185,7 @@ let test_truncated_gsi_header () =
   bad_format (fun () -> ignore (Pdb.Gsi.parse_gsi (empty_cursor ()) 0))
 
 let test_truncated_publics_header () =
-  bad_format (fun () ->
-      ignore (Pdb.Gsi.parse_publics_header (empty_cursor ())))
+  bad_format (fun () -> ignore (Pdb.Gsi.parse_publics_header (empty_cursor ())))
 
 let test_truncated_string_table_header () =
   bad_format (fun () -> ignore (Pdb.Pdb_string_table.parse (empty_cursor ())))
@@ -199,9 +209,9 @@ let test_truncated_unwind_x64_header () =
 let test_truncated_unwind_arm64_header () =
   bad_format (fun () -> ignore (Pdb.Unwind.Arm64.parse (empty_cursor ())))
 
-(** An x64 UNWIND_INFO whose [count_of_codes] claims more slots than the
-    cursor actually contains must surface as Invalid_format, not as a
-    leaked Bigarray bounds error. *)
+(** An x64 UNWIND_INFO whose [count_of_codes] claims more slots than the cursor
+    actually contains must surface as Invalid_format, not as a leaked Bigarray
+    bounds error. *)
 let test_unwind_x64_truncated_codes () =
   let buf = Buffer.create 4 in
   Buffer.add_char buf '\x01';
@@ -216,12 +226,14 @@ let test_unwind_x64_truncated_codes () =
   bad_format (fun () ->
       ignore (Pdb.Unwind.X64.parse (Object.Buffer.cursor obj_buf)))
 
-(** A C13 subsection header that claims a size larger than the
-    remaining stream must surface as Invalid_format. *)
+(** A C13 subsection header that claims a size larger than the remaining stream
+    must surface as Invalid_format. *)
 let test_subsection_size_overruns () =
   let buf = Buffer.create 16 in
-  write_u32_le buf 0xf3; (* kind = StringTable *)
-  write_u32_le buf 100;  (* claimed size: more than the 0 bytes that follow *)
+  write_u32_le buf 0xf3;
+  (* kind = StringTable *)
+  write_u32_le buf 100;
+  (* claimed size: more than the 0 bytes that follow *)
   let bytes = Buffer.contents buf in
   let cur = Object.Buffer.cursor (buffer_of_string bytes) in
   bad_format (fun () ->
@@ -229,11 +241,12 @@ let test_subsection_size_overruns () =
         (List.of_seq
            (Pdb.Debug_subsections.parse_subsections cur (String.length bytes))))
 
-(** A C13 subsection iterator pointed at a cursor with fewer than the
-    8-byte header bytes must surface as Invalid_format. *)
+(** A C13 subsection iterator pointed at a cursor with fewer than the 8-byte
+    header bytes must surface as Invalid_format. *)
 let test_subsection_header_truncated () =
   let buf = Buffer.create 4 in
-  write_u32_le buf 0xf3; (* kind only -- missing 4-byte size *)
+  write_u32_le buf 0xf3;
+  (* kind only -- missing 4-byte size *)
   let bytes = Buffer.contents buf in
   let cur = Object.Buffer.cursor (buffer_of_string bytes) in
   bad_format (fun () ->
@@ -241,8 +254,8 @@ let test_subsection_header_truncated () =
         (List.of_seq
            (Pdb.Debug_subsections.parse_subsections cur (String.length bytes))))
 
-(** A TPI header that claims more record bytes than the stream actually
-    contains must fail in the per-record loop, not as a Bigarray error. *)
+(** A TPI header that claims more record bytes than the stream actually contains
+    must fail in the per-record loop, not as a Bigarray error. *)
 let test_tpi_overruns_stream () =
   let buf = Buffer.create 128 in
   Pdb.Tpi_write.write buf [];

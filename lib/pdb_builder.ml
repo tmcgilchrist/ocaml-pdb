@@ -1,7 +1,7 @@
 (** High-level PDB file builder.
 
-    Assembles a complete PDB file, handling stream layout and
-    cross-referencing automatically.
+    Assembles a complete PDB file, handling stream layout and cross-referencing
+    automatically.
 
     Stream layout produced by [finalize]:
     - Stream 0: empty (old directory)
@@ -16,9 +16,7 @@
     - Stream 5+N+3: /names stream *)
 
 open Pdb_types
-
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
 type machine = I386 | AMD64 | ARM | ARM64
@@ -36,9 +34,9 @@ type module_desc = {
   subsections : Debug_subsections.subsection list;
   section_contrib : Dbi.section_contribution option;
   source_files : string list;
-      (** Source filenames associated with this compilation unit. Goes into
-          the DBI FileInfo substream and is reported by llvm-pdbutil's
-          [--files] / [--modules] (# files) output. Use [[]] for none. *)
+      (** Source filenames associated with this compilation unit. Goes into the
+          DBI FileInfo substream and is reported by llvm-pdbutil's [--files] /
+          [--modules] (# files) output. Use [[]] for none. *)
 }
 
 type t = {
@@ -91,11 +89,8 @@ let add_id t record =
   Type_index.user (Unsigned.UInt32.of_int idx)
 
 let add_module t desc = t.modules <- desc :: t.modules
-
 let add_public t sym = t.publics <- sym :: t.publics
-
 let add_global t sym = t.globals <- sym :: t.globals
-
 let add_string t str = Pdb_string_table.add_string t.string_table str
 
 (* CV_SIGNATURE_C13 *)
@@ -224,9 +219,7 @@ let finalize t =
       modules
   in
   let section_contribs =
-    List.filter_map
-      (fun (m : module_desc) -> m.section_contrib)
-      modules
+    List.filter_map (fun (m : module_desc) -> m.section_contrib) modules
   in
   let dbi_buf = Buffer.create 512 in
   let has_gsi =
@@ -239,15 +232,13 @@ let finalize t =
   in
   if has_gsi then
     Dbi_write.write dbi_buf module_infos section_contribs
-      ~source_files:source_files_per_module
-      ~machine:(machine_to_int t.machine)
-      ~global_stream:globals_stream_idx
-      ~public_stream:publics_stream_idx
+      ~source_files:source_files_per_module ~machine:(machine_to_int t.machine)
+      ~global_stream:globals_stream_idx ~public_stream:publics_stream_idx
       ~sym_record_stream:sym_record_stream_idx ()
   else
     Dbi_write.write dbi_buf module_infos section_contribs
-      ~source_files:source_files_per_module
-      ~machine:(machine_to_int t.machine) ();
+      ~source_files:source_files_per_module ~machine:(machine_to_int t.machine)
+      ();
   let dbi_bytes = Buffer.contents dbi_buf in
   (* Build PDB Info Stream *)
   let named_streams =

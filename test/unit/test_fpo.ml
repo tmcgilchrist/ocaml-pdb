@@ -1,7 +1,6 @@
 (** Tests for the old-style FPO_DATA stream. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
@@ -33,15 +32,17 @@ let test_roundtrip () =
   let cur = Object.Buffer.cursor obj_buf in
   let out = Pdb.Fpo.parse cur (String.length bytes) in
   Alcotest.(check int) "count" 2 (Array.length out);
-  Alcotest.(check int) "entry 0 offset" 0x1000
+  Alcotest.(check int)
+    "entry 0 offset" 0x1000
     (Unsigned.UInt32.to_int out.(0).offset);
-  Alcotest.(check int) "entry 0 size" 32
-    (Unsigned.UInt32.to_int out.(0).size);
-  Alcotest.(check int) "entry 0 num_locals" 4
+  Alcotest.(check int) "entry 0 size" 32 (Unsigned.UInt32.to_int out.(0).size);
+  Alcotest.(check int)
+    "entry 0 num_locals" 4
     (Unsigned.UInt32.to_int out.(0).num_locals);
   Alcotest.(check int) "entry 0 num_params" 2 out.(0).num_params;
   Alcotest.(check int) "entry 0 attributes" 0x4042 out.(0).attributes;
-  Alcotest.(check int) "entry 1 offset" 0x1100
+  Alcotest.(check int)
+    "entry 1 offset" 0x1100
     (Unsigned.UInt32.to_int out.(1).offset);
   Alcotest.(check int) "entry 1 attributes" 0x0000 out.(1).attributes
 

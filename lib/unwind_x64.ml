@@ -6,28 +6,65 @@
     - LLVM: llvm/lib/MC/MCWin64EH.cpp *)
 
 open Pdb_types
-
 module Buffer = Stdlib.Buffer
-
 open Binary_writer
 
 type register =
-  | RAX | RCX | RDX | RBX | RSP | RBP | RSI | RDI
-  | R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15
+  | RAX
+  | RCX
+  | RDX
+  | RBX
+  | RSP
+  | RBP
+  | RSI
+  | RDI
+  | R8
+  | R9
+  | R10
+  | R11
+  | R12
+  | R13
+  | R14
+  | R15
 
 let register_to_int = function
-  | RAX -> 0 | RCX -> 1 | RDX -> 2 | RBX -> 3
-  | RSP -> 4 | RBP -> 5 | RSI -> 6 | RDI -> 7
-  | R8 -> 8 | R9 -> 9 | R10 -> 10 | R11 -> 11
-  | R12 -> 12 | R13 -> 13 | R14 -> 14 | R15 -> 15
+  | RAX -> 0
+  | RCX -> 1
+  | RDX -> 2
+  | RBX -> 3
+  | RSP -> 4
+  | RBP -> 5
+  | RSI -> 6
+  | RDI -> 7
+  | R8 -> 8
+  | R9 -> 9
+  | R10 -> 10
+  | R11 -> 11
+  | R12 -> 12
+  | R13 -> 13
+  | R14 -> 14
+  | R15 -> 15
 
 let int_to_register = function
-  | 0 -> RAX | 1 -> RCX | 2 -> RDX | 3 -> RBX
-  | 4 -> RSP | 5 -> RBP | 6 -> RSI | 7 -> RDI
-  | 8 -> R8 | 9 -> R9 | 10 -> R10 | 11 -> R11
-  | 12 -> R12 | 13 -> R13 | 14 -> R14 | 15 -> R15
+  | 0 -> RAX
+  | 1 -> RCX
+  | 2 -> RDX
+  | 3 -> RBX
+  | 4 -> RSP
+  | 5 -> RBP
+  | 6 -> RSI
+  | 7 -> RDI
+  | 8 -> R8
+  | 9 -> R9
+  | 10 -> R10
+  | 11 -> R11
+  | 12 -> R12
+  | 13 -> R13
+  | 14 -> R14
+  | 15 -> R15
   | n ->
-      invalid_arg (Printf.sprintf "Unwind_x64.int_to_register: %d not in 0..15" n)
+      invalid_arg
+        (Printf.sprintf "Unwind_x64.int_to_register: %d not in 0..15" n)
 
 type unwind_code =
   | PushNonVol of { code_offset : int; reg : register }
@@ -85,8 +122,7 @@ let parse cur =
     let frame_reg_num = frame_reg_and_offset land 0x0F in
     let frame_offset = (frame_reg_and_offset lsr 4) land 0x0F in
     let frame_register =
-      if frame_reg_num = 0 then None
-      else Some (int_to_register frame_reg_num)
+      if frame_reg_num = 0 then None else Some (int_to_register frame_reg_num)
     in
     let raw_slots =
       Array.init count_of_codes (fun _ ->
@@ -101,7 +137,7 @@ let parse cur =
       let op_and_info = (slot lsr 8) land 0xFF in
       let op = op_and_info land 0x0F in
       let info = (op_and_info lsr 4) land 0x0F in
-      (match op with
+      match op with
       | 0 ->
           codes :=
             PushNonVol { code_offset; reg = int_to_register info } :: !codes;
@@ -153,7 +189,7 @@ let parse cur =
           codes :=
             PushMachFrame { code_offset; error_code = info <> 0 } :: !codes;
           incr i
-      | _ -> incr i)
+      | _ -> incr i
     done;
     let exception_handler =
       if flags.exception_handler || flags.termination_handler then
@@ -178,8 +214,7 @@ let count_slots code =
   | PushNonVol _ | AllocSmall _ | SetFPReg _ | PushMachFrame _ -> 1
   | SaveNonVol _ | SaveXMM128 _ -> 2
   | SaveNonVolFar _ | SaveXMM128Far _ -> 3
-  | AllocLarge { size; _ } ->
-      if size <= (512 * 1024) - 8 then 2 else 3
+  | AllocLarge { size; _ } -> if size <= (512 * 1024) - 8 then 2 else 3
 
 let write_code buf code =
   match code with
@@ -189,58 +224,56 @@ let write_code buf code =
       write_u16_le buf (b0 lor (b1 lsl 8))
   | AllocSmall { code_offset; size } ->
       let info = (size - 8) / 8 in
-      write_u16_le buf ((code_offset land 0xFF) lor (((info lsl 4) lor 2) lsl 8))
+      write_u16_le buf (code_offset land 0xFF lor (((info lsl 4) lor 2) lsl 8))
   | AllocLarge { code_offset; size } ->
       if size <= (512 * 1024) - 8 then begin
-        write_u16_le buf ((code_offset land 0xFF) lor (0x01 lsl 8));
+        write_u16_le buf (code_offset land 0xFF lor (0x01 lsl 8));
         write_u16_le buf (size / 8)
       end
       else begin
-        write_u16_le buf ((code_offset land 0xFF) lor (0x11 lsl 8));
+        write_u16_le buf (code_offset land 0xFF lor (0x11 lsl 8));
         write_u16_le buf (size land 0xFFFF);
         write_u16_le buf ((size lsr 16) land 0xFFFF)
       end
   | SetFPReg { code_offset } ->
-      write_u16_le buf ((code_offset land 0xFF) lor (0x03 lsl 8))
+      write_u16_le buf (code_offset land 0xFF lor (0x03 lsl 8))
   | SaveNonVol { code_offset; reg; offset } ->
       let b1 = (register_to_int reg lsl 4) lor 4 in
-      write_u16_le buf ((code_offset land 0xFF) lor (b1 lsl 8));
+      write_u16_le buf (code_offset land 0xFF lor (b1 lsl 8));
       write_u16_le buf (offset / 8)
   | SaveNonVolFar { code_offset; reg; offset } ->
       let b1 = (register_to_int reg lsl 4) lor 5 in
-      write_u16_le buf ((code_offset land 0xFF) lor (b1 lsl 8));
+      write_u16_le buf (code_offset land 0xFF lor (b1 lsl 8));
       write_u16_le buf (offset land 0xFFFF);
       write_u16_le buf ((offset lsr 16) land 0xFFFF)
   | SaveXMM128 { code_offset; reg; offset } ->
       let b1 = (reg lsl 4) lor 8 in
-      write_u16_le buf ((code_offset land 0xFF) lor (b1 lsl 8));
+      write_u16_le buf (code_offset land 0xFF lor (b1 lsl 8));
       write_u16_le buf (offset / 16)
   | SaveXMM128Far { code_offset; reg; offset } ->
       let b1 = (reg lsl 4) lor 9 in
-      write_u16_le buf ((code_offset land 0xFF) lor (b1 lsl 8));
+      write_u16_le buf (code_offset land 0xFF lor (b1 lsl 8));
       write_u16_le buf (offset land 0xFFFF);
       write_u16_le buf ((offset lsr 16) land 0xFFFF)
   | PushMachFrame { code_offset; error_code } ->
       let b1 = ((if error_code then 1 else 0) lsl 4) lor 10 in
-      write_u16_le buf ((code_offset land 0xFF) lor (b1 lsl 8))
+      write_u16_le buf (code_offset land 0xFF lor (b1 lsl 8))
 
 let write buf info =
   let flag_bits =
     (if info.flags.exception_handler then 1 else 0)
     lor (if info.flags.termination_handler then 2 else 0)
-    lor (if info.flags.chain_info then 4 else 0)
+    lor if info.flags.chain_info then 4 else 0
   in
-  let version_and_flags = (info.version land 0x07) lor (flag_bits lsl 3) in
+  let version_and_flags = info.version land 0x07 lor (flag_bits lsl 3) in
   let count_of_codes =
     List.fold_left (fun acc c -> acc + count_slots c) 0 info.unwind_codes
   in
   let frame_reg_num =
-    match info.frame_register with
-    | None -> 0
-    | Some reg -> register_to_int reg
+    match info.frame_register with None -> 0 | Some reg -> register_to_int reg
   in
   let frame_reg_and_offset =
-    (frame_reg_num land 0x0F) lor ((info.frame_offset land 0x0F) lsl 4)
+    frame_reg_num land 0x0F lor ((info.frame_offset land 0x0F) lsl 4)
   in
   Buffer.add_char buf (Char.chr version_and_flags);
   Buffer.add_char buf (Char.chr (info.size_of_prolog land 0xFF));
@@ -249,7 +282,5 @@ let write buf info =
   List.iter (write_code buf) info.unwind_codes;
   if count_of_codes mod 2 <> 0 then write_u16_le buf 0;
   match info.exception_handler with
-  | Some handler_rva ->
-      write_u32_le buf (Unsigned.UInt32.to_int handler_rva)
-  | None ->
-      if count_of_codes < 2 then write_u32_le buf 0
+  | Some handler_rva -> write_u32_le buf (Unsigned.UInt32.to_int handler_rva)
+  | None -> if count_of_codes < 2 then write_u32_le buf 0

@@ -1,7 +1,6 @@
 (** Tests for C13 debug subsections. *)
 
 module Buffer = Stdlib.Buffer
-
 open Test_support
 
 let u32 n = Unsigned.UInt32.of_int n
@@ -189,7 +188,8 @@ let test_lines_with_columns () =
     {
       contrib_offset = u32 0;
       contrib_segment = 1;
-      flags = 0; (* writer will set HaveColumns automatically *)
+      flags = 0;
+      (* writer will set HaveColumns automatically *)
       contrib_size = u32 50;
       blocks =
         [|
@@ -232,11 +232,13 @@ let test_lines_with_columns () =
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
-  let subs = Pdb.Debug_subsections.parse_subsections cur (String.length bytes) in
+  let subs =
+    Pdb.Debug_subsections.parse_subsections cur (String.length bytes)
+  in
   let sub_list = List.of_seq subs in
   Alcotest.(check int) "one subsection" 1 (List.length sub_list);
   match List.hd sub_list with
-  | Pdb.Debug_subsections.Lines ls ->
+  | Pdb.Debug_subsections.Lines ls -> (
       Alcotest.(check int) "HaveColumns flag" 1 (ls.flags land 0x0001);
       Alcotest.(check int) "one block" 1 (Array.length ls.blocks);
       let block = ls.blocks.(0) in
@@ -244,7 +246,7 @@ let test_lines_with_columns () =
       Alcotest.(check int) "line 0" 5 block.lines.(0).line_start;
       Alcotest.(check int) "line 1" 6 block.lines.(1).line_start;
       (* Verify columns *)
-      (match block.columns with
+      match block.columns with
       | Some cols ->
           Alcotest.(check int) "three cols" 3 (Array.length cols);
           Alcotest.(check int) "col 0 start" 3 cols.(0).start_column;
@@ -287,14 +289,15 @@ let test_lines_no_columns_parsed_as_none () =
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
-  let subs = Pdb.Debug_subsections.parse_subsections cur (String.length bytes) in
+  let subs =
+    Pdb.Debug_subsections.parse_subsections cur (String.length bytes)
+  in
   let sub_list = List.of_seq subs in
   match List.hd sub_list with
   | Pdb.Debug_subsections.Lines ls ->
       Alcotest.(check int) "no HaveColumns" 0 (ls.flags land 0x0001);
       let block = ls.blocks.(0) in
-      Alcotest.(check bool) "no columns" true
-        (block.columns = Option.None)
+      Alcotest.(check bool) "no columns" true (block.columns = Option.None)
   | _ -> Alcotest.fail "expected Lines subsection"
 
 (** {2 FrameData tests} *)
@@ -331,28 +334,32 @@ let test_frame_data_roundtrip () =
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
-  let subs = Pdb.Debug_subsections.parse_subsections cur (String.length bytes) in
+  let subs =
+    Pdb.Debug_subsections.parse_subsections cur (String.length bytes)
+  in
   let sub_list = List.of_seq subs in
   Alcotest.(check int) "one subsection" 1 (List.length sub_list);
   match List.hd sub_list with
   | Pdb.Debug_subsections.FrameData frames ->
       Alcotest.(check int) "two frames" 2 (Array.length frames);
       let f0 = frames.(0) in
-      Alcotest.(check int) "f0 rva" 0x1000
-        (Unsigned.UInt32.to_int f0.rva_start);
-      Alcotest.(check int) "f0 code_size" 100
+      Alcotest.(check int) "f0 rva" 0x1000 (Unsigned.UInt32.to_int f0.rva_start);
+      Alcotest.(check int)
+        "f0 code_size" 100
         (Unsigned.UInt32.to_int f0.code_size);
-      Alcotest.(check int) "f0 local_size" 48
+      Alcotest.(check int)
+        "f0 local_size" 48
         (Unsigned.UInt32.to_int f0.local_size);
-      Alcotest.(check int) "f0 params_size" 16
+      Alcotest.(check int)
+        "f0 params_size" 16
         (Unsigned.UInt32.to_int f0.params_size);
       Alcotest.(check int) "f0 prolog" 10 f0.prolog_size;
       Alcotest.(check int) "f0 saved_regs" 16 f0.saved_regs_size;
       Alcotest.(check int) "f0 flags" 0x04 (Unsigned.UInt32.to_int f0.flags);
       let f1 = frames.(1) in
-      Alcotest.(check int) "f1 rva" 0x2000
-        (Unsigned.UInt32.to_int f1.rva_start);
-      Alcotest.(check int) "f1 code_size" 50
+      Alcotest.(check int) "f1 rva" 0x2000 (Unsigned.UInt32.to_int f1.rva_start);
+      Alcotest.(check int)
+        "f1 code_size" 50
         (Unsigned.UInt32.to_int f1.code_size)
   | _ -> Alcotest.fail "expected FrameData subsection"
 
@@ -362,7 +369,9 @@ let test_frame_data_empty () =
   let bytes = Buffer.contents buf in
   let obj_buf = buffer_of_string bytes in
   let cur = Object.Buffer.cursor obj_buf in
-  let subs = Pdb.Debug_subsections.parse_subsections cur (String.length bytes) in
+  let subs =
+    Pdb.Debug_subsections.parse_subsections cur (String.length bytes)
+  in
   let sub_list = List.of_seq subs in
   match List.hd sub_list with
   | Pdb.Debug_subsections.FrameData frames ->
@@ -393,45 +402,52 @@ let test_cross_module_exports_roundtrip () =
       { local = u32 0x1003; global = u32 0x2042 };
     |]
   in
-  match roundtrip_subsection (Pdb.Debug_subsections.CrossModuleExports entries) with
+  match
+    roundtrip_subsection (Pdb.Debug_subsections.CrossModuleExports entries)
+  with
   | Pdb.Debug_subsections.CrossModuleExports out ->
       Alcotest.(check int) "count" 3 (Array.length out);
-      Alcotest.(check int) "local 0" 0x1000
+      Alcotest.(check int)
+        "local 0" 0x1000
         (Unsigned.UInt32.to_int out.(0).local);
-      Alcotest.(check int) "global 0" 0x2000
+      Alcotest.(check int)
+        "global 0" 0x2000
         (Unsigned.UInt32.to_int out.(0).global);
-      Alcotest.(check int) "global 2" 0x2042
+      Alcotest.(check int)
+        "global 2" 0x2042
         (Unsigned.UInt32.to_int out.(2).global)
   | _ -> Alcotest.fail "expected CrossModuleExports"
 
 let test_cross_module_imports_roundtrip () =
   let entries =
     [|
-      ({
-         module_name_offset = u32 0;
-         references = [| u32 0x1000; u32 0x1001 |];
-       }
+      ({ module_name_offset = u32 0; references = [| u32 0x1000; u32 0x1001 |] }
         : Pdb.Debug_subsections.cross_module_import);
       { module_name_offset = u32 42; references = [||] };
       { module_name_offset = u32 99; references = [| u32 0x1234 |] };
     |]
   in
-  match roundtrip_subsection (Pdb.Debug_subsections.CrossModuleImports entries) with
+  match
+    roundtrip_subsection (Pdb.Debug_subsections.CrossModuleImports entries)
+  with
   | Pdb.Debug_subsections.CrossModuleImports out ->
       Alcotest.(check int) "count" 3 (Array.length out);
       Alcotest.(check int) "first refs len" 2 (Array.length out.(0).references);
-      Alcotest.(check int) "first ref 0" 0x1000
+      Alcotest.(check int)
+        "first ref 0" 0x1000
         (Unsigned.UInt32.to_int out.(0).references.(0));
       Alcotest.(check int) "empty refs" 0 (Array.length out.(1).references);
-      Alcotest.(check int) "third module_name_offset" 99
+      Alcotest.(check int)
+        "third module_name_offset" 99
         (Unsigned.UInt32.to_int out.(2).module_name_offset);
-      Alcotest.(check int) "third ref 0" 0x1234
+      Alcotest.(check int)
+        "third ref 0" 0x1234
         (Unsigned.UInt32.to_int out.(2).references.(0))
   | _ -> Alcotest.fail "expected CrossModuleImports"
 
 let test_cross_module_exports_empty () =
-  match roundtrip_subsection
-          (Pdb.Debug_subsections.CrossModuleExports [||])
+  match
+    roundtrip_subsection (Pdb.Debug_subsections.CrossModuleExports [||])
   with
   | Pdb.Debug_subsections.CrossModuleExports out ->
       Alcotest.(check int) "empty" 0 (Array.length out)
@@ -452,8 +468,7 @@ let () =
         ] );
       ( "columns",
         [
-          Alcotest.test_case "lines with columns" `Quick
-            test_lines_with_columns;
+          Alcotest.test_case "lines with columns" `Quick test_lines_with_columns;
           Alcotest.test_case "lines without columns" `Quick
             test_lines_no_columns_parsed_as_none;
         ] );
