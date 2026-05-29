@@ -72,7 +72,10 @@ type subsection =
   | Unknown of { kind : int; data : string }
 
 val parse_subsections : Object.Buffer.cursor -> int -> subsection Seq.t
-(** [parse_subsections cur total_bytes] lazily iterates C13 subsections. *)
+(** [parse_subsections cur total_bytes] lazily iterates C13 subsections.
+    @raise Object.Buffer.Invalid_format (during iteration) if a
+    subsection's kind/size header is truncated or its declared size
+    overruns the [total_bytes] window. *)
 
 val write_subsection : Stdlib.Buffer.t -> subsection -> unit
 (** [write_subsection buf sub] serializes a single subsection. *)

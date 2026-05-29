@@ -56,108 +56,121 @@ type unwind_info = {
 }
 
 let parse (cur : Object.Buffer.cursor) : unwind_info =
-  let version_and_flags = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
-  let version = version_and_flags land 0x07 in
-  let flag_bits = (version_and_flags lsr 3) land 0x1F in
-  let flags =
-    {
-      exception_handler = flag_bits land 0x01 <> 0;
-      termination_handler = flag_bits land 0x02 <> 0;
-      chain_info = flag_bits land 0x04 <> 0;
-    }
-  in
-  let size_of_prolog = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
-  let count_of_codes = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
-  let frame_reg_and_offset =
-    Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int
-  in
-  let frame_reg_num = frame_reg_and_offset land 0x0F in
-  let frame_offset = (frame_reg_and_offset lsr 4) land 0x0F in
-  let frame_register =
-    if frame_reg_num = 0 then None
-    else Some (int_to_register frame_reg_num)
-  in
-  let raw_slots =
-    Array.init count_of_codes (fun _ ->
-        Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int)
-  in
-  if count_of_codes mod 2 <> 0 then ignore (Object.Buffer.Read.u16 cur);
-  let codes = ref [] in
-  let i = ref 0 in
-  while !i < count_of_codes do
-    let slot = raw_slots.(!i) in
-    let code_offset = slot land 0xFF in
-    let op_and_info = (slot lsr 8) land 0xFF in
-    let op = op_and_info land 0x0F in
-    let info = (op_and_info lsr 4) land 0x0F in
-    (match op with
-    | 0 ->
-        codes :=
-          PushNonVol { code_offset; reg = int_to_register info } :: !codes;
-        incr i
-    | 1 ->
-        if info = 0 then begin
-          let size = raw_slots.(!i + 1) * 8 in
-          codes := AllocLarge { code_offset; size } :: !codes;
+  (* Fixed 4-byte UNWIND_INFO prefix; count_of_codes (byte 2) governs
+     how many u16 slots and whether the 2-byte odd-count pad and the
+     trailing exception handler u32 are present. Guard the prefix with
+     [ensure] and wrap the variable tail in [try/with] so a truncated
+     stream surfaces as Invalid_format rather than leaking a Bigarray
+     bounds error. *)
+  Object.Buffer.ensure cur 4 "x64 UNWIND_INFO: truncated header";
+  try
+    let version_and_flags =
+      Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int
+    in
+    let version = version_and_flags land 0x07 in
+    let flag_bits = (version_and_flags lsr 3) land 0x1F in
+    let flags =
+      {
+        exception_handler = flag_bits land 0x01 <> 0;
+        termination_handler = flag_bits land 0x02 <> 0;
+        chain_info = flag_bits land 0x04 <> 0;
+      }
+    in
+    let size_of_prolog = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
+    let count_of_codes = Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int in
+    let frame_reg_and_offset =
+      Object.Buffer.Read.u8 cur |> Unsigned.UInt8.to_int
+    in
+    let frame_reg_num = frame_reg_and_offset land 0x0F in
+    let frame_offset = (frame_reg_and_offset lsr 4) land 0x0F in
+    let frame_register =
+      if frame_reg_num = 0 then None
+      else Some (int_to_register frame_reg_num)
+    in
+    let raw_slots =
+      Array.init count_of_codes (fun _ ->
+          Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int)
+    in
+    if count_of_codes mod 2 <> 0 then ignore (Object.Buffer.Read.u16 cur);
+    let codes = ref [] in
+    let i = ref 0 in
+    while !i < count_of_codes do
+      let slot = raw_slots.(!i) in
+      let code_offset = slot land 0xFF in
+      let op_and_info = (slot lsr 8) land 0xFF in
+      let op = op_and_info land 0x0F in
+      let info = (op_and_info lsr 4) land 0x0F in
+      (match op with
+      | 0 ->
+          codes :=
+            PushNonVol { code_offset; reg = int_to_register info } :: !codes;
+          incr i
+      | 1 ->
+          if info = 0 then begin
+            let size = raw_slots.(!i + 1) * 8 in
+            codes := AllocLarge { code_offset; size } :: !codes;
+            i := !i + 2
+          end
+          else begin
+            let lo = raw_slots.(!i + 1) in
+            let hi = raw_slots.(!i + 2) in
+            let size = lo lor (hi lsl 16) in
+            codes := AllocLarge { code_offset; size } :: !codes;
+            i := !i + 3
+          end
+      | 2 ->
+          codes := AllocSmall { code_offset; size = (info * 8) + 8 } :: !codes;
+          incr i
+      | 3 ->
+          codes := SetFPReg { code_offset } :: !codes;
+          incr i
+      | 4 ->
+          let offset = raw_slots.(!i + 1) * 8 in
+          codes :=
+            SaveNonVol { code_offset; reg = int_to_register info; offset }
+            :: !codes;
           i := !i + 2
-        end
-        else begin
+      | 5 ->
           let lo = raw_slots.(!i + 1) in
           let hi = raw_slots.(!i + 2) in
-          let size = lo lor (hi lsl 16) in
-          codes := AllocLarge { code_offset; size } :: !codes;
+          let offset = lo lor (hi lsl 16) in
+          codes :=
+            SaveNonVolFar { code_offset; reg = int_to_register info; offset }
+            :: !codes;
           i := !i + 3
-        end
-    | 2 ->
-        codes := AllocSmall { code_offset; size = (info * 8) + 8 } :: !codes;
-        incr i
-    | 3 ->
-        codes := SetFPReg { code_offset } :: !codes;
-        incr i
-    | 4 ->
-        let offset = raw_slots.(!i + 1) * 8 in
-        codes :=
-          SaveNonVol { code_offset; reg = int_to_register info; offset }
-          :: !codes;
-        i := !i + 2
-    | 5 ->
-        let lo = raw_slots.(!i + 1) in
-        let hi = raw_slots.(!i + 2) in
-        let offset = lo lor (hi lsl 16) in
-        codes :=
-          SaveNonVolFar { code_offset; reg = int_to_register info; offset }
-          :: !codes;
-        i := !i + 3
-    | 8 ->
-        let offset = raw_slots.(!i + 1) * 16 in
-        codes := SaveXMM128 { code_offset; reg = info; offset } :: !codes;
-        i := !i + 2
-    | 9 ->
-        let lo = raw_slots.(!i + 1) in
-        let hi = raw_slots.(!i + 2) in
-        let offset = lo lor (hi lsl 16) in
-        codes := SaveXMM128Far { code_offset; reg = info; offset } :: !codes;
-        i := !i + 3
-    | 10 ->
-        codes :=
-          PushMachFrame { code_offset; error_code = info <> 0 } :: !codes;
-        incr i
-    | _ -> incr i)
-  done;
-  let exception_handler =
-    if flags.exception_handler || flags.termination_handler then
-      Some (Object.Buffer.Read.u32 cur)
-    else None
-  in
-  {
-    version;
-    flags;
-    size_of_prolog;
-    frame_register;
-    frame_offset;
-    unwind_codes = List.rev !codes;
-    exception_handler;
-  }
+      | 8 ->
+          let offset = raw_slots.(!i + 1) * 16 in
+          codes := SaveXMM128 { code_offset; reg = info; offset } :: !codes;
+          i := !i + 2
+      | 9 ->
+          let lo = raw_slots.(!i + 1) in
+          let hi = raw_slots.(!i + 2) in
+          let offset = lo lor (hi lsl 16) in
+          codes := SaveXMM128Far { code_offset; reg = info; offset } :: !codes;
+          i := !i + 3
+      | 10 ->
+          codes :=
+            PushMachFrame { code_offset; error_code = info <> 0 } :: !codes;
+          incr i
+      | _ -> incr i)
+    done;
+    let exception_handler =
+      if flags.exception_handler || flags.termination_handler then
+        Some (Object.Buffer.Read.u32 cur)
+      else None
+    in
+    {
+      version;
+      flags;
+      size_of_prolog;
+      frame_register;
+      frame_offset;
+      unwind_codes = List.rev !codes;
+      exception_handler;
+    }
+  with Invalid_argument _ ->
+    Object.Buffer.invalid_format
+      "x64 UNWIND_INFO: truncated codes or trailing exception handler"
 
 let count_slots (code : unwind_code) : int =
   match code with

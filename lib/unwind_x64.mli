@@ -47,7 +47,8 @@ type unwind_info = {
 
 val parse : Object.Buffer.cursor -> unwind_info
 (** [parse cur] parses an UNWIND_INFO structure from the cursor.
-    @raise Object.Buffer.Invalid_format on a malformed record. *)
+    @raise Object.Buffer.Invalid_format on a truncated header, missing
+    codes, or missing trailing exception handler RVA. *)
 
 val write : Stdlib.Buffer.t -> unwind_info -> unit
 (** [write buf info] serializes an UNWIND_INFO structure. *)

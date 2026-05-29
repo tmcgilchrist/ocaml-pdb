@@ -232,9 +232,16 @@ let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
   let end_pos = cur.position + total_bytes in
   let rec next () =
     if cur.position >= end_pos then Seq.Nil
-    else
+    else begin
+      Object.Buffer.ensure cur 8
+        "C13 debug subsection: truncated kind/size header";
       let kind = Unsigned.UInt32.to_int (read_u32 cur) in
       let size = Unsigned.UInt32.to_int (read_u32 cur) in
+      if cur.position + size > end_pos then
+        Object.Buffer.invalid_format
+          (Printf.sprintf
+             "C13 debug subsection 0x%x: size %d at offset %d overruns stream end"
+             kind size (cur.position - 8));
       let sub_end = cur.position + size in
       let sub =
         match kind with
@@ -257,6 +264,7 @@ let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
       if aligned > sub_end && aligned <= end_pos then
         Object.Buffer.seek cur aligned;
       Seq.Cons (sub, next)
+    end
   in
   next
 

@@ -241,47 +241,57 @@ let parse_code (bytes : string) (pos : int ref) : unwind_code =
   else Nop
 
 let parse (cur : Object.Buffer.cursor) : unwind_info =
-  let row1 = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
-  let function_length = (row1 land 0x3FFFF) * 4 in
-  let x_flag = (row1 lsr 20) land 1 <> 0 in
-  let e_flag = (row1 lsr 21) land 1 <> 0 in
-  let epilog_count = (row1 lsr 22) land 0x1F in
-  let code_words = (row1 lsr 27) land 0x1F in
-  let _epilog_count, code_words =
-    if epilog_count = 0 && code_words = 0 then begin
-      let row2 = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
-      let ext_epilog = (row2 lsr 8) land 0xFFFF in
-      let ext_codes = row2 land 0xFF in
-      (ext_epilog, ext_codes)
-    end
-    else (epilog_count, code_words)
-  in
-  if not e_flag then
-    for _ = 1 to epilog_count do
-      ignore (Object.Buffer.Read.u32 cur)
+  (* The 4-byte [row1] is mandatory; everything else (extended-header
+     [row2], epilog scopes, code words, exception handler) is governed
+     by bit fields inside [row1]. Guard [row1] with [ensure] and wrap
+     the variable tail in [try/with] so a truncated stream surfaces as
+     Invalid_format rather than leaking a Bigarray bounds error. *)
+  Object.Buffer.ensure cur 4 "ARM64 .pdata: truncated header";
+  try
+    let row1 = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
+    let function_length = (row1 land 0x3FFFF) * 4 in
+    let x_flag = (row1 lsr 20) land 1 <> 0 in
+    let e_flag = (row1 lsr 21) land 1 <> 0 in
+    let epilog_count = (row1 lsr 22) land 0x1F in
+    let code_words = (row1 lsr 27) land 0x1F in
+    let _epilog_count, code_words =
+      if epilog_count = 0 && code_words = 0 then begin
+        let row2 = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
+        let ext_epilog = (row2 lsr 8) land 0xFFFF in
+        let ext_codes = row2 land 0xFF in
+        (ext_epilog, ext_codes)
+      end
+      else (epilog_count, code_words)
+    in
+    if not e_flag then
+      for _ = 1 to epilog_count do
+        ignore (Object.Buffer.Read.u32 cur)
+      done;
+    let code_byte_count = code_words * 4 in
+    let code_bytes =
+      if code_byte_count > 0 then
+        Object.Buffer.Read.fixed_string cur code_byte_count
+      else ""
+    in
+    let codes = ref [] in
+    let pos = ref 0 in
+    while !pos < code_byte_count do
+      let code = parse_code code_bytes pos in
+      codes := code :: !codes;
+      if code = End then pos := code_byte_count
     done;
-  let code_byte_count = code_words * 4 in
-  let code_bytes =
-    if code_byte_count > 0 then
-      Object.Buffer.Read.fixed_string cur code_byte_count
-    else ""
-  in
-  let codes = ref [] in
-  let pos = ref 0 in
-  while !pos < code_byte_count do
-    let code = parse_code code_bytes pos in
-    codes := code :: !codes;
-    if code = End then pos := code_byte_count
-  done;
-  let exception_handler =
-    if x_flag then Some (Object.Buffer.Read.u32 cur) else None
-  in
-  {
-    function_length;
-    has_exception_data = x_flag;
-    codes = List.rev !codes;
-    exception_handler;
-  }
+    let exception_handler =
+      if x_flag then Some (Object.Buffer.Read.u32 cur) else None
+    in
+    {
+      function_length;
+      has_exception_data = x_flag;
+      codes = List.rev !codes;
+      exception_handler;
+    }
+  with Invalid_argument _ ->
+    Object.Buffer.invalid_format
+      "ARM64 .pdata: truncated unwind codes or trailing exception handler"
 
 let write (buf : Buffer.t) (info : unwind_info) : unit =
   let code_buf = Buffer.create 32 in

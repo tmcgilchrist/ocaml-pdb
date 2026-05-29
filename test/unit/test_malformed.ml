@@ -193,6 +193,54 @@ let test_string_table_bad_signature () =
   bad_format (fun () ->
       ignore (Pdb.Pdb_string_table.parse (Object.Buffer.cursor obj_buf)))
 
+let test_truncated_unwind_x64_header () =
+  bad_format (fun () -> ignore (Pdb.Unwind.X64.parse (empty_cursor ())))
+
+let test_truncated_unwind_arm64_header () =
+  bad_format (fun () -> ignore (Pdb.Unwind.Arm64.parse (empty_cursor ())))
+
+(** An x64 UNWIND_INFO whose [count_of_codes] claims more slots than the
+    cursor actually contains must surface as Invalid_format, not as a
+    leaked Bigarray bounds error. *)
+let test_unwind_x64_truncated_codes () =
+  let buf = Buffer.create 4 in
+  Buffer.add_char buf '\x01';
+  (* version=1, flags=0 *)
+  Buffer.add_char buf '\x00';
+  (* size_of_prolog *)
+  Buffer.add_char buf '\x03';
+  (* count_of_codes=3; nothing follows *)
+  Buffer.add_char buf '\x00';
+  (* frame_register+offset *)
+  let obj_buf = buffer_of_string (Buffer.contents buf) in
+  bad_format (fun () ->
+      ignore (Pdb.Unwind.X64.parse (Object.Buffer.cursor obj_buf)))
+
+(** A C13 subsection header that claims a size larger than the
+    remaining stream must surface as Invalid_format. *)
+let test_subsection_size_overruns () =
+  let buf = Buffer.create 16 in
+  write_u32_le buf 0xf3; (* kind = StringTable *)
+  write_u32_le buf 100;  (* claimed size: more than the 0 bytes that follow *)
+  let bytes = Buffer.contents buf in
+  let cur = Object.Buffer.cursor (buffer_of_string bytes) in
+  bad_format (fun () ->
+      ignore
+        (List.of_seq
+           (Pdb.Debug_subsections.parse_subsections cur (String.length bytes))))
+
+(** A C13 subsection iterator pointed at a cursor with fewer than the
+    8-byte header bytes must surface as Invalid_format. *)
+let test_subsection_header_truncated () =
+  let buf = Buffer.create 4 in
+  write_u32_le buf 0xf3; (* kind only -- missing 4-byte size *)
+  let bytes = Buffer.contents buf in
+  let cur = Object.Buffer.cursor (buffer_of_string bytes) in
+  bad_format (fun () ->
+      ignore
+        (List.of_seq
+           (Pdb.Debug_subsections.parse_subsections cur (String.length bytes))))
+
 (** A TPI header that claims more record bytes than the stream actually
     contains must fail in the per-record loop, not as a Bigarray error. *)
 let test_tpi_overruns_stream () =
@@ -259,6 +307,22 @@ let () =
             test_truncated_publics_header;
           Alcotest.test_case "string table header" `Quick
             test_truncated_string_table_header;
+          Alcotest.test_case "x64 unwind header" `Quick
+            test_truncated_unwind_x64_header;
+          Alcotest.test_case "ARM64 unwind header" `Quick
+            test_truncated_unwind_arm64_header;
+        ] );
+      ( "unwind_corrupt",
+        [
+          Alcotest.test_case "x64 truncated codes" `Quick
+            test_unwind_x64_truncated_codes;
+        ] );
+      ( "subsections_corrupt",
+        [
+          Alcotest.test_case "header truncated" `Quick
+            test_subsection_header_truncated;
+          Alcotest.test_case "size overruns stream" `Quick
+            test_subsection_size_overruns;
         ] );
       ( "format_validation",
         [
