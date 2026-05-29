@@ -203,6 +203,62 @@ let test_dbi_section_contrib_fields () =
   Alcotest.(check int) "sc reloc_crc" 0xCAFEBABE
     (Unsigned.UInt32.to_int s.reloc_crc land 0xFFFFFFFF)
 
+(** Every field of the optional debug header must round-trip exactly.
+    Use 11 distinct sentinel values so a swap between fields would be
+    visible. *)
+let test_dbi_optional_debug_header () =
+  let h : Pdb.Dbi.optional_debug_header =
+    {
+      fpo_data = 7;
+      exception_data = 8;
+      fixup_data = 9;
+      omap_to_src = 10;
+      omap_from_src = 11;
+      section_header = 12;
+      token_rid_map = 13;
+      xdata = 14;
+      pdata = 15;
+      new_fpo_data = 16;
+      original_section_header = 17;
+    }
+  in
+  let buf = Buffer.create 128 in
+  Pdb.Dbi_write.write buf [] [] ~source_files:[] ~machine:0x8664
+    ~optional_debug_header:h ();
+  let bytes = Buffer.contents buf in
+  let obj_buf = buffer_of_string bytes in
+  let cur = Object.Buffer.cursor obj_buf in
+  let dbi = Pdb.Dbi.parse cur in
+  match dbi.optional_debug_header with
+  | None -> Alcotest.fail "expected optional_debug_header to be Some"
+  | Some h' ->
+      Alcotest.(check int) "fpo_data" 7 h'.fpo_data;
+      Alcotest.(check int) "exception_data" 8 h'.exception_data;
+      Alcotest.(check int) "fixup_data" 9 h'.fixup_data;
+      Alcotest.(check int) "omap_to_src" 10 h'.omap_to_src;
+      Alcotest.(check int) "omap_from_src" 11 h'.omap_from_src;
+      Alcotest.(check int) "section_header" 12 h'.section_header;
+      Alcotest.(check int) "token_rid_map" 13 h'.token_rid_map;
+      Alcotest.(check int) "xdata" 14 h'.xdata;
+      Alcotest.(check int) "pdata" 15 h'.pdata;
+      Alcotest.(check int) "new_fpo_data" 16 h'.new_fpo_data;
+      Alcotest.(check int) "original_section_header" 17 h'.original_section_header
+
+(** Omitting [~optional_debug_header] should still produce a parseable
+    DBI whose optional debug header is all-0xFFFF (the legacy default). *)
+let test_dbi_optional_debug_header_default () =
+  let buf = Buffer.create 128 in
+  Pdb.Dbi_write.write buf [] [] ~source_files:[] ~machine:0x8664 ();
+  let bytes = Buffer.contents buf in
+  let cur = Object.Buffer.cursor (buffer_of_string bytes) in
+  let dbi = Pdb.Dbi.parse cur in
+  match dbi.optional_debug_header with
+  | None -> Alcotest.fail "expected Some"
+  | Some h ->
+      Alcotest.(check int) "fpo_data" 0xFFFF h.fpo_data;
+      Alcotest.(check int) "original_section_header" 0xFFFF
+        h.original_section_header
+
 let test_dbi_version_signature () =
   let buf = Buffer.create 128 in
   Pdb.Dbi_write.write buf [] [] ~source_files:[] ~machine:0 ();
@@ -238,5 +294,12 @@ let () =
             test_dbi_section_contrib_fields;
           Alcotest.test_case "version signature" `Quick
             test_dbi_version_signature;
+        ] );
+      ( "optional_debug_header",
+        [
+          Alcotest.test_case "all fields round-trip" `Quick
+            test_dbi_optional_debug_header;
+          Alcotest.test_case "default is all-FFFF" `Quick
+            test_dbi_optional_debug_header_default;
         ] );
     ]

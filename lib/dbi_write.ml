@@ -45,10 +45,26 @@ let write_module_info buf (m : Dbi.module_info) =
 (* DBI version: V70 = 19990903 *)
 let dbi_version_v70 = 19990903
 
+let absent_optional_debug_header : Dbi.optional_debug_header =
+  {
+    fpo_data = 0xFFFF;
+    exception_data = 0xFFFF;
+    fixup_data = 0xFFFF;
+    omap_to_src = 0xFFFF;
+    omap_from_src = 0xFFFF;
+    section_header = 0xFFFF;
+    token_rid_map = 0xFFFF;
+    xdata = 0xFFFF;
+    pdata = 0xFFFF;
+    new_fpo_data = 0xFFFF;
+    original_section_header = 0xFFFF;
+  }
+
 let write (buf : Buffer.t) (modules : Dbi.module_info list)
     (section_contribs : Dbi.section_contribution list) ~source_files ~machine
     ?(global_stream = 0xFFFF) ?(public_stream = 0xFFFF)
-    ?(sym_record_stream = 0xFFFF) () : unit =
+    ?(sym_record_stream = 0xFFFF)
+    ?(optional_debug_header = absent_optional_debug_header) () : unit =
   let num_modules = List.length modules in
   (* [source_files = []] means "caller did not supply source filenames";
      leave each module_info's [source_file_count] alone and emit a minimal
@@ -143,11 +159,24 @@ let write (buf : Buffer.t) (modules : Dbi.module_info list)
     Buffer.add_char file_info_buf '\000'
   done;
   let file_info_size = Buffer.length file_info_buf in
-  (* Build OptionalDbgHeader: 11 x u16 stream indices, all 0xFFFF *)
+  (* Build OptionalDbgHeader: 11 x u16 stream indices. *)
   let opt_dbg_buf = Buffer.create 22 in
-  for _ = 1 to 11 do
-    write_u16_le opt_dbg_buf 0xFFFF
-  done;
+  let h = optional_debug_header in
+  List.iter
+    (write_u16_le opt_dbg_buf)
+    [
+      h.fpo_data;
+      h.exception_data;
+      h.fixup_data;
+      h.omap_to_src;
+      h.omap_from_src;
+      h.section_header;
+      h.token_rid_map;
+      h.xdata;
+      h.pdata;
+      h.new_fpo_data;
+      h.original_section_header;
+    ];
   let opt_dbg_size = Buffer.length opt_dbg_buf in
   (* Build EC substream: an empty-but-valid PDB string table.
      llvm-pdbutil's dumpModules unconditionally looks up name index 0 via

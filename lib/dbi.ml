@@ -170,19 +170,34 @@ let parse_optional_debug_header (cur : Object.Buffer.cursor) (size : int) :
     optional_debug_header option =
   if size < 22 then Option.None (* need at least 11 * u16 = 22 bytes *)
   else
+    (* Read each u16 into its own [let] binding so the sequence is honoured.
+       OCaml does not guarantee left-to-right evaluation of record-field
+       expressions, so inlining the [read_u16 cur] calls into the record
+       literal would parse the bytes in the wrong order. *)
+    let fpo_data = read_u16 cur in
+    let exception_data = read_u16 cur in
+    let fixup_data = read_u16 cur in
+    let omap_to_src = read_u16 cur in
+    let omap_from_src = read_u16 cur in
+    let section_header = read_u16 cur in
+    let token_rid_map = read_u16 cur in
+    let xdata = read_u16 cur in
+    let pdata = read_u16 cur in
+    let new_fpo_data = read_u16 cur in
+    let original_section_header = read_u16 cur in
     Some
       {
-        fpo_data = read_u16 cur;
-        exception_data = read_u16 cur;
-        fixup_data = read_u16 cur;
-        omap_to_src = read_u16 cur;
-        omap_from_src = read_u16 cur;
-        section_header = read_u16 cur;
-        token_rid_map = read_u16 cur;
-        xdata = read_u16 cur;
-        pdata = read_u16 cur;
-        new_fpo_data = read_u16 cur;
-        original_section_header = read_u16 cur;
+        fpo_data;
+        exception_data;
+        fixup_data;
+        omap_to_src;
+        omap_from_src;
+        section_header;
+        token_rid_map;
+        xdata;
+        pdata;
+        new_fpo_data;
+        original_section_header;
       }
 
 let parse (cur : Object.Buffer.cursor) : t =
