@@ -14,7 +14,7 @@ depends: [
   "dune" {>= "3.9"}
   "ocaml" {>= "4.14"}
   "object"
-  "integers"
+  "integers" {>= "0.8.0"}
   "cmdliner" {with-test}
   "alcotest" {with-test}
   "qcheck-core" {with-test}
@@ -40,3 +40,6 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/tmcgilchrist/ocaml-pdb.git"
+pin-depends: [
+  ["object.dev" "git+https://github.com/tmcgilchrist/object.git#a3ac06269889d389100941164beb14a42741ae0f"]
+]

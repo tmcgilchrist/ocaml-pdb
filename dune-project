@@ -14,7 +14,7 @@
  (depends
   (ocaml (>= 4.14))
   object
-  integers
+  (integers (>= 0.8.0))
   (cmdliner :with-test)
   (alcotest :with-test)
   (qcheck-core :with-test)
