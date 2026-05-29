@@ -196,136 +196,75 @@ let test_x64_no_codes () =
 
 (** {2 ARM64 UNWIND_INFO} *)
 
-let test_arm64_minimal () =
+(** Round-trip [codes] through [write] / [parse] and return the parsed
+    list. The caller is responsible for terminating [codes] with [End]. *)
+let arm64_roundtrip codes =
   let open Pdb.Unwind.Arm64 in
   let info =
-    {
-      function_length = 64;
-      has_exception_data = false;
-      codes =
-        [ SaveFPLRX { offset = 16 }; SetFP; AllocSmall { size = 32 }; End ];
-      exception_handler = None;
-    }
+    { function_length = 64; has_exception_data = false; codes;
+      exception_handler = None }
   in
   let buf = Buffer.create 32 in
   write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
-  Alcotest.(check int) "func length" 64 parsed.function_length;
-  Alcotest.(check int) "4 codes" 4 (List.length parsed.codes);
-  (match List.nth parsed.codes 0 with
-  | SaveFPLRX { offset } -> Alcotest.(check int) "fplrx" 16 offset
-  | _ -> Alcotest.fail "expected SaveFPLRX");
-  (match List.nth parsed.codes 1 with
-  | SetFP -> ()
-  | _ -> Alcotest.fail "expected SetFP");
-  match List.nth parsed.codes 3 with
-  | End -> ()
-  | _ -> Alcotest.fail "expected End"
+  let parsed =
+    parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf)))
+  in
+  parsed.codes
 
+(** Round-trip ARM64 unwind code variants in isolation so a single
+    parser bug localises to one entry in the case list. *)
+let test_arm64_all_codes () =
+  let open Pdb.Unwind.Arm64 in
+  let cases : (string * unwind_code) list =
+    [
+      ("AllocSmall", AllocSmall { size = 32 });
+      ("AllocMedium", AllocMedium { size = 1024 });
+      ("AllocLarge", AllocLarge { size = 1048576 });
+      ("SaveFPLR", SaveFPLR { offset = 24 });
+      ("SaveFPLRX", SaveFPLRX { offset = 16 });
+      ("SaveR19R20X", SaveR19R20X { offset = 32 });
+      ("SaveRegP", SaveRegP { reg = 0; offset = 16 });
+      ("SaveRegPX", SaveRegPX { reg = 7; offset = 40 });
+      ("SaveReg", SaveReg { reg = 5; offset = 16 });
+      ("SaveRegX", SaveRegX { reg = 12; offset = 8 });
+      ("SaveLRPair", SaveLRPair { reg = 4; offset = 24 });
+      ("SaveFRegP", SaveFRegP { reg = 0; offset = 16 });
+      ("SaveFRegPX", SaveFRegPX { reg = 3; offset = 16 });
+      ("SaveFReg", SaveFReg { reg = 2; offset = 32 });
+      ("SaveFRegX", SaveFRegX { reg = 6; offset = 8 });
+      ("SetFP", SetFP);
+      ("AddFP", AddFP { offset = 64 });
+      ("Nop", Nop);
+      ("SaveNext", SaveNext);
+      ("PACSignLR", PACSignLR);
+      ("TrapFrame", TrapFrame);
+      ("MachineFrame", MachineFrame);
+      ("Context", Context);
+      ("ClearUnwoundToCall", ClearUnwoundToCall);
+    ]
+  in
+  List.iter
+    (fun (name, input) ->
+      let codes = [ input; End ] in
+      if arm64_roundtrip codes <> codes then
+        Alcotest.failf "%s: round-trip mismatch" name)
+    cases
+
+(** A multi-opcode payload with several different byte widths back to
+    back, to verify the parser walks consecutive codes correctly. *)
 let test_arm64_callee_saves () =
   let open Pdb.Unwind.Arm64 in
-  let info =
-    {
-      function_length = 200;
-      has_exception_data = false;
-      codes =
-        [
-          SaveFPLRX { offset = 48 };
-          SaveRegP { reg = 0; offset = 16 };
-          SaveRegP { reg = 2; offset = 32 };
-          SetFP;
-          End;
-        ];
-      exception_handler = None;
-    }
+  let codes =
+    [
+      SaveFPLRX { offset = 48 };
+      SaveRegP { reg = 0; offset = 16 };
+      SaveRegP { reg = 2; offset = 32 };
+      SetFP;
+      End;
+    ]
   in
-  let buf = Buffer.create 32 in
-  write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
-  Alcotest.(check int) "5 codes" 5 (List.length parsed.codes);
-  match List.nth parsed.codes 1 with
-  | SaveRegP { reg; offset } ->
-      Alcotest.(check int) "reg" 0 reg;
-      Alcotest.(check int) "offset" 16 offset
-  | _ -> Alcotest.fail "expected SaveRegP"
-
-let test_arm64_alloc_medium () =
-  let open Pdb.Unwind.Arm64 in
-  let info =
-    {
-      function_length = 100;
-      has_exception_data = false;
-      codes = [ AllocMedium { size = 1024 }; End ];
-      exception_handler = None;
-    }
-  in
-  let buf = Buffer.create 32 in
-  write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
-  match List.nth parsed.codes 0 with
-  | AllocMedium { size } -> Alcotest.(check int) "1024" 1024 size
-  | _ -> Alcotest.fail "expected AllocMedium"
-
-let test_arm64_alloc_large () =
-  let open Pdb.Unwind.Arm64 in
-  let info =
-    {
-      function_length = 100;
-      has_exception_data = false;
-      codes = [ AllocLarge { size = 1048576 }; End ];
-      exception_handler = None;
-    }
-  in
-  let buf = Buffer.create 32 in
-  write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
-  match List.nth parsed.codes 0 with
-  | AllocLarge { size } -> Alcotest.(check int) "1M" 1048576 size
-  | _ -> Alcotest.fail "expected AllocLarge"
-
-let test_arm64_float_regs () =
-  let open Pdb.Unwind.Arm64 in
-  let info =
-    {
-      function_length = 80;
-      has_exception_data = false;
-      codes =
-        [ SaveFRegP { reg = 0; offset = 16 };
-          SaveFReg { reg = 2; offset = 32 };
-          End ];
-      exception_handler = None;
-    }
-  in
-  let buf = Buffer.create 32 in
-  write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
-  (match List.nth parsed.codes 0 with
-  | SaveFRegP { reg; offset } ->
-      Alcotest.(check int) "reg" 0 reg;
-      Alcotest.(check int) "offset" 16 offset
-  | _ -> Alcotest.fail "expected SaveFRegP");
-  match List.nth parsed.codes 1 with
-  | SaveFReg { reg; offset } ->
-      Alcotest.(check int) "reg" 2 reg;
-      Alcotest.(check int) "offset" 32 offset
-  | _ -> Alcotest.fail "expected SaveFReg"
-
-let test_arm64_pac_sign_lr () =
-  let open Pdb.Unwind.Arm64 in
-  let info =
-    {
-      function_length = 40;
-      has_exception_data = false;
-      codes = [ PACSignLR; SaveFPLRX { offset = 16 }; SetFP; End ];
-      exception_handler = None;
-    }
-  in
-  let buf = Buffer.create 32 in
-  write buf info;
-  let parsed = parse (Object.Buffer.cursor (buffer_of_string (Buffer.contents buf))) in
-  match List.nth parsed.codes 0 with
-  | PACSignLR -> ()
-  | _ -> Alcotest.fail "expected PACSignLR"
+  if arm64_roundtrip codes <> codes then
+    Alcotest.fail "callee saves: round-trip mismatch"
 
 let test_arm64_exception_handler () =
   let open Pdb.Unwind.Arm64 in
@@ -407,12 +346,8 @@ let () =
         ] );
       ( "arm64_unwind_info",
         [
-          Alcotest.test_case "minimal" `Quick test_arm64_minimal;
+          Alcotest.test_case "all codes" `Quick test_arm64_all_codes;
           Alcotest.test_case "callee saves" `Quick test_arm64_callee_saves;
-          Alcotest.test_case "alloc medium" `Quick test_arm64_alloc_medium;
-          Alcotest.test_case "alloc large" `Quick test_arm64_alloc_large;
-          Alcotest.test_case "float regs" `Quick test_arm64_float_regs;
-          Alcotest.test_case "pac sign lr" `Quick test_arm64_pac_sign_lr;
           Alcotest.test_case "exception handler" `Quick
             test_arm64_exception_handler;
         ] );

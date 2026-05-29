@@ -178,21 +178,24 @@ let parse_code (bytes : string) (pos : int ref) : unwind_code =
         offset = (b1 land 0x3F) lsl 3;
       }
   end
-  else if b0 land 0xFC = 0xD8 then begin
+  else if b0 land 0xFE = 0xD8 then begin
+    (* SaveFRegP/PX encode a 3-bit reg: top bit in byte 0, low two bits in
+       byte 1's high bits. Adjacent SaveRegP/PX (0xC8/0xCC) use a 4-bit
+       reg by contrast -- don't be tempted to widen the mask here. *)
     let b1 = Char.code bytes.[!pos] in
     incr pos;
     SaveFRegP
       {
-        reg = ((b0 land 0x3) lsl 2) lor ((b1 lsr 6) land 0x3);
+        reg = ((b0 land 0x1) lsl 2) lor ((b1 lsr 6) land 0x3);
         offset = (b1 land 0x3F) lsl 3;
       }
   end
-  else if b0 land 0xFC = 0xDA then begin
+  else if b0 land 0xFE = 0xDA then begin
     let b1 = Char.code bytes.[!pos] in
     incr pos;
     SaveFRegPX
       {
-        reg = ((b0 land 0x3) lsl 2) lor ((b1 lsr 6) land 0x3);
+        reg = ((b0 land 0x1) lsl 2) lor ((b1 lsr 6) land 0x3);
         offset = ((b1 land 0x3F) + 1) lsl 3;
       }
   end
