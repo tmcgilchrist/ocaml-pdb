@@ -303,6 +303,83 @@ let test_cross_ids () =
         (id_int id_remap.(1))
   | _ -> Alcotest.fail "expected FuncId"
 
+(** Two CUs each define a chain [dir] -> [file] -> [FuncId]. The directory
+    StringId is identical in both CUs but lands at different local
+    indices; the file and FuncId differ in name. The merged set should
+    keep exactly one shared directory and add the per-CU file + FuncId
+    records, with each CU's chain references rewritten to point at the
+    shared directory's merged index. *)
+let test_cross_overlapping_string_ids () =
+  let c = Pdb.Type_merge.create_cross () in
+  let cu1 =
+    [
+      Pdb.Codeview_types.StringId { id = ti 0x0000; str = "C:\\src" };
+      Pdb.Codeview_types.StringId { id = ti 0x1000; str = "foo.c" };
+      Pdb.Codeview_types.FuncId
+        { scope_id = ti 0x1001; func_type = ti 0x0003; name = "foo" };
+    ]
+  in
+  let remap_cu1 =
+    Pdb.Type_merge.merge_ids c ~type_remap:[||] cu1
+  in
+  (* CU2 prepends an unrelated StringId so the shared dir lands at a
+     different local index (0x1001) than in CU1 (0x1000). *)
+  let cu2 =
+    [
+      Pdb.Codeview_types.StringId { id = ti 0x0000; str = "filler" };
+      Pdb.Codeview_types.StringId { id = ti 0x0000; str = "C:\\src" };
+      Pdb.Codeview_types.StringId { id = ti 0x1001; str = "bar.c" };
+      Pdb.Codeview_types.FuncId
+        { scope_id = ti 0x1002; func_type = ti 0x0003; name = "bar" };
+    ]
+  in
+  let remap_cu2 =
+    Pdb.Type_merge.merge_ids c ~type_remap:[||] cu2
+  in
+  let merged = Pdb.Type_merge.cross_ids c in
+  (* Expected merged set: dir, foo.c, foo FuncId, filler, bar.c, bar FuncId. *)
+  Alcotest.(check int) "6 merged id records" 6 (List.length merged);
+  (* The dir StringId from CU1 (local 0x1000) and CU2 (local 0x1001) must
+     map to the same merged index. *)
+  Alcotest.(check int) "shared dir collapses"
+    (id_int remap_cu1.(0)) (id_int remap_cu2.(1));
+  (* The per-CU file records must differ. *)
+  Alcotest.(check bool) "files distinct" true
+    (id_int remap_cu1.(1) <> id_int remap_cu2.(2));
+  (* Each file's [id] chain field, after remapping, must point at the
+     shared dir's merged index. *)
+  let merged_arr = Array.of_list merged in
+  let dir_merged_idx = id_int remap_cu1.(0) in
+  let nth_record i =
+    let j = i - 0x1000 in
+    merged_arr.(j)
+  in
+  (match nth_record (id_int remap_cu1.(1)) with
+  | Pdb.Codeview_types.StringId { id; str } ->
+      Alcotest.(check string) "cu1 file string" "foo.c" str;
+      Alcotest.(check int) "cu1 file chains to dir" dir_merged_idx
+        (id_int id)
+  | _ -> Alcotest.fail "expected StringId for cu1 file");
+  (match nth_record (id_int remap_cu2.(2)) with
+  | Pdb.Codeview_types.StringId { id; str } ->
+      Alcotest.(check string) "cu2 file string" "bar.c" str;
+      Alcotest.(check int) "cu2 file chains to dir" dir_merged_idx
+        (id_int id)
+  | _ -> Alcotest.fail "expected StringId for cu2 file");
+  (* Each CU's FuncId must reference its own file's merged index. *)
+  (match nth_record (id_int remap_cu1.(2)) with
+  | Pdb.Codeview_types.FuncId { scope_id; name; _ } ->
+      Alcotest.(check string) "cu1 func name" "foo" name;
+      Alcotest.(check int) "cu1 func scope -> cu1 file"
+        (id_int remap_cu1.(1)) (id_int scope_id)
+  | _ -> Alcotest.fail "expected FuncId for cu1");
+  match nth_record (id_int remap_cu2.(3)) with
+  | Pdb.Codeview_types.FuncId { scope_id; name; _ } ->
+      Alcotest.(check string) "cu2 func name" "bar" name;
+      Alcotest.(check int) "cu2 func scope -> cu2 file"
+        (id_int remap_cu2.(2)) (id_int scope_id)
+  | _ -> Alcotest.fail "expected FuncId for cu2"
+
 let () =
   Alcotest.run "Type Merge"
     [
@@ -334,5 +411,7 @@ let () =
             test_cross_renumbered_refs;
           Alcotest.test_case "ids merge with ref distinction" `Quick
             test_cross_ids;
+          Alcotest.test_case "overlapping string-id chains across CUs"
+            `Quick test_cross_overlapping_string_ids;
         ] );
     ]

@@ -105,3 +105,9 @@
  (libraries pdb object alcotest test_support)
  (action
   (run %{exe:test_fpo.exe})))
+
+(test
+ (name test_pdb_builder_qcheck)
+ (libraries pdb object alcotest qcheck-core qcheck-alcotest test_support)
+ (action
+  (run %{exe:test_pdb_builder_qcheck.exe})))

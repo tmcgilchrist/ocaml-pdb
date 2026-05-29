@@ -149,32 +149,37 @@ let test_invalid_block_size_builder () =
     (Invalid_argument "MSF block_size must be 512, 1024, 2048, or 4096")
     (fun () -> ignore (Pdb.Msf_write.create ~block_size:3000))
 
-let test_multi_block_stream_directory () =
-  (* Create enough streams/data that the stream directory requires
-     multiple blocks. With block_size=512, we need the directory to
-     exceed 512 bytes. Each stream adds 4 bytes (size) + 4 bytes per
-     block to the directory. With 60 streams of ~600 bytes each,
-     directory should be well over 512 bytes. *)
-  let builder = Pdb.Msf_write.create ~block_size:512 in
-  let expected = Array.init 60 (fun i ->
-    let data = String.make 600 (Char.chr ((i mod 26) + 65)) in
-    let _ = Pdb.Msf_write.add_stream builder data in
-    data)
+let check_multi_block_stream_directory ~block_size ~n_streams ~stream_size =
+  let builder = Pdb.Msf_write.create ~block_size in
+  let expected =
+    Array.init n_streams (fun i ->
+        let data = String.make stream_size (Char.chr ((i mod 26) + 65)) in
+        let _ = Pdb.Msf_write.add_stream builder data in
+        data)
   in
   let msf_bytes = Pdb.Msf_write.finalize builder in
   let buf = buffer_of_string msf_bytes in
   let msf = Pdb.Msf.read buf in
-  Alcotest.(check int) "stream count" 60 (Pdb.Msf.stream_count msf);
-  (* Verify a few streams *)
-  for i = 0 to 59 do
+  Alcotest.(check int)
+    (Printf.sprintf "block_size=%d: stream count" block_size)
+    n_streams (Pdb.Msf.stream_count msf);
+  for i = 0 to n_streams - 1 do
     let s = Pdb.Msf.get_stream_exn msf i in
     Alcotest.(check int)
-      (Printf.sprintf "stream %d size" i)
-      600 (Bigarray.Array1.dim s);
+      (Printf.sprintf "block_size=%d: stream %d size" block_size i)
+      stream_size (Bigarray.Array1.dim s);
     Alcotest.(check string)
-      (Printf.sprintf "stream %d content" i)
+      (Printf.sprintf "block_size=%d: stream %d content" block_size i)
       expected.(i) (string_of_buffer s)
   done
+
+let test_multi_block_stream_directory () =
+  (* The block_map layout differs by block_size, so cover 512 and 1024
+     even though either alone would prove the multi-block path works. *)
+  check_multi_block_stream_directory ~block_size:512 ~n_streams:60
+    ~stream_size:600;
+  check_multi_block_stream_directory ~block_size:1024 ~n_streams:120
+    ~stream_size:1200
 
 let test_many_small_streams () =
   (* Test with many empty/tiny streams *)

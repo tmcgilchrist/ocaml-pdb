@@ -26,3 +26,6 @@ let ti n = Pdb.Type_index.of_u32 (Unsigned.UInt32.of_int n)
 
 (** Unwrap a {!Pdb.Type_index.t} back to an int (for assertions). *)
 let ti_to_int t = Unsigned.UInt32.to_int (Pdb.Type_index.to_u32 t)
+
+(** Build an unsigned 32-bit value from an OCaml int. *)
+let u32 n = Unsigned.UInt32.of_int n

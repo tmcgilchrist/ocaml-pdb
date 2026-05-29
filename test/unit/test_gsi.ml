@@ -166,6 +166,100 @@ let test_build_gsi_streams_empty () =
   Alcotest.(check int) "empty sym record" 0
     (String.length streams.sym_record_stream)
 
+let test_gsi_multi_bucket_layout () =
+  let n = 64 in
+  let entries =
+    List.init n (fun i ->
+        { Pdb.Gsi_write.name = Printf.sprintf "sym_%03d" i;
+          sym_offset = i * 16 })
+  in
+  let buf = Buffer.create 4096 in
+  Pdb.Gsi_write.write_gsi buf entries;
+  let bytes = Buffer.contents buf in
+  let cur = Object.Buffer.cursor (buffer_of_string bytes) in
+  let gsi = Pdb.Gsi.parse_gsi cur (String.length bytes) in
+  Alcotest.(check int) "records preserved" n (Array.length gsi.hash_records);
+  (* hash_buckets starts with the IPHR_HASH (=4096) + 32-bit occupancy
+     bitmap, followed by per-bucket offset words. *)
+  let bitmap_words = (4096 + 32) / 32 in
+  let bits_set = ref 0 in
+  for i = 0 to bitmap_words - 1 do
+    let w = Unsigned.UInt32.to_int gsi.hash_buckets.(i) in
+    for b = 0 to 31 do
+      if w land (1 lsl b) <> 0 then incr bits_set
+    done
+  done;
+  Alcotest.(check bool) "more than one bucket occupied" true (!bits_set >= 2);
+  let offsets =
+    Array.to_list
+      (Array.map
+         (fun (hr : Pdb.Gsi.hash_record) -> Unsigned.UInt32.to_int hr.offset)
+         gsi.hash_records)
+  in
+  List.iter
+    (fun { Pdb.Gsi_write.name; sym_offset } ->
+      Alcotest.(check bool)
+        (Printf.sprintf "has offset for %s" name)
+        true
+        (List.mem (sym_offset + 1) offsets))
+    entries
+
+let test_build_gsi_streams_large () =
+  let n_pub = 20 and n_gbl = 15 in
+  let publics =
+    List.init n_pub (fun i ->
+        Pdb.Codeview_symbols.Pub32
+          { flags = u32 (i land 0x7);
+            offset = u32 (0x1000 + (i * 32));
+            segment = 1 + (i mod 3);
+            name = Printf.sprintf "_pub_%02d" i })
+  in
+  let globals =
+    List.init n_gbl (fun i ->
+        Pdb.Codeview_symbols.GData32
+          { type_index = ti 0x0074;
+            offset = u32 (0x4000 + (i * 16));
+            segment = 2;
+            name = Printf.sprintf "g_var_%02d" i })
+  in
+  let streams = Pdb.Gsi_write.build_gsi_streams ~publics ~globals in
+  let sym_cur =
+    Object.Buffer.cursor (buffer_of_string streams.sym_record_stream)
+  in
+  let syms =
+    List.of_seq
+      (Pdb.Codeview_symbols.parse_symbol_stream sym_cur
+         (String.length streams.sym_record_stream))
+  in
+  Alcotest.(check int) "all symbols round-trip" (n_pub + n_gbl)
+    (List.length syms);
+  let names =
+    List.filter_map
+      (function
+        | Pdb.Codeview_symbols.Pub32 { name; _ } -> Some name
+        | GData32 { name; _ } -> Some name
+        | _ -> None)
+      syms
+  in
+  List.iter
+    (fun expected ->
+      Alcotest.(check bool)
+        (Printf.sprintf "has symbol %s" expected)
+        true (List.mem expected names))
+    (List.init n_pub (Printf.sprintf "_pub_%02d")
+    @ List.init n_gbl (Printf.sprintf "g_var_%02d"));
+  let pub_cur = Object.Buffer.cursor (buffer_of_string streams.publics_stream) in
+  let ph = Pdb.Gsi.parse_publics_header pub_cur in
+  let pub_gsi = Pdb.Gsi.parse_gsi pub_cur ph.sym_hash_size in
+  Alcotest.(check int) "publics hash record count" n_pub
+    (Array.length pub_gsi.hash_records);
+  let gbl_cur = Object.Buffer.cursor (buffer_of_string streams.globals_stream) in
+  let gbl_gsi =
+    Pdb.Gsi.parse_gsi gbl_cur (String.length streams.globals_stream)
+  in
+  Alcotest.(check int) "globals hash record count" n_gbl
+    (Array.length gbl_gsi.hash_records)
+
 let test_dbi_write_full_roundtrip () =
   let buf = Buffer.create 256 in
   Pdb.Dbi_write.write buf [] [] ~source_files:[]
@@ -195,6 +289,13 @@ let () =
         [
           Alcotest.test_case "with symbols" `Quick test_build_gsi_streams;
           Alcotest.test_case "empty" `Quick test_build_gsi_streams_empty;
+          Alcotest.test_case "large mixed publics/globals" `Quick
+            test_build_gsi_streams_large;
+        ] );
+      ( "bucket_layout",
+        [
+          Alcotest.test_case "multiple occupied buckets" `Quick
+            test_gsi_multi_bucket_layout;
         ] );
       ( "dbi_wiring",
         [
