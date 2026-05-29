@@ -40,7 +40,7 @@ let read_u16 cur = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int
 let read_u32 cur = Object.Buffer.Read.u32 cur
 let read_i32 cur = Unsigned.UInt32.to_int32 (read_u32 cur)
 
-let read_cstring (cur : Object.Buffer.cursor) : string =
+let read_cstring cur =
   match Object.Buffer.Read.zero_string cur () with
   | Some s -> s
   | Option.None -> ""

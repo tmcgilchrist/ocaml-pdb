@@ -13,7 +13,7 @@ open Pdb_types
 
 val parse_numeric_leaf : Object.Buffer.cursor -> int64
 (** Read a CodeView numeric leaf and return its value as an [int64].
-    @raise Object.Buffer.Invalid_format on truncated input or an
+    Raises [Object.Buffer.Invalid_format] on truncated input or an
     unrecognised tag. *)
 
 val write_numeric_leaf : Stdlib.Buffer.t -> int64 -> unit
@@ -209,7 +209,7 @@ val parse_type_record : Object.Buffer.cursor -> int -> type_record
     The cursor should be positioned after the length prefix but at the
     leaf kind u16. [record_data_len] is the byte count following that
     length prefix (so it includes the 2-byte leaf kind).
-    @raise Object.Buffer.Invalid_format if the cursor has fewer than
+    Raises [Object.Buffer.Invalid_format] if the cursor has fewer than
     [record_data_len] bytes remaining or if the record's declared length
     is smaller than the encoded fields require. *)
 

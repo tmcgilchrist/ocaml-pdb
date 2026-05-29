@@ -114,7 +114,7 @@ val parse_symbol_record : Object.Buffer.cursor -> int -> symbol_record
     record. The cursor should be positioned at the symbol kind u16.
     [record_data_len] is the byte count following the length prefix
     (so it includes the 2-byte symbol kind).
-    @raise Object.Buffer.Invalid_format if the cursor has fewer than
+    Raises [Object.Buffer.Invalid_format] if the cursor has fewer than
     [record_data_len] bytes remaining or the record's declared length
     is smaller than the encoded fields require. *)
 
@@ -124,5 +124,5 @@ val write_symbol_record : Stdlib.Buffer.t -> symbol_record -> unit
 
 val parse_symbol_stream : Object.Buffer.cursor -> int -> symbol_record Seq.t
 (** [parse_symbol_stream cur total_bytes] lazily iterates symbol records.
-    @raise Object.Buffer.Invalid_format (during iteration) on a malformed
+    Raises [Object.Buffer.Invalid_format] (during iteration) on a malformed
     record. *)

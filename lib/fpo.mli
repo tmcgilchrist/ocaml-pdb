@@ -12,6 +12,8 @@
     that want the new-FPO contents can reuse {!Debug_subsections.parse_subsections}
     on that stream's bytes.
 
+    TODO Move the LLVM reference into the fpo.ml and cross link to
+    the PE/COFF spec.
     Format reference: Microsoft's [PE/COFF spec], LLVM's
     [llvm/include/llvm/Object/COFF.h] ([FpoData] struct). *)
 
@@ -33,7 +35,7 @@ type t = entry array
 
 val parse : Object.Buffer.cursor -> int -> t
 (** [parse cur total_bytes] reads [total_bytes / 16] entries. Raises
-    {!Object.Buffer.Invalid_format} on truncated input or when
+    [Object.Buffer.Invalid_format] on truncated input or when
     [total_bytes] is not a multiple of 16. *)
 
 val write : Stdlib.Buffer.t -> t -> unit

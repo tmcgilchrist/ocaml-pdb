@@ -18,7 +18,7 @@ type header = {
   num_hash_buckets : u32;
 }
 
-let parse_header (cur : Object.Buffer.cursor) : header =
+let parse_header cur =
   (* TpiStreamHeader is 56 bytes: 5 u32 + 2 u16 + 2 u32 + 6 u32 = 56. *)
   Object.Buffer.ensure cur 56 "TPI stream: truncated header";
   let version = Object.Buffer.Read.u32 cur in
@@ -53,12 +53,11 @@ let parse_header (cur : Object.Buffer.cursor) : header =
     num_hash_buckets;
   }
 
-let num_type_records (h : header) : int =
+let num_type_records h =
   Unsigned.UInt32.to_int h.type_index_end
   - Unsigned.UInt32.to_int h.type_index_begin
 
-let parse_type_records (cur : Object.Buffer.cursor) (h : header) :
-    Codeview_types.type_record Seq.t =
+let parse_type_records (cur : Object.Buffer.cursor) h =
   let total_bytes = Unsigned.UInt32.to_int h.type_record_bytes in
   let end_pos = cur.position + total_bytes in
   let rec next () =

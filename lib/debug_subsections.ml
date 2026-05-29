@@ -88,7 +88,7 @@ let int_of_checksum_kind = function
 
 let checksum_size = function None -> 0 | MD5 -> 16 | SHA1 -> 20 | SHA256 -> 32
 
-let parse_line_entry (cur : Object.Buffer.cursor) : line_entry =
+let parse_line_entry cur =
   let offset = read_u32 cur in
   let flags = Unsigned.UInt32.to_int (read_u32 cur) in
   let line_start = flags land 0x00FFFFFF in
@@ -96,8 +96,7 @@ let parse_line_entry (cur : Object.Buffer.cursor) : line_entry =
   let is_statement = flags land 0x80000000 <> 0 in
   { offset; line_start; delta_line_end; is_statement }
 
-let parse_lines (cur : Object.Buffer.cursor) (sub_end : int) : lines_subsection
-    =
+let parse_lines cur sub_end =
   (* LineFragmentHeader: u32 offset, u16 segment, u16 flags, u32 code_size *)
   let contrib_offset = read_u32 cur in
   let contrib_segment = read_u16 cur in
@@ -130,8 +129,7 @@ let parse_lines (cur : Object.Buffer.cursor) (sub_end : int) : lines_subsection
     blocks = Array.of_list (List.rev !blocks);
   }
 
-let parse_file_checksums (cur : Object.Buffer.cursor) (sub_end : int) :
-    file_checksum_entry array =
+let parse_file_checksums (cur : Object.Buffer.cursor) sub_end =
   let entries = ref [] in
   while cur.position < sub_end do
     let file_name_offset = read_u32 cur in
@@ -150,8 +148,7 @@ let parse_file_checksums (cur : Object.Buffer.cursor) (sub_end : int) :
   done;
   Array.of_list (List.rev !entries)
 
-let parse_string_table (cur : Object.Buffer.cursor) (sub_end : int) :
-    string array =
+let parse_string_table (cur : Object.Buffer.cursor) sub_end =
   let strings = ref [] in
   while cur.position < sub_end do
     match Object.Buffer.Read.zero_string cur () with
@@ -160,8 +157,7 @@ let parse_string_table (cur : Object.Buffer.cursor) (sub_end : int) :
   done;
   Array.of_list (List.rev !strings)
 
-let parse_inlinee_lines (cur : Object.Buffer.cursor) (sub_end : int) :
-    inlinee_line array =
+let parse_inlinee_lines (cur : Object.Buffer.cursor) sub_end =
   (* First u32 is the signature/version *)
   let _signature = read_u32 cur in
   let entries = ref [] in
@@ -174,8 +170,7 @@ let parse_inlinee_lines (cur : Object.Buffer.cursor) (sub_end : int) :
   if cur.position < sub_end then Object.Buffer.seek cur sub_end;
   Array.of_list (List.rev !entries)
 
-let parse_frame_data (cur : Object.Buffer.cursor) (sub_end : int) :
-    frame_data_entry array =
+let parse_frame_data (cur : Object.Buffer.cursor) sub_end =
   (* First u32 is a relocation pointer (RVA of the contribution) *)
   let _reloc_ptr = read_u32 cur in
   (* Each FrameData entry is 32 bytes *)
@@ -199,8 +194,7 @@ let parse_frame_data (cur : Object.Buffer.cursor) (sub_end : int) :
   Array.of_list (List.rev !entries)
 
 (* CrossModuleExports: array of { u32 Local; u32 Global }, fills the subsection. *)
-let parse_cross_module_exports (cur : Object.Buffer.cursor) (sub_end : int) :
-    cross_module_export array =
+let parse_cross_module_exports (cur : Object.Buffer.cursor) sub_end =
   let entries = ref [] in
   while cur.position + 8 <= sub_end do
     let local = read_u32 cur in
@@ -211,8 +205,7 @@ let parse_cross_module_exports (cur : Object.Buffer.cursor) (sub_end : int) :
   Array.of_list (List.rev !entries)
 
 (* CrossModuleImports: sequence of { u32 ModuleNameOffset; u32 Count; u32[Count] ids }. *)
-let parse_cross_module_imports (cur : Object.Buffer.cursor) (sub_end : int) :
-    cross_module_import array =
+let parse_cross_module_imports (cur : Object.Buffer.cursor) sub_end =
   let entries = ref [] in
   while cur.position + 8 <= sub_end do
     let module_name_offset = read_u32 cur in
@@ -227,8 +220,7 @@ let parse_cross_module_imports (cur : Object.Buffer.cursor) (sub_end : int) :
   if cur.position < sub_end then Object.Buffer.seek cur sub_end;
   Array.of_list (List.rev !entries)
 
-let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
-    subsection Seq.t =
+let parse_subsections (cur : Object.Buffer.cursor) total_bytes =
   let end_pos = cur.position + total_bytes in
   let rec next () =
     if cur.position >= end_pos then Seq.Nil
@@ -270,7 +262,7 @@ let parse_subsections (cur : Object.Buffer.cursor) (total_bytes : int) :
 
 (** {2 Writing} *)
 
-let write_subsection (buf : Buffer.t) (sub : subsection) : unit =
+let write_subsection buf sub =
   let content_buf = Buffer.create 128 in
   let kind =
     match sub with

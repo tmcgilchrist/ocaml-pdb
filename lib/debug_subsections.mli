@@ -73,7 +73,7 @@ type subsection =
 
 val parse_subsections : Object.Buffer.cursor -> int -> subsection Seq.t
 (** [parse_subsections cur total_bytes] lazily iterates C13 subsections.
-    @raise Object.Buffer.Invalid_format (during iteration) if a
+    Raises [Object.Buffer.Invalid_format] (during iteration) if a
     subsection's kind/size header is truncated or its declared size
     overruns the [total_bytes] window. *)
 

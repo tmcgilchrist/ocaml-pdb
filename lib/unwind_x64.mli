@@ -47,7 +47,7 @@ type unwind_info = {
 
 val parse : Object.Buffer.cursor -> unwind_info
 (** [parse cur] parses an UNWIND_INFO structure from the cursor.
-    @raise Object.Buffer.Invalid_format on a truncated header, missing
+    Raises [Object.Buffer.Invalid_format] on a truncated header, missing
     codes, or missing trailing exception handler RVA. *)
 
 val write : Stdlib.Buffer.t -> unwind_info -> unit
@@ -58,4 +58,4 @@ val register_to_int : register -> int
 
 val int_to_register : int -> register
 (** Decode the 4-bit wire value back to a {!register}.
-    @raise Invalid_argument on values outside [0..15]. *)
+    Raises [Invalid_argument] on values outside [0..15]. *)

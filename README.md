@@ -13,30 +13,33 @@ formats for debugging information. Based on existing experience with DWARF
 on Unix systems, what is required to read and write valid debugging
 information on Windows such that debuggers like WinDbg work.
 
-Potentially this work will find it's way into the OCaml compiler.
+Potentially this work will find it's way into the OCaml compiler. I have
+treated writing this library as a learning exercise to understand PDB, it
+should be useful to others but it represents my understanding of the spec.
+Please post corrections as issues on the repository.
 
 ## Status
 
 What works today:
 
-- MSF (Multi-Stream File) container -- read and write.
-- PDB Info stream (Stream 1) -- version, GUID, age, named-stream map,
+- MSF (Multi-Stream File) container: read and write.
+- PDB Info stream (Stream 1): version, GUID, age, named-stream map,
   feature flags.
-- TPI and IPI streams -- most CodeView leaf kinds covered.
-- DBI stream -- module list, section contributions, FileInfo source files,
+- TPI and IPI streams: most CodeView leaf kinds covered.
+- DBI stream: module list, section contributions, FileInfo source files,
   Optional Debug Header, EC substream, machine type.
-- CodeView symbol records -- ~30 symbol kinds plus an `Unknown` fallback.
-- C13 debug subsections -- Lines, FileChecksums, InlineeLines, StringTable,
+- CodeView symbol records: roughly 30 symbol kinds plus an `Unknown` fallback.
+- C13 debug subsections: Lines, FileChecksums, InlineeLines, StringTable,
   FrameData, CrossModuleExports, CrossModuleImports, Unknown.
-- GSI/PSI hash tables -- public and global symbol indices.
+- GSI/PSI hash tables: public and global symbol indices.
 - A `Pdb_builder` high-level API that assembles a complete PDB file from
   structured inputs (types, symbols, modules, source files).
 - Windows SEH unwind tables for x86-64 and ARM64 (`Unwind` module), the
   PE/COFF analogue of DWARF CFI.
-- OMAP address-translation streams (`Omap` module) -- reader, writer, and
+- OMAP address-translation streams (`Omap` module): reader, writer, and
   binary-search lookup for the post-link RVA remapping found in
   reordered/PGO retail PDBs.
-- Old-style FPO data stream (`Fpo` module) -- the per-function frame info
+- Old-style FPO data stream (`Fpo` module): the per-function frame info
   format referenced from the DBI optional debug header's `fpo_data` field.
   The newer C13 `FrameData` subsection is already covered.
 - An `pdbdump` example tool, mirroring durin's `dwarfdump`.
@@ -82,10 +85,10 @@ Known gaps:
   reader, the `Object.Buffer` abstraction, and a few cross-format
   utilities.
 - `integers`: for `Unsigned.UInt32`/`UInt16` types that aren't in OCaml's stdlib.
-- `alcotest`, `qcheck-core`, `qcheck-alcotest` -- testing.
+- `alcotest`, `qcheck-core`, `qcheck-alcotest` for testing.
 - LLVM 15+ (`llvm-pdbutil`) at test time. It is used to validate written PDBs
   and to convert LLVM YAML fixtures into reference PDBs. Later versions of
-  LLVM provide better PDB support
+  LLVM provide better PDB support.
 
 ## Building and testing
 
@@ -96,17 +99,17 @@ dune runtest
 
 Tests are organised in three layers:
 
-- `test/unit/` -- alcotest + qcheck unit tests for each module, including
+- `test/unit/`: alcotest + qcheck unit tests for each module, including
   property-based roundtrip tests.
-- `test/integration/` -- end-to-end tests that build PDBs via
+- `test/integration/`: end-to-end tests that build PDBs via
   `Pdb_builder`, validate them with `llvm-pdbutil`, and parse LLVM-built
   PDBs back through our reader.
-- `test/cram/` -- cram tests for the `pdbdump` example.
+- `test/cram/`: cram tests for the `pdbdump` example.
 
 The integration suite includes a "LLVM equivalence" harness that, for each
 of LLVM's bundled YAML test fixtures, builds an equivalent PDB using our
 writer and asserts that `llvm-pdbutil dump` output matches text-for-text.
-The LLVM YAML files are not copied into this repo -- they are read live
+The LLVM YAML files are not copied into this repo rather they are read live
 from a local checkout of `llvm-project`, located via the
 `LLVM_PROJECT_DIR` environment variable. Tests skip cleanly when
 `llvm-pdbutil` is not on PATH or the LLVM tree cannot be found.
@@ -176,7 +179,7 @@ called out below. This project owes a great deal to all of them.
   our `Seq.t`-based iteration.
 
 - **microsoft/pdb** ([C++](https://github.com/microsoft/microsoft-pdb))
-  is Microsoft's reference dump of the PDB sources; it is unbuildable in
+  is Microsoft's reference dump of the PDB sources. It is unbuildable in
   isolation but is the closest thing to authoritative documentation for
   the on-disk layout.
 

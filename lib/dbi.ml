@@ -76,8 +76,7 @@ type t = {
 
 
 (* SectionContrib is 28 bytes *)
-let parse_section_contribution (cur : Object.Buffer.cursor) :
-    section_contribution =
+let parse_section_contribution cur =
   let section = read_u16 cur in
   let _padding = read_u16 cur in
   let offset = read_i32 cur in
@@ -89,7 +88,7 @@ let parse_section_contribution (cur : Object.Buffer.cursor) :
   let reloc_crc = read_u32 cur in
   { section; offset; size; characteristics; module_index; data_crc; reloc_crc }
 
-let parse_module_info (cur : Object.Buffer.cursor) : module_info =
+let parse_module_info cur =
   let _mod = read_u32 cur in
   (* unused pointer field *)
   let section_contrib = parse_section_contribution cur in
@@ -121,7 +120,7 @@ let parse_module_info (cur : Object.Buffer.cursor) : module_info =
     obj_file_name;
   }
 
-let parse_header (cur : Object.Buffer.cursor) : header =
+let parse_header cur =
   (* DbiStreamHeader is 64 bytes. *)
   Object.Buffer.ensure cur 64 "DBI stream: truncated header";
   let version_signature = read_i32 cur in
@@ -166,8 +165,7 @@ let parse_header (cur : Object.Buffer.cursor) : header =
     machine;
   }
 
-let parse_optional_debug_header (cur : Object.Buffer.cursor) (size : int) :
-    optional_debug_header option =
+let parse_optional_debug_header cur size =
   if size < 22 then Option.None (* need at least 11 * u16 = 22 bytes *)
   else
     (* Read each u16 into its own [let] binding so the sequence is honoured.
@@ -200,7 +198,7 @@ let parse_optional_debug_header (cur : Object.Buffer.cursor) (size : int) :
         original_section_header;
       }
 
-let parse (cur : Object.Buffer.cursor) : t =
+let parse cur =
   let h = parse_header cur in
   (* Parse module info substream *)
   let mod_start = cur.position in
@@ -246,8 +244,7 @@ let parse (cur : Object.Buffer.cursor) : t =
   in
   { header = h; modules; section_contributions; optional_debug_header }
 
-let module_symbols (msf : Msf.t) (m : module_info) :
-    Codeview_symbols.symbol_record Seq.t =
+let module_symbols msf m =
   if m.module_sym_stream = 0xFFFF || m.sym_byte_size = 0 then Seq.empty
   else
     match Msf.get_stream msf m.module_sym_stream with

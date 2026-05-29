@@ -32,7 +32,7 @@ let gsi_record_cmp s1 s2 =
   if l1 <> l2 then compare l1 l2
   else String.compare (String.lowercase_ascii s1) (String.lowercase_ascii s2)
 
-let write_gsi (buf : Buffer.t) (entries : symbol_entry list) : unit =
+let write_gsi buf entries =
   let num_entries = List.length entries in
   if num_entries = 0 then begin
     (* Write empty GSI: header + empty bitmap + no buckets *)
@@ -136,8 +136,7 @@ let pub_name = function
   | Codeview_symbols.Pub32 { name; _ } -> name
   | _ -> ""
 
-let write_publics_stream (buf : Buffer.t)
-    (symbols : Codeview_symbols.symbol_record list) : unit =
+let write_publics_stream buf symbols =
   (* Serialize all symbol records to get offsets *)
   let sym_buf = Buffer.create 256 in
   let sym_entries =
@@ -209,8 +208,7 @@ let global_name = function
   | Udt { name; _ } -> name
   | _ -> ""
 
-let build_gsi_streams ~(publics : Codeview_symbols.symbol_record list)
-    ~(globals : Codeview_symbols.symbol_record list) : gsi_streams =
+let build_gsi_streams ~publics ~globals =
   (* Build the symbol record stream: publics first, then globals *)
   let sym_buf = Buffer.create 512 in
   (* Serialize publics and collect entries for the publics hash *)

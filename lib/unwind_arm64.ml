@@ -45,7 +45,7 @@ type unwind_info = {
   exception_handler : u32 option;
 }
 
-let write_code (buf : Buffer.t) (code : unwind_code) : unit =
+let write_code buf code =
   match code with
   | AllocSmall { size } ->
       Buffer.add_char buf (Char.chr ((size lsr 4) land 0x1F))
@@ -119,7 +119,7 @@ let write_code (buf : Buffer.t) (code : unwind_code) : unit =
   | ClearUnwoundToCall -> Buffer.add_char buf (Char.chr 0xEC)
   | PACSignLR -> Buffer.add_char buf (Char.chr 0xFC)
 
-let parse_code (bytes : string) (pos : int ref) : unwind_code =
+let parse_code bytes pos =
   let b0 = Char.code bytes.[!pos] in
   incr pos;
   if b0 land 0xE0 = 0x00 then AllocSmall { size = (b0 land 0x1F) lsl 4 }
@@ -240,7 +240,7 @@ let parse_code (bytes : string) (pos : int ref) : unwind_code =
   else if b0 = 0xFC then PACSignLR
   else Nop
 
-let parse (cur : Object.Buffer.cursor) : unwind_info =
+let parse cur =
   (* The 4-byte [row1] is mandatory; everything else (extended-header
      [row2], epilog scopes, code words, exception handler) is governed
      by bit fields inside [row1]. Guard [row1] with [ensure] and wrap
@@ -293,7 +293,7 @@ let parse (cur : Object.Buffer.cursor) : unwind_info =
     Object.Buffer.invalid_format
       "ARM64 .pdata: truncated unwind codes or trailing exception handler"
 
-let write (buf : Buffer.t) (info : unwind_info) : unit =
+let write buf info =
   let code_buf = Buffer.create 32 in
   List.iter (write_code code_buf) info.codes;
   let code_byte_len = Buffer.length code_buf in

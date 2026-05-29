@@ -17,9 +17,9 @@ type t = {
 let create () =
   { records = []; next_index = 0x1000; seen = Hashtbl.create 128 }
 
-(** Serialize a type record to bytes for dedup comparison.
-    We serialize without the length prefix since the content is what matters. *)
-let record_key (record : Codeview_types.type_record) : string =
+(* Serialize a type record to bytes for dedup comparison.
+   We serialize without the length prefix since the content is what matters. *)
+let record_key record =
   let buf = Buffer.create 64 in
   Codeview_types.write_type_record buf record;
   Buffer.contents buf
@@ -42,7 +42,7 @@ let find_index t record =
   let key = record_key record in
   Hashtbl.find_opt t.seen key
 
-(** {2 Cross-compilation-unit merging} *)
+(* {2 Cross-compilation-unit merging} *)
 
 type cross = { types : t; ids : t }
 
@@ -55,7 +55,7 @@ let cross_ids c = records c.ids
     [remap.(j)]. Simple/None indices and any out-of-range user index (a
     forward reference, which does not occur in a well-formed stream) pass
     through unchanged. *)
-let remap_of (remap : Type_index.t array) (ti : Type_index.t) : Type_index.t =
+let remap_of remap ti =
   match ti with
   | Type_index.Simple _ -> ti
   | Type_index.User u ->

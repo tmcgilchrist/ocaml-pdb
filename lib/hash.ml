@@ -3,7 +3,7 @@
     Ported from LLVM's llvm/lib/DebugInfo/PDB/Native/Hash.cpp which corresponds
     to [Hasher::lhashPbCb] in PDB/include/misc.h. *)
 
-let hash_string_v1 (str : string) : int =
+let hash_string_v1 str =
   let len = String.length str in
   let result = ref 0l in
   (* XOR full 32-bit little-endian words *)
@@ -59,7 +59,7 @@ let crc32_table =
       done;
       !crc)
 
-let hash_buffer_v8 (data : string) : int =
+let hash_buffer_v8 data =
   (* JamCRC: CRC32 with initial value 0 (not 0xFFFFFFFF) *)
   let crc = ref 0l in
   for i = 0 to String.length data - 1 do

@@ -18,7 +18,7 @@ type entry = {
 
 type t = entry array
 
-let parse (cur : Object.Buffer.cursor) (total_bytes : int) : t =
+let parse cur total_bytes =
   if total_bytes mod 16 <> 0 then
     Object.Buffer.invalid_format
       (Printf.sprintf "FPO stream: %d bytes is not a multiple of 16"
@@ -38,7 +38,7 @@ let parse (cur : Object.Buffer.cursor) (total_bytes : int) : t =
       in
       { offset; size; num_locals; num_params; attributes })
 
-let write (buf : Buffer.t) (t : t) : unit =
+let write buf (t : t) =
   Array.iter
     (fun e ->
       write_u32_le buf (Unsigned.UInt32.to_int e.offset);

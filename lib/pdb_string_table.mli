@@ -22,7 +22,7 @@ val write : Stdlib.Buffer.t -> t -> unit
 
 val parse : Object.Buffer.cursor -> t
 (** [parse cur] reads a /names stream from the cursor position.
-    @raise Object.Buffer.Invalid_format on truncated input or when the
+    Raises [Object.Buffer.Invalid_format] on truncated input or when the
     leading signature is not [0xEFFEEFFE]. *)
 
 val lookup : t -> string -> int option

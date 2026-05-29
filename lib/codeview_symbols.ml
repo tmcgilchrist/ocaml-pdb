@@ -114,7 +114,7 @@ type symbol_record =
 
 let read_type_index cur = Type_index.of_u32 (read_u32 cur)
 
-let parse_proc_record (cur : Object.Buffer.cursor) : proc_record =
+let parse_proc_record cur =
   let parent = read_u32 cur in
   let end_ = read_u32 cur in
   let next = read_u32 cur in
@@ -140,21 +140,20 @@ let parse_proc_record (cur : Object.Buffer.cursor) : proc_record =
     name;
   }
 
-let parse_data_record (cur : Object.Buffer.cursor) : data_record =
+let parse_data_record cur =
   let type_index = read_type_index cur in
   let offset = read_u32 cur in
   let segment = read_u16 cur in
   let name = read_cstring cur in
   { type_index; offset; segment; name }
 
-let parse_local_range (cur : Object.Buffer.cursor) =
+let parse_local_range cur =
   let range_offset = read_u32 cur in
   let range_section = read_u16 cur in
   let range_length = read_u16 cur in
   (range_offset, range_section, range_length)
 
-let parse_symbol_record_unchecked (cur : Object.Buffer.cursor)
-    (record_data_len : int) : symbol_record =
+let parse_symbol_record_unchecked (cur : Object.Buffer.cursor) record_data_len =
   let start_pos = cur.position in
   let end_pos = start_pos + record_data_len in
   let kind = read_u16 cur in
@@ -337,8 +336,7 @@ let parse_symbol_record_unchecked (cur : Object.Buffer.cursor)
       in
       Unknown { kind; data }
 
-let parse_symbol_record (cur : Object.Buffer.cursor) (record_data_len : int) :
-    symbol_record =
+let parse_symbol_record cur record_data_len =
   Object.Buffer.ensure cur record_data_len
     (Printf.sprintf "symbol record truncated (need %d bytes)" record_data_len);
   try parse_symbol_record_unchecked cur record_data_len
@@ -364,7 +362,7 @@ let write_truncated_cstring buf s =
   in
   write_cstring buf s
 
-let write_proc_record buf kind (p : proc_record) =
+let write_proc_record buf kind p =
   write_u16_le buf kind;
   write_u32_le buf (Unsigned.UInt32.to_int p.parent);
   write_u32_le buf (Unsigned.UInt32.to_int p.end_);
@@ -385,7 +383,7 @@ let write_data_record buf kind (d : data_record) =
   write_u16_le buf d.segment;
   write_truncated_cstring buf d.name
 
-let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
+let write_symbol_record buf record =
   let rec_buf = Buffer.create 64 in
   (match record with
   | Compile3
@@ -555,8 +553,7 @@ let write_symbol_record (buf : Buffer.t) (record : symbol_record) : unit =
     Buffer.add_char buf '\000'
   done
 
-let parse_symbol_stream (cur : Object.Buffer.cursor) (total_bytes : int) :
-    symbol_record Seq.t =
+let parse_symbol_stream (cur : Object.Buffer.cursor) total_bytes =
   let end_pos = cur.position + total_bytes in
   let rec next () =
     if cur.position >= end_pos then Seq.Nil

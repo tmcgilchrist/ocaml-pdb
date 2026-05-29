@@ -1,9 +1,9 @@
-(** x86-64 Windows unwind information (.xdata).
+(* x86-64 Windows unwind information (.xdata).
 
     References:
+    - Microsoft: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64
     - LLVM: llvm/include/llvm/Support/Win64EH.h
-    - LLVM: llvm/lib/MC/MCWin64EH.cpp
-    - Microsoft: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64 *)
+    - LLVM: llvm/lib/MC/MCWin64EH.cpp *)
 
 open Pdb_types
 
@@ -56,7 +56,7 @@ type unwind_info = {
   exception_handler : u32 option;
 }
 
-let parse (cur : Object.Buffer.cursor) : unwind_info =
+let parse cur =
   (* Fixed 4-byte UNWIND_INFO prefix; count_of_codes (byte 2) governs
      how many u16 slots and whether the 2-byte odd-count pad and the
      trailing exception handler u32 are present. Guard the prefix with
@@ -173,7 +173,7 @@ let parse (cur : Object.Buffer.cursor) : unwind_info =
     Object.Buffer.invalid_format
       "x64 UNWIND_INFO: truncated codes or trailing exception handler"
 
-let count_slots (code : unwind_code) : int =
+let count_slots code =
   match code with
   | PushNonVol _ | AllocSmall _ | SetFPReg _ | PushMachFrame _ -> 1
   | SaveNonVol _ | SaveXMM128 _ -> 2
@@ -181,7 +181,7 @@ let count_slots (code : unwind_code) : int =
   | AllocLarge { size; _ } ->
       if size <= (512 * 1024) - 8 then 2 else 3
 
-let write_code (buf : Buffer.t) (code : unwind_code) : unit =
+let write_code buf code =
   match code with
   | PushNonVol { code_offset; reg } ->
       let b0 = code_offset land 0xFF in
@@ -224,7 +224,7 @@ let write_code (buf : Buffer.t) (code : unwind_code) : unit =
       let b1 = ((if error_code then 1 else 0) lsl 4) lor 10 in
       write_u16_le buf ((code_offset land 0xFF) lor (b1 lsl 8))
 
-let write (buf : Buffer.t) (info : unwind_info) : unit =
+let write buf info =
   let flag_bits =
     (if info.flags.exception_handler then 1 else 0)
     lor (if info.flags.termination_handler then 2 else 0)

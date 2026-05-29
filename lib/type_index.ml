@@ -19,7 +19,7 @@ let to_u32 = function
       Unsigned.UInt32.of_int ((mode_bits lsl 8) lor kind_bits)
   | User v -> v
 
-let of_u32 (v : u32) : t =
+let of_u32 v =
   let n = Unsigned.UInt32.to_int v in
   if n >= first_non_simple_int then User v
   else

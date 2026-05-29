@@ -19,7 +19,7 @@ let feature_vc140 = 20140508
 let feature_no_type_merge = 0x4D544F4E
 let feature_minimal_debug_info = 0x494E494D
 
-let write (buf : Buffer.t) (info : Pdb_stream.t) : unit =
+let write buf (info : Pdb_stream.t) =
   (* InfoStreamHeader *)
   write_u32_le buf (Pdb_stream.pdb_version_to_int info.version);
   write_u32_le buf (Unsigned.UInt32.to_int info.signature);

@@ -9,9 +9,10 @@
     (which is one format with architecture-parameterized registers), these
     are genuinely distinct formats that share only the high-level purpose.
 
-    Consumers should use {!X64} or {!Arm64} directly based on the target
-    architecture. The {!arch} type and {!parse} function provide a
-    convenient dispatch when the architecture is determined at runtime. *)
+    Consumers should use {!module-X64} or {!module-Arm64} directly based
+    on the target architecture. The {!arch} type and {!parse} function
+    provide a convenient dispatch when the architecture is determined at
+    runtime. *)
 
 (** Target architecture for unwind information. *)
 type arch = X64 | Arm64

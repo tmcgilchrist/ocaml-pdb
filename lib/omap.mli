@@ -12,7 +12,6 @@
     maps the other direction. Both have the same on-disk format: a flat,
     sorted array of 8-byte {!entry} records.
 
-    The OMAP wire format has no LLVM reference -- LLVM never emits it.
     The canonical specification is Microsoft's [cvinfo.h] and the
     [microsoft/microsoft-pdb] source dump. *)
 
@@ -29,7 +28,7 @@ type t = entry array
 
 val parse : Object.Buffer.cursor -> int -> t
 (** [parse cur total_bytes] reads [total_bytes / 8] entries from the
-    cursor. Raises {!Object.Buffer.Invalid_format} on truncated input. *)
+    cursor. Raises [Object.Buffer.Invalid_format] on truncated input. *)
 
 val write : Stdlib.Buffer.t -> t -> unit
 (** [write buf t] appends the OMAP stream's bytes to [buf]. The entries

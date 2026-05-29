@@ -1,4 +1,4 @@
-(** Windows structured exception handling / stack unwinding. *)
+(* Windows structured exception handling / stack unwinding. *)
 
 type arch = X64 | Arm64
 

@@ -26,7 +26,7 @@ type t = {
 val parse_gsi : Object.Buffer.cursor -> int -> t
 (** [parse_gsi cur total_bytes] parses a GSI or PSI hash table from the
     cursor; [total_bytes] is the size of the stream in bytes.
-    @raise Object.Buffer.Invalid_format on a truncated stream. *)
+    Raises [Object.Buffer.Invalid_format] on a truncated stream. *)
 
 type publics_header = {
   sym_hash_size : int;
@@ -48,4 +48,4 @@ type publics_header = {
 val parse_publics_header : Object.Buffer.cursor -> publics_header
 (** [parse_publics_header cur] parses the 28-byte header prefix of the
     PSI stream.
-    @raise Object.Buffer.Invalid_format on truncated input. *)
+    Raises [Object.Buffer.Invalid_format] on truncated input. *)

@@ -1,0 +1,40 @@
+{0 ocaml-pdb}
+
+An OCaml library for reading and writing Microsoft PDB (Program
+Database) files and the CodeView debugging records they contain.
+
+A PDB is the file a Windows compiler writes alongside an executable so
+that a debugger can recover source-level information at runtime. Answering
+questions like:
+
+- which machine address corresponds to which source line;
+- what the local variables and parameters look like;
+- what the types of those variables are;
+- how to unwind the stack at any point in a function.
+
+On Linux/macOS this information lives inside the executable in DWARF
+sections. On Windows it lives in a separate [.pdb] file with its own
+on-disk format.
+
+{1 Where to start}
+
+If you are not already familiar with the PDB / CodeView formats, read
+the {{!page-concepts}concepts guide} first. It walks through what is
+inside a PDB file, why the data is split across many "streams", and how
+the streams reference each other, with no Windows background assumed.
+
+If you already know the format and just want to use the library, jump
+straight to {!Pdb.Pdb_builder} (high-level write) or {!Pdb.Msf}
+(low-level read of the on-disk container).
+
+{1 Library}
+
+The entry point is the {!Pdb} module, which re-exports every
+component module:
+
+{!modules:Pdb}
+
+{1 Pages}
+
+- {{!page-concepts}PDB and CodeView concepts} -- prose introduction to
+  the formats and how the modules in this library map onto them.

@@ -22,7 +22,7 @@ type publics_header = {
 }
 
 
-let parse_publics_header (cur : Object.Buffer.cursor) : publics_header =
+let parse_publics_header cur =
   (* PublicsStreamHeader is 28 bytes: 4 u32 + 2 u16 + 2 u32. *)
   Object.Buffer.ensure cur 28 "PSI publics header: truncated";
   let sym_hash_size = Unsigned.UInt32.to_int (read_u32 cur) in
@@ -43,8 +43,8 @@ let parse_publics_header (cur : Object.Buffer.cursor) : publics_header =
     num_sections;
   }
 
-let parse_gsi (cur : Object.Buffer.cursor) (total_bytes : int) : t =
-  let _ = total_bytes in
+let parse_gsi cur total_bytes =
+  let _ = total_bytes in        (* TODO Why don't we use total_bytes? *)
   (* GSIHashHeader is 16 bytes: VerSignature, VerHdr, HrSize, NumBuckets. *)
   Object.Buffer.ensure cur 16 "GSI hash header: truncated";
   let _ver_signature = read_u32 cur in

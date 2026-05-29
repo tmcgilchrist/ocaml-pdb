@@ -12,7 +12,7 @@ let tpi_version_v80 = 20040203
 let tpi_header_size = 56
 let first_type_index = 0x1000
 
-let write (buf : Buffer.t) (records : Codeview_types.type_record list) : unit =
+let write buf records =
   (* Serialize all records to compute total bytes *)
   let rec_buf = Buffer.create 1024 in
   List.iter (fun r -> Codeview_types.write_type_record rec_buf r) records;
@@ -52,8 +52,7 @@ let max_tpi_hash_buckets = 0x40000
 (* 8KB boundary for TypeIndexOffset entries *)
 let type_index_offset_interval = 8192
 
-let write_with_hash (buf : Buffer.t)
-    (records : Codeview_types.type_record list) ~hash_stream_index : string =
+let write_with_hash buf records ~hash_stream_index =
   (* Serialize each record individually to get per-record bytes and offsets *)
   let per_record =
     List.map

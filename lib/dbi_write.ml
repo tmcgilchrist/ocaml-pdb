@@ -60,11 +60,11 @@ let absent_optional_debug_header : Dbi.optional_debug_header =
     original_section_header = 0xFFFF;
   }
 
-let write (buf : Buffer.t) (modules : Dbi.module_info list)
-    (section_contribs : Dbi.section_contribution list) ~source_files ~machine
+let write buf modules
+    section_contribs ~source_files ~machine
     ?(global_stream = 0xFFFF) ?(public_stream = 0xFFFF)
     ?(sym_record_stream = 0xFFFF)
-    ?(optional_debug_header = absent_optional_debug_header) () : unit =
+    ?(optional_debug_header = absent_optional_debug_header) () =
   let num_modules = List.length modules in
   (* [source_files = []] means "caller did not supply source filenames";
      leave each module_info's [source_file_count] alone and emit a minimal

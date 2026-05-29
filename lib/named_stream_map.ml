@@ -16,7 +16,7 @@ module Buffer = Stdlib.Buffer
     Format: u32 num_words, then num_words x u32 words. Bit i of word j
     represents index (j*32 + i). *)
 
-let parse_bit_vector (cur : Object.Buffer.cursor) : bool array =
+let parse_bit_vector cur =
   let num_words = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
   let bits = Array.make (num_words * 32) false in
   for i = 0 to num_words - 1 do
@@ -27,7 +27,7 @@ let parse_bit_vector (cur : Object.Buffer.cursor) : bool array =
   done;
   bits
 
-let write_bit_vector (buf : Buffer.t) (present : bool array) (capacity : int) =
+let write_bit_vector buf present capacity =
   (* Find the highest set bit to determine how many words we need *)
   let max_set =
     let r = ref (-1) in
@@ -49,7 +49,7 @@ let write_bit_vector (buf : Buffer.t) (present : bool array) (capacity : int) =
 
 (** {2 PDB Hash Table} *)
 
-let parse_hash_table (cur : Object.Buffer.cursor) : (int * int) list =
+let parse_hash_table cur =
   let size = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
   let _capacity = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
   let present = parse_bit_vector cur in
@@ -71,8 +71,7 @@ let parse_hash_table (cur : Object.Buffer.cursor) : (int * int) list =
     linear probing. Suitable for tables where the key already represents
     the hash. The named stream map uses a different placement function
     (see [write_named_hash_table_body]). *)
-let write_hash_table (buf : Buffer.t) (entries : (int * int) list)
-    (capacity : int) : unit =
+let write_hash_table buf entries capacity =
   let size = List.length entries in
   write_u32_le buf size;
   write_u32_le buf capacity;
@@ -106,7 +105,7 @@ let write_hash_table (buf : Buffer.t) (entries : (int * int) list)
 (** {2 Named Stream Map} *)
 
 (** Read a null-terminated string from a string at the given offset. *)
-let string_at_offset (str_buf : string) (offset : int) : string =
+let string_at_offset str_buf offset =
   let len = String.length str_buf in
   let end_pos = ref offset in
   while !end_pos < len && str_buf.[!end_pos] <> '\000' do
@@ -114,7 +113,7 @@ let string_at_offset (str_buf : string) (offset : int) : string =
   done;
   String.sub str_buf offset (!end_pos - offset)
 
-let parse (cur : Object.Buffer.cursor) : t =
+let parse cur =
   (* Read string buffer *)
   let str_buf_size = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in
   let str_buf = Object.Buffer.Read.fixed_string cur str_buf_size in
@@ -131,8 +130,7 @@ let parse (cur : Object.Buffer.cursor) : t =
     [hash_v1(name) mod capacity] with linear probing so that LLVM's
     lookup — which computes the same [hashStringV1] on the queried name —
     finds entries at the expected bucket. *)
-let write_named_hash_table (buf : Buffer.t)
-    (entries : (string * int * int) list) (capacity : int) : unit =
+let write_named_hash_table buf entries capacity =
   let size = List.length entries in
   write_u32_le buf size;
   write_u32_le buf capacity;
@@ -161,7 +159,7 @@ let write_named_hash_table (buf : Buffer.t)
     | None -> ()
   done
 
-let write (buf : Buffer.t) (entries : t) : unit =
+let write buf entries =
   (* Build the string buffer alongside (name, offset, stream_idx) triples
      so the hash table can be placed by [hash_v1(name) mod capacity]. *)
   let str_buf = Buffer.create 64 in

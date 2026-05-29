@@ -46,14 +46,14 @@ let feature_vc140 = 20140508
 let feature_no_type_merge = 0x4D544F4E (* "NOTM" *)
 let feature_minimal_debug_info = 0x494E494D (* "MINI" *)
 
-let read_guid (cur : Object.Buffer.cursor) : guid =
+let read_guid cur =
   let data1 = Object.Buffer.Read.u32 cur in
   let data2 = Object.Buffer.Read.u16 cur in
   let data3 = Object.Buffer.Read.u16 cur in
   let data4 = Object.Buffer.Read.fixed_string cur 8 in
   { data1; data2; data3; data4 }
 
-let parse (cur : Object.Buffer.cursor) : t =
+let parse cur =
   (* InfoStreamHeader fixed prefix is 28 bytes: Version + Signature + Age
      (3 u32) + GUID (u32 + 2 u16 + 8 bytes). *)
   Object.Buffer.ensure cur 28 "PDB info stream: truncated header";

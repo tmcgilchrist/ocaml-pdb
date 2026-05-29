@@ -1,8 +1,11 @@
-(** OMAP address-translation stream reader/writer.
+(* OMAP address-translation stream reader/writer.
 
-    Wire format: a flat array of 8-byte [{ u32 rva; u32 rva_to }] entries
-    sorted by [rva]. See the .mli for the semantics; the format is
-    Microsoft's, not LLVM's (LLVM never emits OMAP). *)
+   Wire format: a flat array of 8-byte [{ u32 rva; u32 rva_to }] entries
+   sorted by [rva]. See the .mli for the semantics; the format is
+   Microsoft's, not LLVM's (LLVM never emits OMAP).
+
+   The OMAP wire format has no LLVM reference -- LLVM never emits it?
+   *)
 
 open Pdb_types
 module Buffer = Stdlib.Buffer
@@ -12,7 +15,7 @@ open Binary_writer
 type entry = { rva : u32; rva_to : u32 }
 type t = entry array
 
-let parse (cur : Object.Buffer.cursor) (total_bytes : int) : t =
+let parse cur total_bytes =
   if total_bytes mod 8 <> 0 then
     Object.Buffer.invalid_format
       (Printf.sprintf "OMAP stream: %d bytes is not a multiple of 8"
@@ -25,15 +28,15 @@ let parse (cur : Object.Buffer.cursor) (total_bytes : int) : t =
       let rva_to = Object.Buffer.Read.u32 cur in
       { rva; rva_to })
 
-let write (buf : Buffer.t) (t : t) : unit =
+let write buf t =
   Array.iter
     (fun e ->
       write_u32_le buf (Unsigned.UInt32.to_int e.rva);
       write_u32_le buf (Unsigned.UInt32.to_int e.rva_to))
     t
 
-(** Binary-search for the largest index [i] such that [t.(i).rva <= rva].
-    Returns [-1] if no such entry exists. *)
+(* Binary-search for the largest index [i] such that [t.(i).rva <= rva].
+   Returns [-1] if no such entry exists. *)
 let find_floor t rva =
   let rva = Unsigned.UInt32.to_int rva in
   let n = Array.length t in
@@ -49,7 +52,7 @@ let find_floor t rva =
   done;
   !result
 
-let lookup (t : t) (rva : u32) : u32 option =
+let lookup t rva =
   match find_floor t rva with
   | -1 -> None
   | i ->

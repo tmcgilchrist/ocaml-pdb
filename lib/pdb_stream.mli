@@ -41,7 +41,7 @@ type t = {
 
 val parse : Object.Buffer.cursor -> t
 (** [parse cur] parses the PDB Info Stream from the cursor position.
-    @raise Object.Buffer.Invalid_format if the stream is truncated. *)
+    Raises [Object.Buffer.Invalid_format] if the stream is truncated. *)
 
 val pdb_version_to_int : pdb_version -> int
 (** Map a {!pdb_version} to its raw integer value. *)

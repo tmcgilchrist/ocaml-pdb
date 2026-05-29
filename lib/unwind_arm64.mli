@@ -48,7 +48,7 @@ type unwind_info = {
 
 val parse : Object.Buffer.cursor -> unwind_info
 (** [parse cur] parses an ARM64 UNWIND_INFO from .xdata.
-    @raise Object.Buffer.Invalid_format on a truncated header or trailing
+    Raises [Object.Buffer.Invalid_format] on a truncated header or trailing
     section. *)
 
 val write : Stdlib.Buffer.t -> unwind_info -> unit

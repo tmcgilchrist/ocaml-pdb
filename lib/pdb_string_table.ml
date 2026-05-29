@@ -42,7 +42,7 @@ let lookup t str = Hashtbl.find_opt t.offsets str
 let count t = t.count
 
 (* Writing helpers *)
-let write (buf : Buffer.t) (t : t) : unit =
+let write buf t =
   let names_bytes = Buffer.contents t.names_buf in
   let byte_size = String.length names_bytes in
   (* Compute bucket count: use ~2x the number of strings for load factor *)
@@ -75,7 +75,7 @@ let write (buf : Buffer.t) (t : t) : unit =
   (* Write epilogue: string count *)
   write_u32_le buf t.count
 
-let parse (cur : Object.Buffer.cursor) : t =
+let parse cur =
   (* PDBStringTableHeader: u32 signature, u32 hash_version, u32 byte_size. *)
   Object.Buffer.ensure cur 12 "/names string table: truncated header";
   let signature = Object.Buffer.Read.u32 cur |> Unsigned.UInt32.to_int in

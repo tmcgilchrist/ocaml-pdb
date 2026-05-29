@@ -36,7 +36,7 @@ type t
 val read : Object.Buffer.t -> t
 (** [read buffer] parses an MSF file from [buffer], validating the
     superblock and reassembling all streams from their block lists.
-    @raise Object.Buffer.Invalid_format on malformed input. *)
+    Raises [Object.Buffer.Invalid_format] on malformed input. *)
 
 val superblock : t -> superblock
 (** The validated superblock. *)
@@ -49,5 +49,5 @@ val get_stream : t -> int -> Object.Buffer.t option
     [None] if [idx] is out of range. *)
 
 val get_stream_exn : t -> int -> Object.Buffer.t
-(** Like {!get_stream} but raises {!Object.Buffer.Invalid_format} on an
+(** Like {!get_stream} but raises [Object.Buffer.Invalid_format] on an
     out-of-range index. *)

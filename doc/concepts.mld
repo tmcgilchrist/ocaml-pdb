@@ -1,0 +1,333 @@
+{0 PDB and CodeView concepts}
+
+This page explains what a PDB file actually contains, why it is laid
+out the way it is, and how the modules in this library map onto the
+on-disk structures. It assumes no prior knowledge of Windows debugging
+formats.
+
+{1 The big picture}
+
+When a Windows compiler builds an executable it can optionally emit
+debug information so a debugger like WinDbg or Visual Studio can map
+machine addresses back to source. Unlike Linux and macOS, where the
+debug information is bundled inside the executable in DWARF sections,
+Windows stores most of it in a separate file with the [.pdb]
+extension. The executable holds only a small reference (a GUID and an
+age counter) that lets the debugger find and validate the matching
+PDB.
+
+A PDB file contains, broadly:
+
+- a description of every compilation unit (called a {b module} in PDB
+  terminology) that went into the binary
+- the {b types} defined by those modules e.g structs, unions, enums,
+  pointers, function signatures
+- the {b symbols} -- functions, globals, locals, parameters, labels
+- line-number tables and file-checksum tables mapping ranges of
+  machine code back to source files
+- hash-based indices for fast symbol lookup
+- stack-unwinding tables so the debugger can compute backtraces
+
+The CodeView format is the on-disk shape of the type records and
+symbol records themselves. The PDB format is the container that
+organises everything else around them.
+
+{1 The MSF container}
+
+At the lowest level a PDB file is not "a PDB" rather it is a
+Multi-Stream File (MSF). MSF is essentially a tiny page-based virtual
+filesystem.
+
+The file is divided into fixed-size {b blocks} (typically 4 KiB,
+sometimes 512 / 1024 / 2048 bytes). Logical {b streams} are stored as
+ordered lists of block indices, so a stream can be any size and is not
+required to be contiguous on disk. A small {b stream directory} lists
+each stream's length and the blocks it occupies. The first block of
+the file holds a fixed {b superblock} pointing at the stream directory.
+
+This indirection matters because Microsoft's tooling historically
+edited PDBs in place during incremental linking, treating the file as
+a paged collection of streams meant a writer could append to one
+stream without rewriting the rest. ocaml-pdb only writes complete
+PDBs, but it still has to honour the layout to remain compatible.
+
+A small {b Free Page Map} (FPM) bitmap marks which blocks are in use
+versus free. The reader implementations can mostly ignore it, but a writer
+has to emit it correctly or tooling like [llvm-pdbutil] will reject
+the file.
+
+In code:
+
+- {!Pdb.Msf} reads an MSF file and exposes each stream as a
+  bigarray slice.
+- {!Pdb.Msf_write} accumulates streams and lays them out into
+  blocks on finalize.
+
+Once you have the streams, the rest of the library reads or writes
+the {e contents} of each stream. The MSF layer never inspects them.
+
+{1 The fixed streams}
+
+Stream indices 0..4 always have the same meaning in a PDB:
+
+- {b Stream 0} old MSF directory backup. Effectively unused today;
+  the library writes a minimal placeholder.
+- {b Stream 1} {b PDB Info Stream}. Contains the format version, a
+  GUID + age counter that the executable also stores (so the debugger
+  can verify it loaded the right PDB), and a map from named streams
+  to their indices.
+- {b Stream 2} {b TPI Stream}. The Type Index stream: every type
+  record (structs, pointers, function signatures, etc.) referenced
+  from anywhere in the PDB lives here.
+- {b Stream 3} {b DBI Stream}. The Debug Information stream: the
+  central directory connecting modules, section contributions, source
+  files, and the stream indices of the GSI/PSI/sym-record streams.
+- {b Stream 4} {b IPI Stream}. The ID stream. Same on-disk format
+  as TPI but stores "ID records" rather than type records. The split
+  exists for historical reasons.
+
+Beyond stream 4, all other streams are referenced by index from one
+of the fixed streams or from the named-stream map. Streams have no
+intrinsic meaning, an index 7 might be a module symbol stream in one
+PDB and a "/names" string table in another.
+
+{2 The named-stream map}
+
+A handful of streams are looked up by name rather than fixed index.
+The named-stream map lives inside the PDB Info Stream (stream 1) and
+is a hash table from strings like ["/names"], ["/LinkInfo"],
+["/src/headerblock"] to a stream index. ocaml-pdb only uses
+["/names"] (see below) but parses any others the input contains.
+
+In code:
+
+- {!Pdb.Pdb_stream} / {!Pdb.Pdb_stream_write} is stream 1.
+- {!Pdb.Named_stream_map} is the hash-table format used by stream 1.
+
+{1 Types: the TPI / IPI streams}
+
+The TPI and IPI streams contain a contiguous sequence of CodeView
+{b type records}. Each record has a 2-byte length prefix, a 2-byte
+leaf kind ([LF_POINTER], [LF_STRUCTURE], [LF_PROCEDURE]), and a
+payload. The library exposes each record as a constructor of
+{!Pdb.Codeview_types.type_record}.
+
+{2 TypeIndex: how records reference each other}
+
+A CodeView type often refers to another type. A pointer-to-int holds
+a TypeIndex naming "int", a function signature holds a TypeIndex for
+the return type plus an argument-list TypeIndex, a struct holds a
+TypeIndex for its field list.
+
+The wire format encodes both kinds of TypeIndex as a single [u32]:
+
+- Values [< 0x1000] encode a {b built-in primitive} via a packed bit
+  layout (integer / float / pointer-to-primitive). There is no record
+  on disk for these.
+- Values [>= 0x1000] are {b user-defined records} stored in TPI or
+  IPI. The value is the record's position in the stream, starting at
+  [0x1000] for the first record.
+
+ocaml-pdb wraps this in the {!Pdb.Type_index} variant so the two
+cases stay statically distinguishable.
+
+{2 Why two streams: TPI vs IPI}
+
+Microsoft split type-style records (a struct, a function signature)
+from ID-style records (a string-id, a function ID naming a specific
+function by string) so that the two namespaces could be hashed and
+deduplicated independently. The on-disk format is identical, only the
+kinds of records found in each stream differ.
+
+In code:
+
+- {!Pdb.Codeview_types} record definitions and per-record
+  read/write.
+- {!Pdb.Tpi} / {!Pdb.Tpi_write} TPI/IPI stream-level read/write
+  (header, record sequence, hash table).
+- {!Pdb.Type_index} the TypeIndex variant.
+- {!Pdb.Type_merge} de-duplicates identical type records across
+  compilation units, rewriting cross-references onto a shared
+  numbering. This is what a linker does when combining per-object-file
+  TPI streams into a single program-wide TPI.
+
+{1 Symbols and where they live}
+
+A {b symbol record} describes one program entity, a function,
+parameter, local variable, global, public, etc. Each record has a
+2-byte length prefix, a 2-byte symbol kind, and a payload, just like
+type records but in a separate namespace.
+
+Symbols are stored in three different places depending on their
+purpose:
+
+- {b Per-module symbol streams.} Each compilation unit has its own
+  symbol stream listing the symbols defined or used in that unit:
+  function definitions, their parameters and locals, file-static
+  variables. These streams are referenced from the DBI stream's
+  module list. A debugger that has narrowed a query to a specific
+  module reads only that module's stream.
+- {b The combined symbol record stream.} A single stream
+  concatenating every {b global} and {b public} symbol from every
+  module. This is the haystack the GSI/PSI hashes index into.
+- {b The DBI module list} itself is not a symbol stream, but it tells
+  you which per-module stream to open for each module.
+
+A {b public} is a name that participates in linking (typically a
+mangled C++ name with an RVA). A {b global} is a non-linker-visible
+entity (a global variable, a constant, a UDT alias). The two have
+separate hash tables in the GSI/PSI streams because the lookup
+patterns are different.
+
+In code:
+
+- {!Pdb.Codeview_symbols} symbol record definitions and per-record
+  read/write.
+- {!Pdb.Gsi} / {!Pdb.Gsi_write} the publics and globals hash
+  tables that index into the combined sym-record stream.
+
+{1 The DBI stream: gluing it together}
+
+The DBI stream is the central catalog. It contains, in this order:
+
+- a header with format flags and references to the
+  publics-hash-stream, globals-hash-stream, and combined-sym-record
+  stream indices;
+- a {b module list}, one entry per compilation unit, each pointing at
+  that module's per-module symbol stream and listing the source files
+  it consumed;
+- a {b section contributions} substream describing which range of
+  each PE section came from which module (so a debugger can find the
+  responsible module from an instruction pointer);
+- a {b file info} substream listing the source filenames each module
+  contributed;
+- the {b optional debug header}, a fixed array of stream indices for
+  auxiliary streams: FPO data, framedata, OMAP-from-source, OMAP-to-source,
+  section headers, exception data, etc. Each slot is [0xFFFF] if the
+  corresponding stream is absent.
+
+When the debugger starts up it reads the PDB info stream, then the
+DBI stream, then uses the DBI's pointers to find everything else.
+
+In code:
+
+- {!Pdb.Dbi} / {!Pdb.Dbi_write} the DBI stream itself.
+- {!Pdb.Debug_subsections} the C13 debug subsections (line tables,
+  file checksums, etc.) embedded in per-module symbol streams.
+
+{1 Line tables and the C13 framework}
+
+Mapping a machine address to a source line could in principle be
+another flavour of symbol record, but Microsoft instead defined a
+small framework for "debug subsections" stored at the end of each
+per-module symbol stream. Each subsection has a 4-byte kind, a 4-byte
+length, then payload:
+
+- {b Lines} the line-number table for a contiguous range of code.
+- {b FileChecksums} per-file checksums and offsets into the
+  /names string table.
+- {b InlineeLines} line info for inlined function bodies.
+- {b StringTable} a per-module string table (rarely used; most
+  PDBs use the global /names stream instead).
+- {b FrameData} per-function frame layout (the modern replacement
+  for the old FPO_DATA stream).
+- {b CrossModuleExports} / {b CrossModuleImports} references
+  between modules (used by /Zc precompiled headers and similar).
+
+A FileChecksums entry refers to a filename by its offset in the
+global /names stream, which is why /names exists as a separate
+top-level stream.
+
+In code: {!Pdb.Debug_subsections}.
+
+{1 The global /names string table}
+
+The ["/names"] named stream is a single global table of
+NUL-terminated strings. Anywhere in the PDB that wants to refer to a
+filename or path stores a u32 offset into /names instead of inlining
+the string. Deduplication is built in so adding the same string twice
+returns the same offset.
+
+In code: {!Pdb.Pdb_string_table}.
+
+{1 Stack unwinding}
+
+To compute a backtrace the debugger has to know, for any PC, how to
+recover the previous frame's PC and stack pointer. On Linux that
+information lives in DWARF CFI ([.eh_frame] / [.debug_frame]), on
+Windows it lives in the executable's [.xdata] / [.pdata] sections in
+a binary-encoded form called {b UNWIND_INFO}. The format differs by
+architecture:
+
+- {b x86-64} uses a sequence of small opcodes describing the
+  prologue: PUSH RBP, ALLOC 0x20 bytes, SAVE_XMM xmm6 to [rsp+0x40],
+  etc. Replaying the opcodes in reverse from any PC inside the
+  function recovers the caller's frame.
+- {b ARM64} uses a packed bit-field encoding optimised for the
+  smaller, more regular ARM calling convention, both ".pdata"-only
+  packed form and full ".xdata" form exist.
+
+This information lives in the PE, not the PDB, but the library
+parses and writes it for completeness. A debugger needs both the
+PDB (to know what the variables are) and the unwind info (to walk
+the stack at all).
+
+In code:
+
+- {!Pdb.Unwind} common entry point.
+- {!Pdb.Unwind.module-X64} / {!Pdb.Unwind.module-Arm64} the
+  per-architecture encoders.
+
+{1 Auxiliary streams}
+
+A few smaller streams round out the format:
+
+- {b /names} the global string table described above.
+- {b FPO data} an older per-function frame layout table for x86
+  binaries, predating the C13 FrameData subsection. The DBI optional
+  debug header has a slot for it.
+- {b OMAP} two streams describing an address remapping that
+  happens when a tool reorders a binary's basic blocks after initial
+  compilation (for example, Microsoft's BBT for profile-guided
+  layout). Debugger queries pass through OMAP-from-source so an old
+  RVA in source coordinates maps to its new post-reorder RVA.
+
+In code: {!Pdb.Fpo}, {!Pdb.Omap}.
+
+{1 How the modules fit together}
+
+Reading a PDB end-to-end roughly follows:
+
++ Open the file with {!Pdb.Msf.read} to get the stream collection.
++ Parse stream 1 with {!Pdb.Pdb_stream.parse} to learn the named
+  streams (especially [/names]).
++ Parse stream 3 with {!Pdb.Dbi.parse} to learn the modules,
+  section contributions, and the indices of the GSI/PSI/sym-record
+  and auxiliary streams.
++ Parse streams 2 and 4 with {!Pdb.Tpi.parse_header} +
+  {!Pdb.Tpi.parse_type_records} to load the type and ID records.
++ For each module in the DBI, open its symbol stream and call
+  {!Pdb.Codeview_symbols.parse_symbol_stream} for symbols, then
+  {!Pdb.Debug_subsections.parse_subsections} for line tables.
++ For lookup-by-name, parse the publics/globals streams with
+  {!Pdb.Gsi.parse_publics_header} + {!Pdb.Gsi.parse_gsi}.
+
+Writing follows the same shape in reverse. The
+{!Pdb.Pdb_builder} module wraps the whole construction in a single
+mutable builder so that calling code does not have to assign stream
+indices or wire cross-references by hand.
+
+{1 References}
+
+The on-disk format is documented in two places:
+
+- LLVM's [llvm/lib/DebugInfo/PDB] and [llvm/lib/DebugInfo/CodeView]
+  trees, with high-level prose at
+  {{:https://llvm.org/docs/PDB/}https://llvm.org/docs/PDB/}.
+- Microsoft's [microsoft/microsoft-pdb] repository
+  ({{:https://github.com/microsoft/microsoft-pdb}https://github.com/microsoft/microsoft-pdb}),
+  which is a historical source-code dump rather than a specification
+  but is the authoritative reference.
+
+Per-module references (LLVM file paths, specific struct names) live
+in the code comments of each [.ml] file.

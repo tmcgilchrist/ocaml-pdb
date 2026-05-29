@@ -33,15 +33,14 @@ let get_stream_exn t idx =
          (Array.length t.streams))
 
 (** Read a little-endian u32 from a buffer at a given byte offset. *)
-let read_u32_at (buf : Object.Buffer.t) (offset : int) : int =
+let read_u32_at (buf : Object.Buffer.t) offset =
   buf.{offset}
   lor (buf.{offset + 1} lsl 8)
   lor (buf.{offset + 2} lsl 16)
   lor (buf.{offset + 3} lsl 24)
 
 (** Reassemble a stream from non-contiguous blocks into a contiguous buffer. *)
-let reassemble_stream (buf : Object.Buffer.t) (block_size : int)
-    (block_list : int array) (stream_size : int) : Object.Buffer.t =
+let reassemble_stream (buf : Object.Buffer.t) block_size block_list stream_size =
   let result =
     Bigarray.Array1.create Bigarray.int8_unsigned Bigarray.c_layout stream_size
   in
@@ -60,7 +59,7 @@ let reassemble_stream (buf : Object.Buffer.t) (block_size : int)
 
 let div_ceil a b = (a + b - 1) / b
 
-let read (buf : Object.Buffer.t) : t =
+let read (buf : Object.Buffer.t) =
   let buf_size = Bigarray.Array1.dim buf in
   (* Validate magic *)
   let magic_len = String.length msf_magic in

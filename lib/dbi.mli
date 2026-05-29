@@ -101,7 +101,7 @@ type t = {
 
 val parse : Object.Buffer.cursor -> t
 (** [parse cur] reads the DBI stream from the cursor position.
-    @raise Object.Buffer.Invalid_format on truncated input. *)
+    Raises [Object.Buffer.Invalid_format] on truncated input. *)
 
 val module_symbols :
   Msf.t -> module_info -> Codeview_symbols.symbol_record Seq.t

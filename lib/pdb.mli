@@ -4,19 +4,15 @@
     A PDB is an MSF (Multi-Stream File) container holding the debug
     information for a Windows binary: type records (TPI/IPI streams),
     symbol records, line-number tables, public/global symbol indices,
-    and a handful of auxiliary streams. This library is the PDB-side
-    counterpart of [durin] (DWARF read/write).
+    and a handful of auxiliary streams.
 
     The top-level entry points are the {!Msf} container and the various
     stream parsers ({!Pdb_stream}, {!Tpi}, {!Dbi}, {!Gsi}, ...). For
     writing, the {!Pdb_builder} module assembles a complete PDB file
     from structured inputs.
 
-    References:
-    - LLVM's [llvm/lib/DebugInfo/PDB] and [llvm/lib/DebugInfo/CodeView]
-      ([https://llvm.org/docs/PDB/]).
-    - Microsoft's [microsoft/microsoft-pdb] source dump
-      ([https://github.com/microsoft/microsoft-pdb]). *)
+    See the {{!page-concepts}concepts guide} for the PDB / CodeView
+    concepts. *)
 
 module Pdb_types = Pdb_types
 module Msf = Msf
@@ -40,5 +36,7 @@ module Pdb_string_table = Pdb_string_table
 module Pdb_builder = Pdb_builder
 module Type_merge = Type_merge
 module Unwind = Unwind
+module Unwind_x64 = Unwind_x64
+module Unwind_arm64 = Unwind_arm64
 module Omap = Omap
 module Fpo = Fpo

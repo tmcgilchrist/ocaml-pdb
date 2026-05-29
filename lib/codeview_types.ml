@@ -22,7 +22,7 @@ let lf_ulong = 0x8004
 let lf_quadword = 0x8009
 let lf_uquadword = 0x800a
 
-let parse_numeric_leaf (cur : Object.Buffer.cursor) : int64 =
+let parse_numeric_leaf cur =
   Object.Buffer.ensure cur 2 "numeric leaf: truncated tag";
   let tag = Object.Buffer.Read.u16 cur |> Unsigned.UInt16.to_int in
   if tag < lf_numeric then Int64.of_int tag
@@ -66,7 +66,7 @@ let parse_numeric_leaf (cur : Object.Buffer.cursor) : int64 =
         Object.Buffer.invalid_format
           (Printf.sprintf "Unknown numeric leaf tag: 0x%04x" tag)
 
-let write_numeric_leaf (buf : Buffer.t) (v : int64) : unit =
+let write_numeric_leaf buf v =
   if v >= 0L && v < Int64.of_int lf_numeric then
     write_u16_le buf (Int64.to_int v)
   else if v >= -128L && v <= 127L then begin
@@ -794,7 +794,7 @@ let write_name_and_unique rec_buf ~name ~unique_name =
   | Some un -> write_cstring rec_buf un
   | Option.None -> ()
 
-let write_type_record (buf : Buffer.t) (record : type_record) : unit =
+let write_type_record buf record =
   (* Write into a temporary buffer to compute the length *)
   let rec_buf = Buffer.create 64 in
   (match record with
