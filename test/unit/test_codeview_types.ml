@@ -935,6 +935,26 @@ let test_truncate_short_name_passthrough () =
             (name ^ " unique") (Some ".?AUFoo@@") parsed_unique
       | _ -> Alcotest.fail "expected Structure")
 
+(** {2 bytes_remaining helper} *)
+
+let test_bytes_remaining () =
+  let buf = Buffer.create 16 in
+  Alcotest.(check int) "empty -> max - 2"
+    (Pdb.Codeview_types.max_record_length - 2)
+    (Pdb.Codeview_types.bytes_remaining buf);
+  Buffer.add_string buf "abcd";
+  Alcotest.(check int) "4 bytes used"
+    (Pdb.Codeview_types.max_record_length - 2 - 4)
+    (Pdb.Codeview_types.bytes_remaining buf);
+  for _ = 1 to Pdb.Codeview_types.max_record_length - 2 - 4 do
+    Buffer.add_char buf '\x00'
+  done;
+  Alcotest.(check int) "buffer fills the record exactly" 0
+    (Pdb.Codeview_types.bytes_remaining buf);
+  Buffer.add_char buf '\x00';
+  Alcotest.(check int) "one byte past goes negative" (-1)
+    (Pdb.Codeview_types.bytes_remaining buf)
+
 let () =
   Alcotest.run "CodeView Types"
     [
@@ -1000,6 +1020,10 @@ let () =
         [
           Alcotest.test_case "roundtrip" `Quick test_tpi_stream_roundtrip;
           Alcotest.test_case "hash stream" `Quick test_tpi_hash_stream;
+        ] );
+      ( "record_size_limit",
+        [
+          Alcotest.test_case "bytes_remaining" `Quick test_bytes_remaining;
         ] );
       ( "long_name_truncation",
         [

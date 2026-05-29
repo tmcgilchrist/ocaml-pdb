@@ -114,6 +114,25 @@ let test_many_strings () =
         (Pdb.Pdb_string_table.lookup t' name))
     offsets
 
+(** A header whose [byte_size] claims more names-buffer bytes than the
+    cursor actually contains must surface as Invalid_format. *)
+let test_truncated_mid_names_buffer () =
+  let buf = Buffer.create 12 in
+  let put_u32 v =
+    Buffer.add_char buf (Char.chr (v land 0xFF));
+    Buffer.add_char buf (Char.chr ((v lsr 8) land 0xFF));
+    Buffer.add_char buf (Char.chr ((v lsr 16) land 0xFF));
+    Buffer.add_char buf (Char.chr ((v lsr 24) land 0xFF))
+  in
+  put_u32 0xEFFEEFFE;  (* signature *)
+  put_u32 1;            (* hash_version *)
+  put_u32 100;          (* byte_size larger than what follows (0 bytes) *)
+  let bytes = Buffer.contents buf in
+  let cur = Object.Buffer.cursor (buffer_of_string bytes) in
+  match Pdb.Pdb_string_table.parse cur with
+  | _ -> Alcotest.fail "expected Invalid_format"
+  | exception Object.Buffer.Invalid_format _ -> ()
+
 let () =
   Alcotest.run "PDB String Table"
     [
@@ -125,5 +144,10 @@ let () =
           Alcotest.test_case "deduplication" `Quick test_deduplication;
           Alcotest.test_case "windows paths" `Quick test_windows_paths;
           Alcotest.test_case "many strings" `Quick test_many_strings;
+        ] );
+      ( "malformed",
+        [
+          Alcotest.test_case "truncated mid names buffer" `Quick
+            test_truncated_mid_names_buffer;
         ] );
     ]

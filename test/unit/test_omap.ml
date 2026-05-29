@@ -79,6 +79,16 @@ let test_truncated () =
   | _ -> Alcotest.fail "expected Invalid_format"
   | exception Object.Buffer.Invalid_format _ -> ()
 
+(** A [total_bytes] that is a multiple of 8 but exceeds what the cursor
+    actually contains must surface as Invalid_format, not as a Bigarray
+    bounds error. *)
+let test_truncated_mid_entry () =
+  let obj_buf = buffer_of_string (String.make 8 '\x00') in
+  let cur = Object.Buffer.cursor obj_buf in
+  match Pdb.Omap.parse cur 16 with
+  | _ -> Alcotest.fail "expected Invalid_format"
+  | exception Object.Buffer.Invalid_format _ -> ()
+
 let () =
   Alcotest.run "OMAP"
     [
@@ -87,6 +97,8 @@ let () =
           Alcotest.test_case "roundtrip" `Quick test_roundtrip;
           Alcotest.test_case "empty" `Quick test_empty;
           Alcotest.test_case "truncated" `Quick test_truncated;
+          Alcotest.test_case "truncated mid-entry" `Quick
+            test_truncated_mid_entry;
         ] );
       ( "lookup",
         [

@@ -26,7 +26,8 @@ let int_to_register = function
   | 4 -> RSP | 5 -> RBP | 6 -> RSI | 7 -> RDI
   | 8 -> R8 | 9 -> R9 | 10 -> R10 | 11 -> R11
   | 12 -> R12 | 13 -> R13 | 14 -> R14 | 15 -> R15
-  | n -> failwith (Printf.sprintf "invalid unwind register: %d" n)
+  | n ->
+      invalid_arg (Printf.sprintf "Unwind_x64.int_to_register: %d not in 0..15" n)
 
 type unwind_code =
   | PushNonVol of { code_offset : int; reg : register }

@@ -23,6 +23,15 @@ let test_x64_register_roundtrip () =
         (register_to_int reg) (register_to_int rt))
     regs
 
+let test_x64_int_to_register_out_of_range () =
+  let open Pdb.Unwind.X64 in
+  List.iter
+    (fun n ->
+      match int_to_register n with
+      | _ -> Alcotest.failf "int_to_register %d should have raised" n
+      | exception Invalid_argument _ -> ())
+    [ -1; 16; 17; 1000 ]
+
 (** {2 x86-64 UNWIND_INFO} *)
 
 let test_x64_minimal () =
@@ -333,7 +342,11 @@ let () =
   Alcotest.run "Unwind"
     [
       ( "x64_register",
-        [ Alcotest.test_case "roundtrip" `Quick test_x64_register_roundtrip ] );
+        [
+          Alcotest.test_case "roundtrip" `Quick test_x64_register_roundtrip;
+          Alcotest.test_case "int_to_register out of range" `Quick
+            test_x64_int_to_register_out_of_range;
+        ] );
       ( "x64_unwind_info",
         [
           Alcotest.test_case "minimal" `Quick test_x64_minimal;
