@@ -31,6 +31,11 @@ jobs:
              default: https://github.com/ocaml/opam-repository.git
 
       - name: Install system dependencies
+        # llvm provides llvm-pdbutil, used only by the LLVM-equivalence
+        # integration tests. It is not available as an official Windows
+        # binary, so on Windows those tests skip cleanly (see
+        # has_llvm_pdbutil in test/integration/test_llvm_equiv.ml).
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y llvm
