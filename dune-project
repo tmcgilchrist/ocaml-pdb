@@ -22,7 +22,7 @@
   (ppx_import :with-test)
   (ppx_deriving_qcheck :with-test)
   (patdiff :with-dev-setup)
-  (ocamlformat (and :with-dev-setup (= 0.28.1))))
+  (ocamlformat (and :with-dev-setup (= 0.29.0))))
  (synopsis
   "A library for reading and writing PDB/CodeView debugging information.")
  (description
